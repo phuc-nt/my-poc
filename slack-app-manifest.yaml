@@ -1,0 +1,57 @@
+# Paste into https://api.slack.com/apps -> Create New App -> From a manifest.
+display_information:
+  name: Visitor Registration POC
+features:
+  app_home:
+    home_tab_enabled: false
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+  bot_user:
+    display_name: Visitor Registration
+    always_online: false
+  slash_commands:
+    - command: /visitor
+      description: Register a building visitor
+      usage_hint: "[optional: describe the visit in one sentence]"
+      should_escape: false
+    - command: /daily-report
+      description: Post the project's daily report
+      usage_hint: "[optional: YYYY-MM-DD, default today]"
+      should_escape: false
+    - command: /ask
+      description: Ask the knowledge base
+      usage_hint: "[your question]"
+      should_escape: false
+  shortcuts:
+    - name: Register a visitor
+      type: global
+      callback_id: register_visitor
+      description: Open the visitor registration form
+oauth_config:
+  scopes:
+    bot:
+      - commands
+      - chat:write
+      - im:write
+      - files:write
+      # Daily report: read the project channels the bot is invited to
+      - channels:history
+      - groups:history
+      - channels:read
+      - groups:read
+      - users:read
+      # Knowledge base chatbot: answer mentions and direct messages
+      - app_mentions:read
+      - im:history
+      # Test data only (`npm run seed`): post under simulated names
+      - chat:write.customize
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention
+      - message.im
+  interactivity:
+    is_enabled: true
+  socket_mode_enabled: true
+  org_deploy_enabled: false
+  token_rotation_enabled: false

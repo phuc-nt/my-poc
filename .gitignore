@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.cer
+infra/kb-cert/
+poc-secrets.json
+
+# The operator's own environment and assistant instructions: not for readers of the repo
+infra/local.env
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+
+# Run output: screenshots and reports contain request data
+artifacts/
+test-results/
+playwright-report/
+coverage/
+*.log
+
+# Local tooling
+.DS_Store
+.vscode/
+.idea/
+__pycache__/
+*.pyc
