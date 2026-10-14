@@ -1,8 +1,8 @@
 # Amazon Bedrock Managed Knowledge Base: An Introduction
 
-This document explains Amazon Bedrock Managed Knowledge Base from the beginning: what it is, which sources it connects to, what it can do, how it indexes documents and answers a search, what can and cannot be configured, what it costs, and what this repository observed when using it. It is for readers who have not used the service: decision makers can read sections 1 to 4 and 9 to 11; engineers will want all of it.
+This document explains Amazon Bedrock Managed Knowledge Base from the beginning: what it is, which sources it connects to, what it can do, how it indexes documents and answers a search, what can and cannot be configured, what it costs, what this repository observed when using it, and where it fits. It is for readers who have not used the service: decision makers can read sections 1 to 4 and 9 to 11; engineers will want all of it.
 
-The service is new (announced in June 2026) and changes often. Facts about the service come from the AWS documentation as read on 2026-10-13 (section 12); check that documentation before relying on a list or a number. Observations from this repository are marked as such. The setup steps used here are in [08-knowledge-base-chatbot.md](08-knowledge-base-chatbot.md), and the concept built on it is in [poc/03-knowledge-base-chatbot.md](poc/03-knowledge-base-chatbot.md).
+The service is new (announced in June 2026) and changes often. Facts about the service come from the AWS documentation as read on 2026-10-13 (section 12); check that documentation before relying on a list or a number. Limits that this repository confirmed by trying them, on 2026-10-14 in Asia Pacific (Sydney), and everything it observed, are marked as such. The setup steps used here are in [08-knowledge-base-chatbot.md](08-knowledge-base-chatbot.md), and the concept built on it is in [poc/03-knowledge-base-chatbot.md](poc/03-knowledge-base-chatbot.md).
 
 ## 1. The problem it solves
 
@@ -24,16 +24,16 @@ Amazon Bedrock Knowledge Bases comes in two kinds:
 |---|---|---|
 | Data store | Managed by Bedrock, scales by itself; holds embeddings, text, metadata and the raw files | A vector store the team chooses, provisions and scales |
 | Connectors to outside systems | Native connectors (section 3) | Amazon S3 and custom only |
-| Parsing | A built-in parser that picks its method per file type | The team chooses: default text parser, a foundation model, or Bedrock Data Automation |
-| Chunking | Default, fixed-size or none | Default, fixed-size and further strategies |
+| Parsing | One built-in parser with no settings, which picks its method per file type | The team chooses: default text parser, a foundation model with its own prompt, or Bedrock Data Automation |
+| Chunking | The default only with the managed embedding model; default, fixed-size or none with the team's own | Default, fixed-size and further strategies |
 | Embedding model | A managed model at no extra cost, or the team's own Bedrock embedding model | The team's own Bedrock embedding model |
 | Search | Hybrid (keywords and meaning), always | The team chooses the search strategy |
-| Ranking of results | A managed reranker at no extra cost, the team's own, or none | The team's own, or none |
+| Ranking of results | A managed reranker at no extra cost (only with the managed embedding model), the team's own, or none | The team's own, or none |
 | Agentic retrieval | Supported | Not supported |
 | Document-level permissions | Supported | Not supported |
 | Amazon Bedrock AgentCore Gateway (MCP) integration | Native | Not supported |
-| Direct access to the vector database | No | Yes |
-| Best for | End-to-end RAG with connectors, without infrastructure | A specific vector database or search configuration |
+| Direct access to the vector database | No. The parsed text of each document and the passages a search returns can be read (section 5) | Yes |
+| Best for | End-to-end RAG with connectors, without infrastructure | A specific vector database, parser or search configuration |
 
 A Managed Knowledge Base returns **passages**, not finished answers. Writing the answer is the caller's job (as in this repository, where the Slack bot calls an LLM), unless agentic retrieval is asked to write one (section 6).
 
@@ -83,7 +83,7 @@ Other methods exist per connector, including a sign-in by an administrator in th
 |---|---|
 | Managed storage and index | No vector database to run; up to 10 TB of source data per knowledge base |
 | Native connectors | Content stays in the source systems and is copied for search |
-| Smart parsing | One parser for Word, Excel, PowerPoint, PDF, HTML, text and scanned documents, choosing its method per file |
+| Smart parsing | One parser for Word, Excel, PowerPoint, PDF, HTML, text and scanned documents, choosing its method per file. Its reading of Vietnamese in Word, PowerPoint and PDF files is poor (section 5) |
 | Incremental sync | Each sync processes only what was added, changed or deleted |
 | Hybrid search | Every search combines keyword matching and matching by meaning |
 | Managed reranking | A second model re-orders the candidates by relevance, at no extra cost |
@@ -92,7 +92,7 @@ Other methods exist per connector, including a sign-in by an administrator in th
 | Document-level permissions | Results can be filtered by what the asking person may read in the source |
 | Metadata filters | A search can be limited by attributes of the documents |
 | MCP through AgentCore Gateway | Any AI agent that speaks the Model Context Protocol can use the knowledge base as a tool, without custom code |
-| Observability | Sync logs, retrieval traces and per-knowledge-base metrics |
+| Observability | Sync logs, retrieval traces, per-knowledge-base metrics, and the parsed text of each document |
 | Encryption | At rest with an AWS key by default, or the team's own key; in transit always |
 | Cross-account sharing | Resource policies can let another account query the knowledge base |
 
@@ -110,16 +110,42 @@ flowchart LR
 ```
 
 1. **Crawl.** The connector signs in and lists the documents within its filters. It compares them with the last sync and takes only the new, changed and deleted ones. With permissions enabled it also reads who may see each document.
-2. **Parse.** Each document becomes text. The managed parser ("smart parsing") picks a method per file type: it keeps the structure of HTML and of document headings, reads tables, and reads scanned pages as images. It is the only parser for text content in a Managed Knowledge Base.
-3. **Chunk.** The text is cut into passages. The default is fixed-size chunks of 300 tokens (roughly 200 to 250 English words) with 20% overlap between neighbours, so that a sentence on a boundary is not lost. The alternatives are a fixed size the team sets, or no chunking (one passage per document, for content that is already split). Semantic chunking is not offered. The choice is made when the data source is connected and cannot be changed afterwards.
-4. **Embed.** An embedding model turns each passage into a vector: a list of about a thousand numbers that places the passage in a space where texts with similar meaning lie close together. That is what lets a question find a passage that uses different words, or another language.
-5. **Store.** The passage's text, its vector, its metadata and the address of its source document (the page's URL, the file's URL) go into the managed index.
+2. **Parse.** Each document becomes text. The managed parser ("smart parsing") picks a method per file type; how it treats each format is described below. It is the only parser for text content in a Managed Knowledge Base, and it has no settings.
+3. **Chunk.** The text is cut into passages. The default is fixed-size chunks of 300 tokens (roughly 200 to 250 English words) with 20% overlap between neighbours, so that a sentence on a boundary is not lost. With the managed embedding model that default is the only option. With an own embedding model the alternatives are a fixed size the team sets, or no chunking (one passage per document, for content that is already split). Semantic chunking is not offered. The choice is made when the data source is connected and cannot be changed afterwards.
+4. **Embed.** An embedding model turns each passage into a vector: a list of 1,024 numbers that places the passage in a space where texts with similar meaning lie close together. That is what lets a question find a passage that uses different words, or another language.
+5. **Store.** The passage's text, its vector, its metadata and the address of its source document (the page's URL, the file's URL) go into the managed index. The index is owned by AWS and cannot be opened.
 
 A sync ends with a status and counts: documents scanned, newly indexed, modified, deleted and failed. Failures carry a reason per document.
 
 **Media.** By default only text is indexed. Three switches per data source add pictures (standalone image files, and pictures inside PDF, Word and PowerPoint files), audio files and video files; their content is described or transcribed and then indexed as text. Separately, a knowledge base can be created with a native multimodal embedding model, which embeds the raw picture, sound or video without turning it into text; that mode has its own restrictions and is chosen at creation.
 
 **Freshness.** The knowledge base is as current as its last sync. A page edited at noon is found in its old version until the next sync.
+
+### How the parser reads each format
+
+The documentation says only that smart parsing chooses its method per file. This repository's tests (section 10) show three behaviours:
+
+| Formats | How they are read | Consequence |
+|---|---|---|
+| Excel, CSV | Cell by cell, from the file's data. The parser also writes an English summary of each table and a description and type for each column | Exact text. Hidden rows and white-on-white text are indexed too, and so become searchable |
+| HTML, Markdown, text, wiki pages | As text, keeping headings and HTML tables | Exact text |
+| Word, PowerPoint, PDF | As the page looks, by character recognition. Text that is in the file but not visible is left out. A PDF's own text layer is not used, even when it is correct | English is read correctly. Vietnamese loses about half of its words to wrong or missing accents ("du'o'c" for "được") |
+
+Nothing in the parser can be changed: other parsers are rejected, smart parsing takes no options, and a transformation function, which the customer-managed kind runs after chunking, is accepted by the managed kind but never run (section 8). The one lever is the file handed to the parser. Word and PDF files converted to Markdown, HTML or plain text before the sync are read correctly; PowerPoint is read the same way as Word and converts cleanly, but a converted PowerPoint file was not synced (section 10).
+
+### What can be inspected
+
+The vector index cannot be opened: there is no API, console page or bucket that lists the passages of a knowledge base or returns their vectors. What can be seen:
+
+| What | How | Shows |
+|---|---|---|
+| Each document's state | `ListKnowledgeBaseDocuments` | Source address, status (`INDEXED`; during a sync also `PENDING`, `IN_PROGRESS` and an undocumented `TEXT_INDEXED`; `FAILED` with a reason) and time of the last change |
+| The original file | `GetDocumentContent` with format `RAW` | A short-lived link to the copy the service took |
+| The parser's output | `GetDocumentContent` with format `EXTRACTED` | A short-lived link to a JSON file. Text files come back as plain text; the other formats as a list of elements: text blocks, and tables with their header, rows, section title and, for spreadsheets, the summaries the parser wrote |
+| Passages | `Retrieve` | Up to 100 passages for a question, each with its text, score and metadata: source, page number, table id and section, chunk id, language |
+| Sync events | Logs delivered to CloudWatch Logs | One event per document and step (crawl, text indexed, indexed) with its status and any error message. No passage counts |
+
+The parser's output is the most useful of these for judging data quality. It is the text that was chunked and embedded, and it can be compared, file by file, with a local extraction of the same file. That is how the accent problem above was found and measured.
 
 ## 6. How a search works
 
@@ -142,8 +168,8 @@ flowchart LR
 1. The question is embedded with the same model as the passages.
 2. Two searches run: one by meaning (nearest vectors) and one by keywords. A Managed Knowledge Base always uses this **hybrid** search; search by meaning alone is not offered.
 3. The candidates are merged. Metadata filters, and the permission filter if enabled, remove what does not qualify.
-4. A **reranker**, a model that reads the question and each candidate together, re-orders them. The managed reranker is on by default; the caller may name another Bedrock reranking model or turn reranking off.
-5. The best passages are returned, as many as the caller asked for. Each has its text, the address of its source document, its metadata and a relevance score.
+4. A **reranker**, a model that reads the question and each candidate together, re-orders them. The managed reranker is on by default; the caller may name another Bedrock reranking model or turn reranking off. A knowledge base with its own embedding model cannot use the managed reranker.
+5. The best passages are returned, as many as the caller asked for (1 to 100). Each has its text, the address of its source document, its metadata and a relevance score.
 
 Retrieve does not judge whether the passages answer the question. It returns the closest ones it has, even when the question has nothing to do with the content. Deciding "the documents do not say" is left to the caller's LLM or to a score threshold the caller applies.
 
@@ -184,25 +210,47 @@ Three points decide whether this is usable:
 - **Emails must match.** The email passed must be the one the person has in each source. A mismatch returns nothing, silently.
 - **It is chosen when the data source is connected.** In this repository's experience it could not be switched on for an existing data source; the source has to be connected again. Some sign-in methods are required for it (for example app-only for SharePoint, and an administrator's token for Confluence).
 
+Permissions work on whole documents. Content hidden inside a document that a person may read, such as a hidden row in a spreadsheet, is searchable by that person (section 5).
+
 This repository left permissions off and indexed only content open to every user of the bot.
 
 ## 8. What can and cannot be configured
 
 | Choice | Options | When | Changeable later |
 |---|---|---|---|
-| Embedding model | Managed (default), or one of the supported Bedrock models with 1,024 dimensions (Amazon Titan Text Embeddings V2, Cohere Embed v3 and v4, Amazon Nova Multimodal Embeddings), or a native multimodal model | Creating the knowledge base | No. A new knowledge base is needed |
+| Embedding model | Managed (default), or an own Bedrock model with 1,024 dimensions and 32-bit floats (Amazon Titan Text Embeddings V2, Cohere Embed Multilingual v3, Cohere Embed v4, Amazon Nova Multimodal Embeddings), or a native multimodal model | Creating the knowledge base | No. A new knowledge base is needed |
+| Vector store | None to choose | | |
 | Encryption key | AWS key (default) or the team's own KMS key | Creating the knowledge base | No |
-| Parser | Managed parser only, for text content | | |
-| Chunking | Default (300 tokens, 20% overlap), fixed size, or none | Connecting the data source | No |
+| Parser | Smart parsing only, for text content, without options | | |
+| Chunking | With the managed embedding model: the default only (300 tokens, 20% overlap). With an own embedding model: default, fixed size (200 to 8,192 tokens, overlap 1 to 50%), or none | Connecting the data source | No |
 | Document permissions | On or off | Connecting the data source | No (as observed here) |
 | Filters, sync schedule, deletion safeguard, media switches | Per data source | Connecting the data source | Yes |
-| Number of results | Per search | Each search | |
-| Reranker | Managed (default), own model, or none | Each search | |
+| Number of results | 1 to 100 | Each search | |
+| Reranker | Managed (default; not with an own embedding model), Amazon Rerank 1.0 or Cohere Rerank 3.5, or none | Each search | |
 | Metadata filter | Per search; the "starts with" and "contains" operators are not supported | Each search | |
 | Search type | Hybrid only | | |
 | Agentic retrieval: planning model, number of rounds, guardrail, whether to write an answer | Per request | Each request | |
 
-Choosing an own embedding model switches off the managed reranker for that knowledge base, and its use is then billed at the model's price.
+**An own embedding model has three costs.** It is billed at the model's price. It rules out the managed reranker: a search asking for it is rejected, and a search that names no reranker is not reranked. And the sync is bound by the model's request quota in the account; in this repository's test a third of the documents failed for that reason (section 10). What it buys is control of chunking.
+
+**Limits confirmed by trying them** (2026-10-14, Asia Pacific (Sydney)). Each was tried by creating a knowledge base, a data source or a search; the result is the service's own answer, in brief.
+
+| Tried | Result |
+|---|---|
+| A storage configuration (for example Amazon S3 Vectors) | Rejected: none can be given for a managed knowledge base, and none is shown for one |
+| Titan Text Embeddings V2 with 512 or 256 dimensions, or binary vectors | Rejected: only 1,024 dimensions and 32-bit floats |
+| Cohere Embed Multilingual v3 | Accepted, without a dimensions setting (it rejects one) |
+| Cohere Embed v4 | Not callable on demand in Sydney; it is offered through a cross-Region profile only, which was not tried |
+| Changing the embedding model of an existing knowledge base | Rejected |
+| Any chunking setting with the managed embedding model | Rejected: "omit chunkingConfiguration to use the default" |
+| Fixed size below 200 or above 8,192 tokens, overlap 0 or above 50% | Rejected |
+| Semantic or hierarchical chunking | Rejected |
+| Changing chunking on an existing data source | Rejected |
+| Parsing with a foundation model or with Bedrock Data Automation | Rejected |
+| A transformation function run after chunking (AWS Lambda) | Accepted and stored with the data source, but never run: at sync the function was not invoked and nothing was written to its intermediate bucket, with no error. The documentation for the managed kind does not offer it |
+| Search settings of the customer-managed kind (vector search settings, a search type) | Rejected: a search takes only the number of results, a filter and the reranker |
+| The managed reranker on a knowledge base with an own embedding model | Rejected |
+| An own reranker in Sydney | Only Amazon Rerank 1.0 and Cohere Rerank 3.5 are accepted, and both calls failed with an internal error: neither model is offered in that Region |
 
 **Quotas** (defaults on 2026-10-13):
 
@@ -285,42 +333,119 @@ The concept, its safeguards and its results are described in [poc/03-knowledge-b
 
 ### Observations
 
-One knowledge base with every setting at its default, two data sources (Confluence Cloud and SharePoint Online), invented content mostly in Vietnamese. These are observations from one small setup, not properties guaranteed by the service.
+Two setups, both with invented content mostly in Vietnamese and some in English. These are observations from small setups, not properties guaranteed by the service.
+
+- **The chatbot** (2026-10-13): one knowledge base with every setting at its default, two data sources (Confluence Cloud and SharePoint Online).
+- **A test bench** (2026-10-14): the 95 SharePoint files (Word, PDF, Excel, CSV, HTML, Markdown, text) put in an S3 bucket and synced into two knowledge bases, one with every setting at its default and one with Titan Text Embeddings V2 and fixed 200-token chunks, plus probe files built for the parsing tests below. Every configuration limit in section 8 was tried here.
 
 | Observation | Detail |
 |---|---|
-| Sync was reliable | 137 Confluence documents and 97 SharePoint documents indexed, none failed. The first sync of each source took a few minutes |
-| Formats were read as expected | Wiki pages, blog posts, Word, Excel (including a value in one cell), PDF, HTML, CSV, Markdown and text files were all searchable. A PDF attached to a Confluence page was found through the Confluence connector |
-| Search by meaning worked across spelling and language | Questions typed without Vietnamese accents, and questions in English about Vietnamese documents, found the right passages. The expected fact was in the results for 28 of 28 test questions |
-| Word and PDF text lost some Vietnamese accents | Passages from Word and PDF files came back with accents missing or wrong, while Excel, HTML, text and wiki content was intact. The cause was not determined; it looks like those files were read as images |
-| Passages are short | A few hundred words each, consistent with the default chunking |
+| Sync was reliable with the managed model | 137 Confluence documents and 97 SharePoint documents indexed, none failed; the first sync of each source took a few minutes. The 95 files from S3 took 3.5 minutes |
+| Sync with an own embedding model was slow and lossy | The same 95 files with Titan Text Embeddings V2 were still syncing after an hour, and 28 had failed with "Embedding model throttled due to rate limits". The managed model has no such limit for the team to manage |
+| Every format was searchable | Wiki pages, blog posts, Word, Excel (including a value in one cell), PDF, HTML, CSV, Markdown and text files. A PDF attached to a Confluence page was found through the Confluence connector |
+| Search by meaning worked across spelling and language | Questions typed without Vietnamese accents, and questions in English about Vietnamese documents, found the right passages. The expected fact was in the eight passages returned for 28 of 28 test questions in the chatbot, and for 26 of 27 on the test bench; the one miss asked for a quarterly total that no document states and that has to be added up from monthly figures |
+| Vietnamese in Word, PowerPoint and PDF lost its accents | About half of the words came out misspelt; see "Parsing quality" below. Search still worked, because the reranker and the keyword search tolerate the damage, but the passages quoted to the LLM and the user are hard to read |
+| The managed reranker helped | It put the passage with the expected fact first for 23 of 27 questions, against 18 without reranking |
+| Passages are short | A median of 88 words with the default chunking and 69 with 200-token chunks; at most 182 words |
 | The requested number of passages always came back | Eight were asked for and eight were returned, also for a question unrelated to the content. The caller must handle "no answer" |
-| Latency was low | A search through the gateway and the LLM's answer together took 2.6 to 4.3 seconds |
+| Latency was low | A search alone took about 1.5 seconds from a laptop. A search through the gateway and the LLM's answer together took 2.6 to 4.3 seconds |
 | The gateway needed no code | The knowledge base was added to an AgentCore Gateway as a target, and two tools appeared: one for Retrieve, one for agentic retrieval |
 | Request shape differs from the customer-managed kind | Search settings go in a field for managed search; requests written for a customer-managed knowledge base need that one change |
 
-Not tried here: agentic retrieval, document permissions, media, metadata filters, an own embedding or reranking model, the schedule over several days, and any connector other than Confluence Cloud and SharePoint Online.
+### Parsing quality
 
-## 11. When to choose it
+The parser's output for each of the 95 files (section 5, "What can be inspected") was compared with a local extraction of the same file (python-docx, pdftotext, openpyxl). The measure is the share of the file's distinct words that appear, correctly spelt, in the parser's output.
+
+| Format | Files | Words found |
+|---|---|---|
+| Excel, CSV, HTML, Markdown, text | 33 | 100% |
+| Word, in English | 3 | 99 to 100% |
+| PDF, in English | 1 | 100% |
+| Word, in Vietnamese | 25 | 41 to 57%, mean 50% |
+| PDF, in Vietnamese | 33 | 43 to 61%, mean 52% |
+
+The damage is already in the parser's output, so it happens at parsing, not at embedding or search, and it is the same with an own embedding model. The errors are those of character recognition on Vietnamese: "du'o'c" for "được", "bao mât dû liêu" for "bảo mật dữ liệu". The PDFs had a correct Unicode text layer (they were made by Chromium), so the parser did not use it.
+
+**Why some formats and not others.** Probe files in Word, Excel and PowerPoint each held one Vietnamese sentence and four markers: one visible, one hidden (a hidden run, a hidden row, a hidden shape), one in white on white, one in 1-point type.
+
+| Format | Visible | Hidden | White on white | 1-point | Vietnamese words found |
+|---|---|---|---|---|---|
+| Excel | Found | Found | Found | Found | 100% |
+| Word | Found | Not found | Not found | Not found | 51% |
+| PowerPoint | Found | Not found | Not found | Not found | 51% |
+
+A parser that read the file's text would have found all four markers, as it did in Excel. Finding only the visible one means Word and PowerPoint are read as pictures of their pages. Together with the PDF result, this gives the three behaviours in section 5.
+
+**What fixes it.** The parser cannot be changed (section 8), so the files were changed instead. Two Word files and two PDF files were synced in several forms:
+
+| Form | Words found |
+|---|---|
+| Original Word file | 54 to 56% |
+| The same text saved as a new Word file by another tool (pandoc) | 53 to 54% |
+| Original PDF | 43 to 56% |
+| Word converted to Markdown or HTML (pandoc) | 96 to 99%; the rest is Markdown escaping and a dropped title, not accents |
+| PDF converted to plain text (pdftotext) | 100% |
+
+The damage follows the format, not the file. For Vietnamese content, Word, PowerPoint and PDF files should be converted to Markdown, HTML or text before the knowledge base reads them. The conversions used here:
+
+```sh
+pandoc input.docx -t gfm -o output.md      # Word to Markdown (tables kept as Markdown tables)
+pandoc input.docx -o output.html           # Word to HTML
+pdftotext -layout input.pdf output.txt     # PDF to text, from the PDF's own text layer
+pandoc input.pptx -t gfm -o output.md      # PowerPoint to Markdown (converted locally, not synced)
+```
+
+`pdftotext` (from Poppler) needs a PDF with a text layer; a scanned PDF has none and needs character recognition that handles Vietnamese. The PowerPoint probe file converted this way kept every accent, but also took in the hidden, white and 1-point markers: a conversion reads the file's text, as the parser does for Excel, so content hidden in the original becomes searchable and should be removed first. A converted file keeps the original's name with a new extension, so the source address shown with each passage still points to a recognisable document; the address is that of the converted copy, not the original.
+
+Where the conversion runs depends on the connector:
+
+- **Amazon S3 or the custom connector:** a step before the sync (a script, or a function triggered by each upload) writes the converted copy where the data source reads, and the original is left out by a filter or kept elsewhere.
+- **SharePoint and Confluence:** the connector reads the files where they live and cannot be given converted copies. The converted copies go in a separate S3 data source of the same knowledge base, and the originals are filtered out of the SharePoint or Confluence data source by file type. The copies must be refreshed when the originals change, and links in answers point to the copies.
+
+Not tried here: agentic retrieval, document permissions, media, metadata filters, the schedule over several days, and any connector other than Confluence Cloud, SharePoint Online and Amazon S3.
+
+## 11. Strengths, limits and when to choose it
+
+### Strengths and limits
+
+Each row sums up one area from the sections above; the section number points to the detail. Rows marked "observed" come from this repository's tests, not from AWS's documentation.
+
+| Area | Strengths | Limits |
+|---|---|---|
+| Operations (2, 5) | No vector database, embedding service or ingestion pipeline to run, size or patch; storage scales by itself to 10 TB | Nothing in the pipeline can be tuned beyond what section 8 lists |
+| Connectors (3) | Native connectors for Confluence, SharePoint, OneDrive, Google Drive, Box, Salesforce, ServiceNow, Zendesk, S3 and the web; credentials kept in Secrets Manager | Content is only as fresh as the last sync (daily at best on a schedule); SharePoint and Confluence are read in place, so their files cannot be prepared before parsing |
+| Sync (5, 10) | Incremental, with per-document status and a reason for each failure; 95 files in 3.5 minutes with the managed model (observed); a safeguard against mass deletion | With an own embedding model the sync is bound by that model's quota: 28 of 95 files throttled (observed) |
+| Parsing (5, 10) | One parser for all common formats; Excel and CSV read exactly, with table and column summaries; HTML, Markdown and text read exactly | One parser, no options, and transformation functions are ignored; Word, PowerPoint and PDF are read as page images, so Vietnamese loses about half its words to accent errors (observed); hidden content in Excel becomes searchable |
+| Chunking and embedding (5, 8) | Managed embedding and chunking at no extra cost; vectors work across spelling and language | With the managed model chunking cannot be set; with an own model only fixed size or none, no semantic or hierarchical chunking; neither can be changed after creation |
+| Search (6, 10) | Hybrid search always on; managed reranker free and effective (best passage first for 23 of 27 questions against 18, observed); about 1.5 seconds per search (observed) | Search type cannot be changed; the managed reranker is lost with an own embedding model; an own reranker did not work in Sydney; Retrieve always returns passages, even for unrelated questions |
+| Agentic retrieval (6) | Plans several searches, can search several knowledge bases and write a cited answer | Slower and dearer per call; not tried here |
+| Inspection (5) | The parsed text of each document, the original file, per-document status, and passages with metadata can all be read | The vector index itself cannot be opened, listed or exported |
+| Permissions (7) | Document-level filtering by the asking person, with a real-time check for most connectors | A filter that trusts the email it is given; emails must match across sources; chosen at connection and not switchable later (observed); works on whole documents only |
+| Integration (6) | AgentCore Gateway turns it into an MCP server with no code; one source serves a chatbot, agents and code editors | Request shape differs from the customer-managed kind; the caller must write the final answer with its own LLM, unless agentic retrieval does |
+| Cost (9) | Pay per use, nothing by the hour; parsing, embedding and reranking with managed models free; a small workload costs a few dollars a month | Storage at 5 USD per GB of source data per month; own models billed at their own price |
+| Availability (8) | Seven commercial Regions plus GovCloud | Not in every Region; some models (Cohere Embed v4, the rerank models) not on demand in every Region |
+
+### When to choose it
 
 | A Managed Knowledge Base fits when | Look elsewhere when |
 |---|---|
 | The content is documents in the systems it has connectors for | The content is rows in a database or a data warehouse. Bedrock has a separate kind of knowledge base for structured data |
-| The team wants search over documents without operating a database | A specific vector database, search method or chunking method is required. That is the customer-managed kind |
+| The team wants search over documents without operating a database | A specific vector database, search method, parser or chunking method is required, or the index itself must be inspected. That is the customer-managed kind |
+| The content is in English, or in spreadsheets, web pages and text files | The content is mostly Vietnamese (or another language with many accents) in Word, PowerPoint or PDF files, and the team cannot convert them before indexing |
 | A day's delay between an edit and its appearance in search is acceptable | Content must be searchable within minutes of a change, unless the team pushes documents itself through the custom connector |
 | Several clients (a chatbot, AI agents, code editors) should share one source of knowledge | The Region the organisation must use is not on the list |
 | The workload is small or uneven, so paying per use matters | |
 
 ## 12. Sources
 
-AWS documentation and announcements, read on 2026-10-13:
+AWS documentation and announcements, read on 2026-10-13 and, for parsing and chunking, again on 2026-10-14:
 
 - [Amazon Bedrock Knowledge Bases](https://docs.aws.amazon.com/bedrock/latest/userguide/knowledge-base.html): the two kinds of knowledge base
 - [How Amazon Bedrock knowledge bases work](https://docs.aws.amazon.com/bedrock/latest/userguide/kb-how-it-works.html): RAG, chunks and embeddings
 - [Build a managed knowledge base](https://docs.aws.amazon.com/bedrock/latest/userguide/kb-build-managed.html): comparison with the customer-managed kind
 - [Create a managed knowledge base](https://docs.aws.amazon.com/bedrock/latest/userguide/kb-managed-create.html): embedding options and the connector list
 - [Connect a data source](https://docs.aws.amazon.com/bedrock/latest/userguide/kb-managed-connect-ds.html): connector options, with one page per connector
-- [Customize ingestion for a data source](https://docs.aws.amazon.com/bedrock/latest/userguide/kb-managed-customize-ingestion.html): parsing and chunking
+- [Customize ingestion for a data source](https://docs.aws.amazon.com/bedrock/latest/userguide/kb-managed-customize-ingestion.html): parsing and chunking; foundation-model parsing, Bedrock Data Automation and semantic chunking are not supported
 - [Sync a data source](https://docs.aws.amazon.com/bedrock/latest/userguide/kb-managed-sync.html): incremental sync and schedules
 - [Access Control Lists awareness enablement](https://docs.aws.amazon.com/bedrock/latest/userguide/kb-managed-acl.html): document permissions
 - [Native multimodal processing](https://docs.aws.amazon.com/bedrock/latest/userguide/kb-managed-native-multimodal.html)
