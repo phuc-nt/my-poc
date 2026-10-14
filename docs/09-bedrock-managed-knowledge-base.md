@@ -331,6 +331,35 @@ flowchart LR
 
 The concept, its safeguards and its results are described in [poc/03-knowledge-base-chatbot.md](poc/03-knowledge-base-chatbot.md); the setup steps are in [08-knowledge-base-chatbot.md](08-knowledge-base-chatbot.md).
 
+### What was written and what was not
+
+Most of the chatbot is AWS services and libraries, set up by one script. The table lists each part, what provides it, and where to read it in this repository. The first group is configured only: the setup script creates it, and AWS or another provider runs it. The second group is code the team wrote, part of it shared with the other POCs in this repository.
+
+| Part | Provided by | Team's code | Where to read |
+|---|---|---|---|
+| **Run by AWS or another service, configured only** | | | |
+| Crawling Confluence and SharePoint, parsing, chunking, embedding, index, daily sync | Bedrock Managed Knowledge Base and its two connectors | None | The data source settings in [infra/kb.sh](../infra/kb.sh) (`confluence_source`, `sharepoint_source`, `put_source`) |
+| Search: hybrid search, reranking | Bedrock Managed Knowledge Base | None | Called by the gateway client below |
+| MCP server in front of the knowledge base, IAM sign-in | AgentCore Gateway | None | `gateway` in [infra/kb.sh](../infra/kb.sh) |
+| Connector credentials | Secrets Manager, and S3 for the SharePoint certificate | None | `put_secret` and `cert` in [infra/kb.sh](../infra/kb.sh) |
+| Access roles of the knowledge base and the gateway | IAM | None | `put_role` in [infra/kb.sh](../infra/kb.sh) |
+| LLM that writes the answer | Bedrock (GLM 4.7 Flash) | None | |
+| Bridge for code editors | MCP Proxy for AWS (open source, from AWS) | None | `mcp_config` in [infra/kb.sh](../infra/kb.sh) prints the editor's MCP entry |
+| Slack bot registration: the `/ask` command, mention and direct-message events | Slack | None | [slack-app-manifest.yaml](../slack-app-manifest.yaml), shared with the other POCs |
+| **Written by the team** | | | |
+| Setup and teardown of everything above | | Shell script, about 370 lines | [infra/kb.sh](https://github.com/phuc-nt/my-poc/blob/main/infra/kb.sh): `up`, `sync`, `status`, `ask`, `down` |
+| Gateway client: MCP over HTTP, each request signed with SigV4, Retrieve results turned into passages with a title and link | Uses the MCP SDK and the AWS signer | About 110 lines | [src/kb/gateway-mcp-client.js](https://github.com/phuc-nt/my-poc/blob/main/src/kb/gateway-mcp-client.js) |
+| Answer writer: the LLM's instructions, numbering the sources, citations, the source list under the answer, question length limit | | About 55 lines | [src/kb/answer-question.js](https://github.com/phuc-nt/my-poc/blob/main/src/kb/answer-question.js) |
+| Slack listeners and question guard: `/ask`, mention, direct message, rate limit per person, duplicate messages | Uses Slack Bolt | About 85 lines | [src/slack/kb-handlers.js](https://github.com/phuc-nt/my-poc/blob/main/src/slack/kb-handlers.js) |
+| Wiring and settings: the `KB_*` settings, starting the client and the listeners | | About 10 lines in shared files | [src/config.js](https://github.com/phuc-nt/my-poc/blob/main/src/config.js), [src/slack/start-slack-app.js](https://github.com/phuc-nt/my-poc/blob/main/src/slack/start-slack-app.js) |
+| Tests of the three files above, with fakes for Slack, the gateway and the LLM | Node's test runner | About 160 lines | [test/kb-chat.test.js](https://github.com/phuc-nt/my-poc/blob/main/test/kb-chat.test.js) |
+| LLM call (Bedrock Converse) and the choice of provider | Uses the AWS SDK | About 45 lines, shared with the other POCs | [src/llm/bedrock-chat.js](https://github.com/phuc-nt/my-poc/blob/main/src/llm/bedrock-chat.js), [src/llm/configured-chat.js](https://github.com/phuc-nt/my-poc/blob/main/src/llm/configured-chat.js) |
+| Logging | | About 35 lines, shared with the other POCs | [src/core/logger.js](https://github.com/phuc-nt/my-poc/blob/main/src/core/logger.js) |
+| Container image and its runtime template (Amazon ECS on AWS Fargate) | | Dockerfile and CloudFormation template, shared with the other POCs; not yet extended for the chatbot | [Dockerfile](https://github.com/phuc-nt/my-poc/blob/main/Dockerfile), [infra/platform.yaml](https://github.com/phuc-nt/my-poc/blob/main/infra/platform.yaml). The task role allows only the one Bedrock model, and the task has no `KB_*` settings: running the chatbot there needs permission to call the gateway and those settings |
+| Test material, not needed in production: a fictional company's documents in every format, the Confluence space, the test questions and their check | | Python and Node.js scripts | [kb/](https://github.com/phuc-nt/my-poc/tree/main/kb): `content.py` holds the facts, `build.sh` builds the files, `publish_confluence.py` publishes the space, `check-answers.js` runs [kb/test-questions.json](https://github.com/phuc-nt/my-poc/blob/main/kb/test-questions.json) |
+
+The chatbot's own logic is about 250 lines in three files. To read it, start with [src/kb/answer-question.js](https://github.com/phuc-nt/my-poc/blob/main/src/kb/answer-question.js) (what the bot does with a question), then [src/kb/gateway-mcp-client.js](https://github.com/phuc-nt/my-poc/blob/main/src/kb/gateway-mcp-client.js) (how it searches), then [src/slack/kb-handlers.js](https://github.com/phuc-nt/my-poc/blob/main/src/slack/kb-handlers.js) (how questions arrive from Slack), and [infra/kb.sh](https://github.com/phuc-nt/my-poc/blob/main/infra/kb.sh) for the AWS side. [test/kb-chat.test.js](https://github.com/phuc-nt/my-poc/blob/main/test/kb-chat.test.js) shows each part's expected behaviour without AWS or Slack.
+
 ### Observations
 
 Two setups, both with invented content mostly in Vietnamese and some in English. These are observations from small setups, not properties guaranteed by the service.
