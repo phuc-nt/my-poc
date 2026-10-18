@@ -1,0 +1,8 @@
+**/node_modules
+**/.git
+sample-repo
+functions
+orchestrator
+infra
+test-set
+memory-seed

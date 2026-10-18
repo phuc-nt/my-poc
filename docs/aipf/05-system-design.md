@@ -2,7 +2,7 @@
 
 This document is a first, high-level system design for the AI platform (AIPF) described in [01](01-why-an-internal-aipf.md) to [04](04-reference-platforms.md). It is for the engineers and architects who will build it. It turns the components in [02-platform-components.md](02-platform-components.md) into AWS services and the platform's own parts, for one specific context.
 
-Status: a draft design from internal discussion on 2026-10-18. Nothing has been built or load-tested. Service limits and Region availability named here must be checked before building (section 13).
+Status: a draft design from internal discussion on 2026-10-18, updated on 2026-10-19 with the first POC results ([06](06-poc-architecture.md), sections 12 to 15). Only the POC has been built, and nothing has been load-tested. Service limits and Region availability named here must be checked before building (section 13).
 
 ## 1. Context and design goals
 
@@ -135,6 +135,8 @@ flowchart LR
   - links to the transcripts.
 - **Each work item gets a Step Functions Standard workflow** (these can run for up to a year). The workflow follows the item's states and starts a session for the role that acts in each state.
 - **Waiting is free.** Waiting for an approval or an event uses a task token. The workflow pauses until Slack, Jira or the console returns the token.
+- **A person can decline the work.** An answer can end the run as declined, instead of sending the agent back to try again. In the POC, a person's "no" led to a retry that would have escalated.
+- **Related work items run one after another,** or their branches are rebased before CI. In the POC, two items worked on in parallel added migrations with the same file name.
 
 | State (example) | Acting role | Leaves the state when |
 |---|---|---|
@@ -225,6 +227,7 @@ Every agent CLI is wrapped by a **harness adapter** that implements the same con
 2. **Runs the CLI non-interactively** (for example `claude -p` or `codex exec`) with its own permission prompts switched off. Safety comes from outside the CLI (section 8), because CLIs differ in what their permission systems can express.
 3. **Translates the CLI's output** (JSON event streams where the CLI offers them, otherwise logs) into the platform's event format. It also collects OpenTelemetry data where the CLI exports it.
 4. **Detects the end state** and reports it: finished, asked a question (sent to the channel as an escalation), failed, or hit a limit.
+5. **Passes environment failures to the agent.** If preparing the environment fails on the agent's branch, the adapter still runs the CLI and gives it the error. In the POC, failing the session instead used up all three attempts on one item without the agent seeing why.
 
 ### 5.3 Harness profiles and routing
 
@@ -277,19 +280,20 @@ flowchart LR
     SPEC[environment.yaml<br/>in the repository] --> BUILD[CodeBuild<br/>build image, run setup and unit tests]
     BUILD -->|success| ECR[(ECR<br/>last good snapshot)]
     BUILD -->|failure| KEEP[Keep previous snapshot<br/>notify the project]
-    ECR --> TASK[ECS task per session<br/>harness container + app image + service sidecars]
+    ECR --> TASK[ECS task per session<br/>harness and app image + service sidecars]
     TASK --> END[Removed at end of session]
 ```
 
 - **Snapshots.** CodeBuild builds the environment image when the specification or the main branch changes, and once a day. It pushes the image to ECR only when setup and unit tests pass. A failed build keeps the last good snapshot, as Cursor and Devin do.
 - **A sandbox is one ECS task per session.** The task contains:
-  - the harness container (agent CLI and adapter);
-  - the application's development image, built from the snapshot;
+  - one container with the agent CLI, the adapter and the application's development environment. The snapshot image is built on top of the harness image, so the agent runs the application's commands in its own shell ([06](06-poc-architecture.md), section 12.1);
   - the dependent services as sidecar containers.
   
-  The containers share a working volume. The task is created when the session starts and removed when it ends.
-- **Fargate by default.** It has no servers to manage and fits most projects.
+  The task is created when the session starts and removed when it ends.
+- **Fargate by default.** It has no servers to manage and fits most projects. In the POC, a 2 vCPU task took about 35 s to start and 35 s to stop.
 - **ECS on EC2 or CodeBuild where Docker is needed.** Fargate does not allow a Docker daemon inside the task, so projects that need one use one of these instead. Examples: building container images, running Testcontainers, starting a compose file of many services.
+- **The sandbox prepares the database the way CI does:** migrations on an empty database, then seed data. In the POC, a migration tested only on the seeded snapshot passed in the sandbox and failed in CI.
+- **CI runs on a prebuilt image** with the language runtime and service images in it. In the POC, installing Node on the standard CodeBuild image took 57 s of about 85 s.
 - **Agents can draft the specification.** For a repository without one, a setup session can draft `environment.yaml`. A person reviews it and supplies any credentials, as with Devin blueprints and the Cursor setup agent.
 
 ### 6.3 Preview environments per pull request
@@ -337,7 +341,9 @@ flowchart LR
 
 ### 8.1 Identity
 
-- **Each session runs under its own IAM role session.** The task role is assumed with session tags: project, work item, role and harness. Every AWS action in CloudTrail can then be traced to the agent role and the work item.
+- **Each session runs under its own IAM role session,** with session tags: project, work item, role and harness. Every AWS action in CloudTrail can then be traced to the agent role and the work item.
+  - An ECS task role session carries no session tags and no useful session name; the POC found this. So the session runner assumes the agent role itself, with tags and the work item as session name, and hands those credentials to the agent.
+  - Whether AgentCore Policy can then match the session name or tags is still to verify. In the POC it saw only the role.
 - **The role's permissions come from an IAM role template per agent role.** Examples:
   - The developer sandbox role may pull from its project's repositories, and push only to `agent/*` branches (CodeCommit's `codecommit:References` condition key). It cannot merge.
   - The QA role may read preview environments and test results.
@@ -356,11 +362,20 @@ The sandbox holds no long-lived third-party credentials:
 | CodeCommit and AWS APIs | The task's IAM role session, with temporary credentials |
 | Test secrets for the application | Injected from Secrets Manager at task start, only test values, scoped to the project account |
 
+Assume the agent can read anything in its sandbox. In the POC, the agent could read its task role credentials and, for Claude Code, the subscription token, and so could call the gateway without the MCP proxy. The gates still held, because they are in the gateway and IAM.
+
 ### 8.3 Permission per tool call, outside the agent CLI
 
 - **AgentCore Policy checks every tool call** on the gateway against the role's Cedar policy before it runs. For example, the PM role may create and edit Jira issues, but only the DevOps role may call the deployment tools.
 - **Calls that need a person are routed to an approval** instead of being run. Examples: messages to the customer, changes to approved specifications, actions over a cost threshold.
 - **The rules do not depend on which CLI is running,** because they sit in the gateway, IAM and the network.
+- **How it behaved in the POC** ([06](06-poc-architecture.md), section 13.3):
+  - Through the MCP proxy, an agent sees only the tools its role may call. A call to a hidden tool gets "Unknown tool" from the proxy and never reaches the gateway.
+  - A signed call sent straight to the gateway for a refused tool gets JSON-RPC error -32002.
+  - Conditions on tool input work, for example a transition only to "In Review", or a pull request only from an `agent/*` branch.
+  - Each call takes 30 to 100 ms longer.
+  - A DENY log entry names neither the tool nor the policy. Reports join it with the request's log entry by request ID.
+  - The gateway's role needs `GetPolicyEngine`, `AuthorizeAction` and `PartiallyAuthorizeActions` on the policy engine.
 
 ### 8.4 Network
 
@@ -396,6 +411,8 @@ Records are kept as follows:
 
 - **Transcripts and events:** in S3, queried with Athena.
 - **CloudTrail:** in the log archive account.
+
+Tool targets act with their own role. A pull request comment in CodeCommit therefore shows the tools role, not the agent. The gateway log, joined by the work item key, records which agent role made the call.
 
 ## 9. Delivery and operations
 
@@ -437,6 +454,8 @@ sequenceDiagram
 - Every session emits events in the platform format, and OpenTelemetry where the CLI supports it.
 - These go to CloudWatch for live views, and to S3 for analysis with Athena.
 - The model gateway records tokens and cost per session key. The tool gateway records every call.
+- **Cost reports use the Usage record type.** Credits cancel each service's cost in Cost Explorer, so reports without that filter show zero.
+- **The model dominates cost.** In the POC it was about 97% of a work item's cost; the sandbox, CI, knowledge base and workflow together were about $0.025 per item. Input was 99% of the tokens, so prompt caching is the main lever ([06](06-poc-architecture.md), section 14).
 
 ### 10.2 Dashboards
 
@@ -485,7 +504,7 @@ sequenceDiagram
   - Its MCP support, its instruction-file conventions and its telemetry.
   - Whether it can reach models through the gateway, and the licence and support terms for company use.
 - **OAuth.** AgentCore Identity's support for the Atlassian, Slack and Microsoft OAuth flows the tools need.
-- **CodeCommit.** Event coverage in EventBridge for every pull request action the orchestrator needs. Push restriction by branch with `codecommit:References` in practice.
+- **CodeCommit.** Event coverage in EventBridge for every pull request action the orchestrator needs. Push restriction by branch with `codecommit:References` in practice; the POC showed it limits push and branch deletion.
 - **ECS.** Fargate task size, storage and start time for the largest project environments, and which projects need ECS on EC2 for Docker.
 - **Data and contracts.** Customer contracts on where data and model calls may go. This decides which providers the model gateway may route to, per project.
-- **Cost.** Sandbox hours, preview environments, model usage and gateway calls for one work item, measured in phase 1 rather than estimated.
+- **Cost.** Sandbox hours, preview environments, model usage and gateway calls for one work item, measured in phase 1 rather than estimated. The POC's first figures and an estimating formula are in [06](06-poc-architecture.md), section 14.

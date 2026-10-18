@@ -1,0 +1,778 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  AIPF POC: sample repository, environment snapshot, sandbox for agent sessions, tool functions behind
+  an AgentCore Gateway, and the work item workflow. Deployed by infra/aipf.sh, which also creates the
+  gateway, its targets and the policy engine (with the AWS CLI) and writes the secret values.
+
+Metadata:
+  com.aws.cloudformation.Context:
+    arch: one stack, one Region; the gateway is created after the first deploy, then its URL is passed back in
+    must:
+      - deploy with infra/aipf.sh up (aws cloudformation package uploads functions/ and the workflow)
+      - secret values are written by infra/aipf.sh, never in this template or its parameters
+    ref:
+      - at: docs/aipf/06-poc-architecture.md
+        has: the design this stack builds and the deviations found while building it
+
+Parameters:
+  App:
+    Type: String
+    Default: aipf-poc
+  GatewayUrl:
+    Type: String
+    Default: ''
+    Description: MCP URL of the AgentCore Gateway; empty on the first deploy.
+  SessionTimeoutMin:
+    Type: Number
+    Default: 40
+  SessionMaxTurns:
+    Type: Number
+    Default: 80
+  LogRetentionDays:
+    Type: Number
+    Default: 30
+
+Resources:
+  # --- Network: public subnets, no inbound access, outbound HTTPS only ---
+
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.30.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags: [{ Key: Name, Value: !Ref App }]
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: { VpcId: !Ref Vpc, InternetGatewayId: !Ref InternetGateway }
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: { VpcId: !Ref Vpc }
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties: { RouteTableId: !Ref RouteTable, DestinationCidrBlock: 0.0.0.0/0, GatewayId: !Ref InternetGateway }
+  SubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.30.0.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags: [{ Key: Name, Value: !Sub '${App}-a' }]
+  SubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.30.1.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags: [{ Key: Name, Value: !Sub '${App}-b' }]
+  SubnetARoutes:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { SubnetId: !Ref SubnetA, RouteTableId: !Ref RouteTable }
+  SubnetBRoutes:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { SubnetId: !Ref SubnetB, RouteTableId: !Ref RouteTable }
+  SandboxSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: no NAT gateway or firewall in the POC (cost); a public IP per task, no inbound rule, outbound 443 only. A domain allowlist needs Network Firewall or a proxy (production design)
+    Properties:
+      GroupDescription: AIPF sandbox sessions, outbound HTTPS only
+      VpcId: !Ref Vpc
+      SecurityGroupEgress:
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0, Description: HTTPS }
+
+  # --- Storage ---
+
+  HarnessRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${App}/harness'
+      EmptyOnDelete: true
+      ImageScanningConfiguration: { ScanOnPush: true }
+      LifecyclePolicy:
+        LifecyclePolicyText: '{"rules":[{"rulePriority":1,"description":"keep 5","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":5},"action":{"type":"expire"}}]}'
+  SessionRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${App}/session'
+      EmptyOnDelete: true
+      ImageScanningConfiguration: { ScanOnPush: true }
+      LifecyclePolicy:
+        LifecyclePolicyText: '{"rules":[{"rulePriority":1,"description":"keep 5","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":5},"action":{"type":"expire"}}]}'
+
+  DataBucket:
+    Type: AWS::S3::Bucket
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: memory/ (project memory, versioned), memory-proposals/, transcripts/ of every session
+    Properties:
+      BucketName: !Sub '${App}-${AWS::AccountId}-${AWS::Region}'
+      VersioningConfiguration: { Status: Enabled }
+      PublicAccessBlockConfiguration: { BlockPublicAcls: true, IgnorePublicAcls: true, BlockPublicPolicy: true, RestrictPublicBuckets: true }
+      BucketEncryption:
+        ServerSideEncryptionConfiguration: [{ ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 } }]
+      LifecycleConfiguration:
+        Rules: [{ Id: old-versions, Status: Enabled, NoncurrentVersionExpiration: { NoncurrentDays: 90 } }]
+
+  Table:
+    Type: AWS::DynamoDB::Table
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: RUN#<id> (run, sessions with tokens and cost), ISSUE#<key> (active run, questions, pull request, approval), HUMAN#<id> (links sent to people)
+    Properties:
+      TableName: !Ref App
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions: [{ AttributeName: pk, AttributeType: S }, { AttributeName: sk, AttributeType: S }]
+      KeySchema: [{ AttributeName: pk, KeyType: HASH }, { AttributeName: sk, KeyType: RANGE }]
+
+  SettingsSecret:
+    Type: AWS::SecretsManager::Secret
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: Jira, Slack and webhook values, read only by the Lambda functions; infra/aipf.sh writes the value from .env
+    Properties:
+      Name: !Sub '${App}/settings'
+      SecretString: '{}'
+  ClaudeTokenSecret:
+    Type: AWS::SecretsManager::Secret
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: Claude subscription token (claude setup-token), injected only into the harness container; infra/aipf.sh token writes it
+    Properties:
+      Name: !Sub '${App}/claude-token'
+      SecretString: unset
+
+  # --- Sample repository, CI and environment snapshot ---
+
+  SampleRepository:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryName: !Sub '${App}-sample'
+      RepositoryDescription: AI-ready sample repository of the AIPF POC (service desk API)
+
+  CiLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: !Sub '/${App}/ci', RetentionInDays: !Ref LogRetentionDays }
+  SnapshotLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: !Sub '/${App}/snapshot', RetentionInDays: !Ref LogRetentionDays }
+  SessionLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: !Sub '/${App}/sessions', RetentionInDays: !Ref LogRetentionDays }
+  WorkflowLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: !Sub '/aws/vendedlogs/states/${App}-work-item', RetentionInDays: !Ref LogRetentionDays }
+  ToolsLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: !Sub '/aws/lambda/${App}-tools', RetentionInDays: !Ref LogRetentionDays }
+  OrchestratorLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: !Sub '/aws/lambda/${App}-orchestrator', RetentionInDays: !Ref LogRetentionDays }
+
+  BuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${App}-build'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: codebuild.amazonaws.com }
+            Action: sts:AssumeRole
+            Condition: { StringEquals: { aws:SourceAccount: !Ref AWS::AccountId } }
+      Policies:
+        - PolicyName: access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: codecommit:GitPull
+                Resource: !GetAtt SampleRepository.Arn
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: [!Sub '${CiLogs.Arn}', !Sub '${SnapshotLogs.Arn}']
+              - Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              - Effect: Allow
+                Action: [ecr:BatchGetImage, ecr:GetDownloadUrlForLayer, ecr:BatchCheckLayerAvailability]
+                Resource: !GetAtt HarnessRepository.Arn
+              - Effect: Allow
+                Action: [ecr:BatchCheckLayerAvailability, ecr:InitiateLayerUpload, ecr:UploadLayerPart, ecr:CompleteLayerUpload, ecr:PutImage, ecr:BatchGetImage]
+                Resource: !GetAtt SessionRepository.Arn
+
+  CiProject:
+    Type: AWS::CodeBuild::Project
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: the repository's own CI (buildspec.yml), started by the workflow on the agent branch
+    Properties:
+      Name: !Sub '${App}-ci'
+      ServiceRole: !GetAtt BuildRole.Arn
+      Source: { Type: CODECOMMIT, Location: !GetAtt SampleRepository.CloneUrlHttp }
+      Artifacts: { Type: NO_ARTIFACTS }
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:7.0
+        PrivilegedMode: true
+      LogsConfig: { CloudWatchLogs: { Status: ENABLED, GroupName: !Ref CiLogs } }
+      TimeoutInMinutes: 20
+
+  SnapshotProject:
+    Type: AWS::CodeBuild::Project
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: builds the session image (harness image + repository with .git + setup + unit tests) when main changes; pushed only if setup and tests pass
+    Properties:
+      Name: !Sub '${App}-snapshot'
+      ServiceRole: !GetAtt BuildRole.Arn
+      Source:
+        Type: NO_SOURCE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            build:
+              commands:
+                - aws ecr get-login-password | docker login --username AWS --password-stdin "${SESSION_REPO%%/*}"
+                - git config --global credential.helper '!aws codecommit credential-helper $@'
+                - git config --global credential.UseHttpPath true
+                - mkdir -p ctx && git clone --quiet "$REPO_URL" ctx/repo
+                - SHA="$(git -C ctx/repo rev-parse --short HEAD)"
+                - |
+                  cat > ctx/Dockerfile <<'EOF'
+                  ARG HARNESS_IMAGE
+                  FROM ${HARNESS_IMAGE}
+                  USER root
+                  COPY repo /workspace
+                  RUN chown -R agent:agent /workspace
+                  USER agent
+                  RUN node /opt/aipf/runner/session.mjs setup
+                  EOF
+                - docker build --build-arg HARNESS_IMAGE="$HARNESS_IMAGE" -t "$SESSION_REPO:latest" -t "$SESSION_REPO:$SHA" ctx
+                - docker push "$SESSION_REPO:$SHA"
+                - docker push "$SESSION_REPO:latest"
+      Artifacts: { Type: NO_ARTIFACTS }
+      Environment:
+        Type: ARM_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux-aarch64-standard:3.0
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - { Name: REPO_URL, Value: !GetAtt SampleRepository.CloneUrlHttp }
+          - { Name: HARNESS_IMAGE, Value: !Sub '${HarnessRepository.RepositoryUri}:latest' }
+          - { Name: SESSION_REPO, Value: !GetAtt SessionRepository.RepositoryUri }
+      LogsConfig: { CloudWatchLogs: { Status: ENABLED, GroupName: !Ref SnapshotLogs } }
+      TimeoutInMinutes: 30
+
+  EventsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${App}-events'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: events.amazonaws.com }
+            Action: sts:AssumeRole
+            Condition: { StringEquals: { aws:SourceAccount: !Ref AWS::AccountId } }
+      Policies:
+        - PolicyName: access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: codebuild:StartBuild
+                Resource: !GetAtt SnapshotProject.Arn
+
+  MainChangedRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Rebuild the session snapshot when main changes
+      EventPattern:
+        source: [aws.codecommit]
+        detail-type: [CodeCommit Repository State Change]
+        resources: [!GetAtt SampleRepository.Arn]
+        detail:
+          event: [referenceCreated, referenceUpdated]
+          referenceType: [branch]
+          referenceName: [main]
+      Targets: [{ Id: snapshot, Arn: !GetAtt SnapshotProject.Arn, RoleArn: !GetAtt EventsRole.Arn }]
+
+  PullRequestRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Pull request merged or closed - resumes the work item workflow
+      EventPattern:
+        source: [aws.codecommit]
+        detail-type: [CodeCommit Pull Request State Change]
+        resources: [!GetAtt SampleRepository.Arn]
+        detail:
+          event: [pullRequestMergeStatusUpdated, pullRequestStatusChanged]
+      Targets: [{ Id: orchestrator, Arn: !GetAtt Orchestrator.Arn }]
+  PullRequestRulePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref Orchestrator
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt PullRequestRule.Arn
+
+  # --- Sandbox: one Fargate task per agent session ---
+
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref App
+      ClusterSettings: [{ Name: containerInsights, Value: disabled }]
+
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${App}-execution'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ecs-tasks.amazonaws.com }
+            Action: sts:AssumeRole
+            Condition: { StringEquals: { aws:SourceAccount: !Ref AWS::AccountId } }
+      ManagedPolicyArns: [arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy]
+      Policies:
+        - PolicyName: access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref ClaudeTokenSecret
+
+  # The two agent roles. What a session can reach besides the gateway: git (developer: agent/* only),
+  # its own run record and transcripts, and a Bedrock model for the second CLI.
+  DeveloperRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${App}-developer'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ecs-tasks.amazonaws.com }
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals: { aws:SourceAccount: !Ref AWS::AccountId }
+              ArnLike: { aws:SourceArn: !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:*' }
+      Policies:
+        - PolicyName: access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: codecommit:GitPull
+                Resource: !GetAtt SampleRepository.Arn
+              - Sid: PushAgentBranchesOnly
+                Effect: Allow
+                Action: codecommit:GitPush
+                Resource: !GetAtt SampleRepository.Arn
+                Condition: { StringLikeIfExists: { codecommit:References: refs/heads/agent/* } }
+              - Sid: NeverPushOtherReferences
+                Effect: Deny
+                Action: codecommit:GitPush
+                Resource: !GetAtt SampleRepository.Arn
+                Condition:
+                  StringNotLike: { codecommit:References: refs/heads/agent/* }
+                  'Null': { codecommit:References: 'false' }
+              - Effect: Allow
+                Action: bedrock-agentcore:InvokeGateway
+                Resource: !Sub 'arn:aws:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:gateway/${App}-*'
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub '${DataBucket.Arn}/transcripts/*'
+              - Effect: Allow
+                Action: [dynamodb:GetItem, dynamodb:PutItem]
+                Resource: !GetAtt Table.Arn
+                Condition: { 'ForAllValues:StringLike': { dynamodb:LeadingKeys: ['RUN#*'] } }
+              - Effect: Allow
+                Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream]
+                Resource: !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/*'
+  ReviewerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${App}-reviewer'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ecs-tasks.amazonaws.com }
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals: { aws:SourceAccount: !Ref AWS::AccountId }
+              ArnLike: { aws:SourceArn: !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:*' }
+      Policies:
+        - PolicyName: access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: codecommit:GitPull
+                Resource: !GetAtt SampleRepository.Arn
+              - Effect: Allow
+                Action: bedrock-agentcore:InvokeGateway
+                Resource: !Sub 'arn:aws:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:gateway/${App}-*'
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub '${DataBucket.Arn}/transcripts/*'
+              - Effect: Allow
+                Action: [dynamodb:GetItem, dynamodb:PutItem]
+                Resource: !GetAtt Table.Arn
+                Condition: { 'ForAllValues:StringLike': { dynamodb:LeadingKeys: ['RUN#*'] } }
+              - Effect: Allow
+                Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream]
+                Resource: !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/*'
+  SessionTask:
+    Type: AWS::ECS::TaskDefinition
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: services are fixed here for the POC (postgres from the sample repo's .aipf/environment.yaml); the app runs inside the harness container from the snapshot
+    Properties:
+      Family: !Sub '${App}-session'
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: '2048'
+      Memory: '4096'
+      RuntimePlatform: { CpuArchitecture: ARM64, OperatingSystemFamily: LINUX }
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+      TaskRoleArn: !GetAtt ReviewerRole.Arn
+      ContainerDefinitions:
+        - Name: db
+          Image: public.ecr.aws/docker/library/postgres:16-alpine
+          Essential: false
+          Environment:
+            - { Name: POSTGRES_PASSWORD, Value: dev }
+            - { Name: POSTGRES_DB, Value: app }
+          HealthCheck: { Command: [CMD-SHELL, pg_isready -h localhost -U postgres], Interval: 5, Timeout: 3, Retries: 10, StartPeriod: 20 }
+          LogConfiguration:
+            LogDriver: awslogs
+            Options: { awslogs-group: !Ref SessionLogs, awslogs-region: !Ref AWS::Region, awslogs-stream-prefix: db }
+        - Name: harness
+          Image: !Sub '${SessionRepository.RepositoryUri}:latest'
+          Essential: true
+          DependsOn: [{ ContainerName: db, Condition: HEALTHY }]
+          StopTimeout: 30
+          Environment:
+            - { Name: AWS_REGION, Value: !Ref AWS::Region }
+            - { Name: AIPF_GATEWAY_URL, Value: !Ref GatewayUrl }
+            - { Name: AIPF_REPO, Value: !GetAtt SampleRepository.Name }
+            - { Name: AIPF_BUCKET, Value: !Ref DataBucket }
+            - { Name: AIPF_TABLE, Value: !Ref Table }
+            - { Name: AIPF_TIMEOUT_MIN, Value: !Ref SessionTimeoutMin }
+            - { Name: AIPF_MAX_TURNS, Value: !Ref SessionMaxTurns }
+          Secrets:
+            - { Name: CLAUDE_CODE_OAUTH_TOKEN, ValueFrom: !Ref ClaudeTokenSecret }
+          LogConfiguration:
+            LogDriver: awslogs
+            Options: { awslogs-group: !Ref SessionLogs, awslogs-region: !Ref AWS::Region, awslogs-stream-prefix: harness }
+
+  # --- Tools behind the AgentCore Gateway ---
+
+  ToolsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${App}-tools'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub '${ToolsLogs.Arn}'
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref SettingsSecret
+              - Effect: Allow
+                Action:
+                  - codecommit:GetBranch
+                  - codecommit:ListPullRequests
+                  - codecommit:GetPullRequest
+                  - codecommit:CreatePullRequest
+                  - codecommit:GetDifferences
+                  - codecommit:GetCommentsForPullRequest
+                  - codecommit:PostCommentForPullRequest
+                Resource: !GetAtt SampleRepository.Arn
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt DataBucket.Arn
+                Condition: { StringLike: { s3:prefix: ['memory/*'] } }
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub '${DataBucket.Arn}/memory/*'
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub '${DataBucket.Arn}/memory-proposals/*'
+              - Effect: Allow
+                Action: dynamodb:PutItem
+                Resource: !GetAtt Table.Arn
+                Condition: { 'ForAllValues:StringLike': { dynamodb:LeadingKeys: ['ISSUE#*'] } }
+  Tools:
+    Type: AWS::Lambda::Function
+    DependsOn: ToolsLogs
+    Properties:
+      FunctionName: !Sub '${App}-tools'
+      Description: Platform tools of the agents (Jira, pull requests, memory, asking a person), called by the AgentCore Gateway
+      Runtime: nodejs22.x
+      Architectures: [arm64]
+      Handler: tools.handler
+      Code: ../functions
+      MemorySize: 256
+      Timeout: 30
+      Role: !GetAtt ToolsRole.Arn
+      Environment:
+        Variables: { TABLE: !Ref Table, REPO_NAME: !GetAtt SampleRepository.Name, BUCKET: !Ref DataBucket, SECRET_ID: !Ref SettingsSecret }
+
+  GatewayRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${App}-gateway'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: bedrock-agentcore.amazonaws.com }
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals: { aws:SourceAccount: !Ref AWS::AccountId }
+              ArnLike: { aws:SourceArn: !Sub 'arn:aws:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:*' }
+      Policies:
+        - PolicyName: access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt Tools.Arn
+              - Effect: Allow
+                Action: [bedrock:GetKnowledgeBase, bedrock:Retrieve]
+                Resource: !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:knowledge-base/*'
+              - Effect: Allow
+                Action: bedrock-agentcore:GetPolicyEngine
+                Resource: !Sub 'arn:aws:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:policy-engine/*'
+              - Effect: Allow
+                Action: [bedrock-agentcore:AuthorizeAction, bedrock-agentcore:PartiallyAuthorizeActions]
+                Resource:
+                  - !Sub 'arn:aws:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:policy-engine/*'
+                  - !Sub 'arn:aws:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:gateway/${App}-*'
+
+  # --- Work item workflow ---
+
+  OrchestratorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${App}-orchestrator'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub '${OrchestratorLogs.Arn}'
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref SettingsSecret
+              - Effect: Allow
+                Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem, dynamodb:DeleteItem, dynamodb:Query]
+                Resource: !GetAtt Table.Arn
+              - Effect: Allow
+                Action: [codecommit:ListPullRequests, codecommit:GetPullRequest, codecommit:PostCommentForPullRequest]
+                Resource: !GetAtt SampleRepository.Arn
+              - Effect: Allow
+                Action: codebuild:BatchGetBuilds
+                Resource: !GetAtt CiProject.Arn
+              - Effect: Allow
+                Action: logs:GetLogEvents
+                Resource: !Sub '${CiLogs.Arn}'
+              - Effect: Allow
+                Action: states:StartExecution
+                Resource: !Sub 'arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${App}-work-item'
+              - Effect: Allow
+                Action: states:SendTaskSuccess
+                Resource: '*'
+  Orchestrator:
+    Type: AWS::Lambda::Function
+    DependsOn: OrchestratorLogs
+    Properties:
+      FunctionName: !Sub '${App}-orchestrator'
+      Description: Steps of the work item workflow, the Jira webhook, the answer form, pull request events
+      Runtime: nodejs22.x
+      Architectures: [arm64]
+      Handler: orchestrator.handler
+      Code: ../functions
+      MemorySize: 256
+      Timeout: 60
+      Role: !GetAtt OrchestratorRole.Arn
+      Environment:
+        Variables:
+          TABLE: !Ref Table
+          REPO_NAME: !GetAtt SampleRepository.Name
+          BUCKET: !Ref DataBucket
+          SECRET_ID: !Ref SettingsSecret
+          API_URL: !GetAtt HttpApi.ApiEndpoint
+          STATE_MACHINE_ARN: !Sub 'arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${App}-work-item'
+          MAX_FAILURES: '3'
+
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Ref App
+      Description: Jira webhook and the form people use to answer the platform
+      ProtocolType: HTTP
+  HttpApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: $default
+      AutoDeploy: true
+      DefaultRouteSettings: { ThrottlingBurstLimit: 20, ThrottlingRateLimit: 10 }
+  HttpApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt Orchestrator.Arn
+      PayloadFormatVersion: '2.0'
+  JiraRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties: { ApiId: !Ref HttpApi, RouteKey: 'POST /jira/{secret}', Target: !Sub 'integrations/${HttpApiIntegration}' }
+  HumanPageRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties: { ApiId: !Ref HttpApi, RouteKey: 'GET /human/{id}', Target: !Sub 'integrations/${HttpApiIntegration}' }
+  HumanAnswerRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties: { ApiId: !Ref HttpApi, RouteKey: 'POST /human/{id}', Target: !Sub 'integrations/${HttpApiIntegration}' }
+  HttpApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref Orchestrator
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*'
+
+  WorkflowRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${App}-workflow'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: states.amazonaws.com }
+            Action: sts:AssumeRole
+            Condition: { StringEquals: { aws:SourceAccount: !Ref AWS::AccountId } }
+      Policies:
+        - PolicyName: access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt Orchestrator.Arn
+              - Effect: Allow
+                Action: ecs:RunTask
+                Resource: !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/${App}-session:*'
+              - Effect: Allow
+                Action: [ecs:StopTask, ecs:DescribeTasks, ecs:TagResource]
+                Resource: '*'
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: [!GetAtt DeveloperRole.Arn, !GetAtt ReviewerRole.Arn, !GetAtt ExecutionRole.Arn]
+              - Effect: Allow
+                Action: [codebuild:StartBuild, codebuild:StopBuild, codebuild:BatchGetBuilds]
+                Resource: !GetAtt CiProject.Arn
+              - Effect: Allow
+                Action: [events:PutTargets, events:PutRule, events:DescribeRule]
+                Resource:
+                  - !Sub 'arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/StepFunctionsGetEventsForECSTaskRule'
+                  - !Sub 'arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/StepFunctionsGetEventForCodeBuildStartBuildRule'
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogDelivery
+                  - logs:GetLogDelivery
+                  - logs:UpdateLogDelivery
+                  - logs:DeleteLogDelivery
+                  - logs:ListLogDeliveries
+                  - logs:PutResourcePolicy
+                  - logs:DescribeResourcePolicies
+                  - logs:DescribeLogGroups
+                Resource: '*'
+  WorkItemWorkflow:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: !Sub '${App}-work-item'
+      StateMachineType: STANDARD
+      RoleArn: !GetAtt WorkflowRole.Arn
+      DefinitionS3Location: ../orchestrator/workflow.asl.json
+      DefinitionSubstitutions:
+        Orchestrator: !GetAtt Orchestrator.Arn
+        Cluster: !GetAtt Cluster.Arn
+        TaskDefinition: !Ref SessionTask
+        SubnetA: !Ref SubnetA
+        SubnetB: !Ref SubnetB
+        SandboxSecurityGroup: !Ref SandboxSecurityGroup
+        DeveloperRole: !GetAtt DeveloperRole.Arn
+        ReviewerRole: !GetAtt ReviewerRole.Arn
+        CiProject: !Ref CiProject
+      LoggingConfiguration:
+        Level: ALL
+        IncludeExecutionData: false
+        Destinations: [{ CloudWatchLogsLogGroup: { LogGroupArn: !GetAtt WorkflowLogs.Arn } }]
+
+Outputs:
+  ApiUrl:
+    Value: !GetAtt HttpApi.ApiEndpoint
+  Bucket:
+    Value: !Ref DataBucket
+  Table:
+    Value: !Ref Table
+  RepositoryName:
+    Value: !GetAtt SampleRepository.Name
+  RepositoryCloneUrl:
+    Value: !GetAtt SampleRepository.CloneUrlHttp
+  HarnessRepositoryUri:
+    Value: !GetAtt HarnessRepository.RepositoryUri
+  SessionRepositoryUri:
+    Value: !GetAtt SessionRepository.RepositoryUri
+  ToolsFunctionArn:
+    Value: !GetAtt Tools.Arn
+  GatewayRoleArn:
+    Value: !GetAtt GatewayRole.Arn
+  DeveloperRoleName:
+    Value: !Ref DeveloperRole
+  ReviewerRoleName:
+    Value: !Ref ReviewerRole
+  StateMachineArn:
+    Value: !Ref WorkItemWorkflow
+  SnapshotProject:
+    Value: !Ref SnapshotProject
+  CiProject:
+    Value: !Ref CiProject
+  SettingsSecret:
+    Value: !Ref SettingsSecret
+  ClaudeTokenSecret:
+    Value: !Ref ClaudeTokenSecret

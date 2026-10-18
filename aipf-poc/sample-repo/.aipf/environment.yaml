@@ -1,0 +1,21 @@
+# Environment specification read by the AI platform (AIPF). The platform builds a snapshot image
+# from it (setup and unit tests baked in) and starts the services as sidecars of each agent session.
+version: 1
+runtime: node:22
+services:
+  db:
+    image: public.ecr.aws/docker/library/postgres:16-alpine
+    env:
+      POSTGRES_PASSWORD: dev
+      POSTGRES_DB: app
+    port: 5432
+    ready: pg_isready -h localhost -U postgres
+env:
+  DATABASE_URL: postgres://postgres:dev@localhost:5432/app
+commands:
+  setup: npm ci
+  prepare: npm run db:migrate && npm run db:seed
+  lint: npm run lint
+  test_unit: npm run test:unit
+  test_integration: npm run test:integration
+  start: npm start
