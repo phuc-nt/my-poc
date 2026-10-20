@@ -1268,3 +1268,124 @@ Items: UX-12, UX-12a.
 3. Run `providers/aws/aipf.sh resume`.
 
 In round 4, G4 recomputes the success rate, both first-pass figures, rework and the retries by reason for one window from the runs list (outcomes, attempts and retries) and the session records, and gets the Insights numbers. G4 also checks the window's start, 7 days against 30 days, and one engine filter.
+
+## Line 16: Agents, roles and audit (`upgrade/16-agents-roles-audit`)
+
+Items: UX-13, UX-14, UX-15, UX-16, UX-17.
+
+**Built**
+- **Roles (UX-15).** The Cognito groups `admin`, `operator` and `viewer` (precedence 1, 2 and 3). A person's role is the highest of their groups. A person in no group is a viewer.
+  - `console/roles.mjs` parses `cognito:groups` in both of its forms: the string that the HTTP API's JWT authorizer passes (`[operator admin]`, in no fixed order) and the list that a token carries. A missing claim is no group.
+  - `roleFor(method, route)` follows section 7.3:
+    - A viewer may make every `GET` except `platform/audit` and `platform/events`, and may make `POST kb/chat`.
+    - An operator may also make `POST runs`, `runs/<id>/stop`, `runs/<id>/review`, `human/<id>` and `staging`.
+    - An admin may also make `PUT agents/<id>`, `POST memory/proposals/<id>`, `POST platform/*`, and the two admin `GET`s.
+  - A refused request gets 403 before any call to AWS. The response says "this needs the operator role; your role is viewer. An admin runs providers/aws/aipf.sh console-user add <email> --role operator, then you sign in again". The log line names the user, the method, the first segment of the route and the two roles. It never names a HUMAN row id.
+  - The harness MCP's interceptor reads the role from the access token. Below operator, `harness___run_start` and `harness___run_stop` get an error result. The rest of a batch that holds one gets -32003. Every other tool stays open to a viewer.
+  - The page reads the role from the ID token and shows it in the user menu, with "A changed role takes a new sign-in". Below the role it needs, the page hides:
+    - on the run page: Stop, the review's three buttons, the tester decision and the answer box;
+    - New run;
+    - on the Agents view: the agent toggles and models;
+    - on the Memory view: the proposals' buttons;
+    - on the Platform view: Pause, Release and Replay.
+
+    A short note names the role needed where a button would be. For a viewer, the run page reads "An operator's turn", "Human review" and "waits for an operator" instead of "Your turn", "Your review" and "waits for you".
+  - `aipf.sh console-user add EMAIL [--role viewer|operator|admin]`:
+    - The role is `operator` by default.
+    - For a person who is already a user, it sets the role only.
+    - It takes the person out of the other two groups.
+    - It says "no <role> group yet: providers/aws/aipf.sh up first" before the stack has the groups.
+
+    `console-user list` adds each group's members and the state of the roles.
+- **The bootstrap (UX-15).** The stack parameter `ConsoleRoles` is `off` by default, and the console and the interceptor get it as `CONSOLE_ROLES`.
+  - With roles off, every signed-in person is an admin, and the user menu says "Roles are not on yet: everyone may do everything".
+  - `aipf.sh up` sets the parameter to `on` when the stack has it on already, or when the `admin` group has a member. Otherwise it keeps `off` and prints how to turn the roles on.
+  - `AIPF_CONSOLE_ROLES=on|off` sets it by hand.
+  - Once on, it stays on, even if the last admin leaves the group. `AIPF_CONSOLE_ROLES=off` is the way back.
+- **The audit trail (UX-13).** Each admin action adds a row: pk `AUDIT`, sk `<ISO time>#<8 hex>`, with `who`, `what`, `target`, `before` and `after`. The write has `attribute_not_exists(pk)`, so it never replaces a row.
+  - **From the console:**
+    - an agent's change (enabled and model, before and after);
+    - staging start and stop (desired count and database);
+    - a memory decision;
+    - an event replay (waiting before; replayed, repeats, failed and left after);
+    - the pause and resume;
+    - a release of the merge queue or staging.
+  - **From `aipf.sh`:**
+    - `engines allow|deny` (the allowed harnesses before and after);
+    - `pause` and `resume`;
+    - `staging start|stop`;
+    - `events replay`, written by `lost-events.mjs`.
+
+    The CLI's `who` is `AIPF_BY`, or "the CLI".
+  - A row is best effort. The change is made first. A row that cannot be written leaves `{"audit":"row","what":…,"error":"AccessDeniedException"}` in the console's log, or "the audit row was not written (the change was made)" in the terminal. The console's JSON audit lines are kept as they were.
+  - `GET platform/audit` (admin) returns the last 50 rows, newest first. Each person is shown by name only, never by address (D-13).
+  - The Platform view's "Audit trail" table shows When, Who, What, Target, Before and After. A state reads as words: "paused yes · reason deploy", "model Opus 5.5", "holder none".
+  - Each agent card shows "Changed by <name> <ago>" from the `updatedBy` that `updateAgent` already wrote.
+- **First pass per agent (UX-14).** `insightsOf` gives each agent in `byAgent` a `firstPass` of `n`, `of` and `rate`. The card shows it as a figure and a bar, under the sessions, the average time and the cost.
+  - It counts the ended runs where the agent ended at least one session.
+  - A run is a first pass when the agent had exactly one session in it and that session had no error.
+  - Running runs wait. The Insights window and filters apply.
+
+  With REC-4 (line 11), the developer's card shows its verdict chips `pr`, `no_pr` and `needs_human`, and the colors of the verdict bar.
+- **Names (UX-16).** The view is "Agents". The console's text says "harness" where it said "engine":
+  - `engineName` became `harnessName`;
+  - the Agents footer;
+  - Insights' Harness select and "Models and harnesses";
+  - the Platform view's "Agent harness" card;
+  - the sidebar's "Claude Code harness".
+- **The agents' instructions (UX-17).**
+  - `GET registry/roles/<id>` (any role) returns `registry/roles/<id>.md`, which `aipf.sh` now copies next to the console's code. `_common` returns the preamble. An unknown agent, or a file that is not in the bundle, gives 404.
+  - Each card has "Its instructions", which loads the text when opened.
+  - "What every agent reads first" shows the common preamble once, above the cards.
+- **README.** It now covers the roles, the bootstrap, `console-user add --role`, the audit trail, and the Agents and Platform views.
+
+**Differences from the plan**
+- **The audit rows are in their own partition, `AUDIT`, not `PLATFORM/AUDIT#…`.** The console's IAM role writes no `PLATFORM` row: it asks other functions for the pause and the engines. A new statement lets it `PutItem` only rows whose partition key is `AUDIT` (`dynamodb:LeadingKeys`), so no grant on `PLATFORM` was needed. IAM cannot require the condition on a write, but the role has no `UpdateItem` or `DeleteItem` there, and each sk has a random part.
+- **The harness MCP had a way around the roles,** and the plan does not mention it. A viewer could start or stop a run with `run_start` or `run_stop` through the user gateway. The interceptor now applies the same roles to those two tools.
+- **The roles turn on in two steps.** Section 11 step 7 puts the groups and the owner's membership before the code that enforces the roles. Both are in this one line, so the stack parameter waits for an admin: the first `up` creates the groups with the roles off, and the second `up` turns them on.
+- **`humanPage` needed no change.** The answer page that Slack links to already answers only questions and change requests. Approvals, tester decisions and "won't do" were already console-only.
+- **`GET platform/events` was already admin-only in the plan's table.** It stays admin, with `platform/audit`.
+- **The API's `engine` fields and messages stay** until the code rename (D-9). Only the page's text changed.
+- **First pass per agent counts sessions,** not attempts. An agent with a second session in a run (a retry, a changes request or an answer) does not pass that run. A session that ended with an error does not pass.
+- **The CLI's audit rows were added for the plan's list** (engines, staging, the pause and event replays). They are not added for `console-user` or `policy`. `console-user`'s target would be a person's address (D-13), and `policy` is not in the list. A memory decision and a lease release are console-only.
+- **The test of the trail's order waits 5 ms between the two changes.** Two rows in the same millisecond have no fixed order, and the first full run caught that once.
+
+**Tests** (302 in all, all passing three runs in a row; 294 before)
+- `console.test.mjs` (48, 6 new):
+  - `roleFor` for every route of section 7.3;
+  - a viewer reads, while stop, review and an answer each give 403 with the role needed and send nothing, and the log has no HUMAN id;
+  - an operator stops and approves, while an agent change, a memory decision and the pause need an admin; the highest group wins, in both claim forms;
+  - with roles off, a person in no group may change an agent, and the page has `data-roles="off"`;
+  - the audit rows of an agent change and the pause, append-only, then the trail, newest first and by name, then `updatedBy`, then a 403 for an operator; a failed write leaves the change made and logs only the error name;
+  - `registry/roles/developer` and `_common` give 200, and an unknown id gives 404.
+- `interceptor.test.mjs` (9, 1 new): with roles on, a viewer is refused `run_start` and `run_stop` and may make `run_get`; a batch with a refused call is refused; an operator and an admin pass; with roles off, everyone passes. `callerOf` now returns the role as well.
+- `insights.test.mjs` (13, 1 new): first pass per agent over five runs (PM 1 of 1, developer 1 of 3, reviewer 2 of 2), with a filter.
+- **`aipf.sh`:** `bash -n` passes. The audit row's JSON was checked offline for a number, a `null` and a string.
+- **`lost-events.mjs`:** run with a fake `aws` on `PATH`. A replay writes one `AUDIT` row (`events replay`, `oldest`, waiting 1, replayed 1). A refused write prints its message and exits 0.
+- **The browser pass** used the mock of the console API as viewer, operator and admin, in light and dark, at 1280 and 390 px wide. There were no script errors, no CSP violations and no page scrolling sideways.
+  - As a viewer: no Stop, no review buttons, no New run, and the role notes. The run page reads "An operator's turn" and "Human review".
+  - As an operator: Stop and the review buttons.
+  - On the Agents view: first pass on each card, the developer's verdict chips, "Its instructions" (the developer's is 3,758 characters), the common preamble, and "Changed by phucnt 1 d ago".
+  - As an admin, on the Platform view: the audit table, which also fits at 390 px.
+- The diff holds no account number, email or address.
+
+**Deploy.** This line changes:
+- the stack: the three groups, `ConsoleRoles`, the `AddAuditRows` statement and `CONSOLE_ROLES`;
+- the console and harness MCP bundle, which now has `registry/roles`.
+
+The workflow, the orchestrator and the harness image do not change. It comes after line 15's deploy.
+1. Run `providers/aws/aipf.sh pause "line 16"`, and wait until no run is running.
+2. Run `providers/aws/aipf.sh up`. It creates the groups and keeps the roles off: it prints "console roles are off …".
+3. Run `providers/aws/aipf.sh console-user add phucnt@aipf.invalid --role admin`. It prints "already a console user: setting the role only".
+4. Run `providers/aws/aipf.sh up` again. It turns the roles on. In the console: Platform > Audit trail, with the user menu showing "admin".
+5. Sign in again to the console and to the harness MCP (`harness login`, by the owner), so the tokens carry the group.
+6. Run `providers/aws/aipf.sh resume`.
+
+To roll back, run `AIPF_CONSOLE_ROLES=off providers/aws/aipf.sh up`. It keeps the groups.
+
+In round 4, D8 runs as follows:
+1. Create a test user in the viewer group: `console-user add d8-viewer@aipf.invalid --role viewer`, with its password set by the owner.
+2. As that user, stop a run and approve a pull request with the API. Each gives 403 with "this needs the operator role; your role is viewer".
+3. As that user, open the run page. It has no Stop button and no review buttons, and `run_start` through the harness MCP is refused.
+4. As the owner (admin), change an agent's model and set it back. The Platform view shows both rows with the before and after.
+5. Remove the test user with `console-user remove`.
