@@ -1562,3 +1562,55 @@ In round 4, after the deploy:
 5. **E5 and E6.** A later run whose item adds a route adds it to the README's API table, as E1's note says. After D3's rejection, a later `memory___read` returns the unchanged note.
 6. **B6.** While a developer session runs, stop its task with `aws ecs stop-task`. The session row has the verdict `killed`, tokens and a cost shown as "≈". Attempt 2's feedback starts with "The previous developer session ended after N s: the platform stopped it (exit 143).", and attempt 2 opens the pull request.
 7. Check the session rows' Missing tools column (empty when every tool was listed), the run record's `earlierRuns` on an item that ran before, and that the tester's `T-<run>-` data is gone at the run's end.
+
+## Line 19: memory proposals as patches, notes with history (`upgrade/19-memory-patches-history`)
+
+Items: UX-18, UX-19.
+
+**Built**
+- **The base (UX-18).** Each proposal card says which version it starts from: "Based on the version of <date and time> (<id>)", and ", the note as it is now." when nothing changed since. A base older than the bucket keeps reads "…, which is no longer kept (old versions are kept 90 days)". A change with no base reads "Based on: not recorded (the agent did not read the note first)". A new note shows no base line.
+- **Stale proposals (UX-18).**
+  - A proposal whose note changed since its agent read it gets the badge "stale: the note changed since the agent read it", or "stale: the note was deleted since". The inbox's memory list marks it "stale" too.
+  - The card has three views on the console's segmented tabs: "The agent's change" (from the base to the proposal), "Changed since" (from the base to the note now) and "What Accept writes" (the agent's change applied to the note now, or "N conflicts: … Accept opens the editor with them marked").
+  - `merge3(base, ours, theirs)` in `console/diff.mjs` does the three-way merge on lines. The sync points are the base lines that both sides keep. A chunk changed on one side only takes that side, a chunk changed alike on both takes it once, and any other chunk is a conflict, written between `<<<<<<< the note now`, `=======` and `>>>>>>> the agent's proposal`. It returns null past the diff's size limit.
+  - `proposalOf` adds `baseAt`, `currentVersion`, `deletedSince`, `sinceDiff`, `merge` (`clean`, `conflicts`, the text) and `mergeDiff`.
+- **Accept (UX-18).**
+  - A clean stale proposal asks "Apply the change to the note now?", quotes the diff from the note now, and writes the merged text.
+  - A conflict writes nothing: Accept opens the editor, which starts from the merged text with the conflicts marked, and says "Edit the conflicts, the lines between <<<<<<< and >>>>>>>, then Accept." The page refuses a text that still has a marker line, and so does the API (400, "the note still has conflict markers …").
+  - A stale proposal whose base is gone opens the editor on the proposal, and the API refuses it unedited (409). A proposal for a note deleted since is written as a new note.
+  - The page sends the version of the note it showed. The API answers 409 "the note changed again since you opened the page: reload it and decide again" when that is no longer the note's version, and the write is a conditional `PutObject` (`IfMatch` on the ETag, or `IfNoneMatch: '*'` for a new note); a lost race gives the same 409 and keeps the proposal.
+- **Who accepted what (UX-19).** An accept writes the object's metadata: `accepted-by` (the person's name, never an email, D-13), `proposal` (its id), `agent`, `edited` and `merged` (`yes` or `no`), and `source: console`. The audit row and the console's log line add `merged`. `aipf.sh up` copies the seed's notes with `source=seed`.
+- **History (UX-19).** `GET memory/notes/<path>` adds `history`: the note's S3 versions and delete markers, newest first, at most 20, each with its time, size and what its metadata records. The viewer lists them under "History: N versions". Each says "Accepted by <name> from the <agent>'s proposal of <date>." with `edited` and `merged` badges, "From the memory seed.", "Not recorded: written outside the console." or "Deleted.". **Show** opens a version (`?version=<id>`) with "What changed from the version before" (or "The first version") and "Back to the note now".
+- **Search (UX-19).** `GET memory/search?q=` (2 to 100 characters, viewer and up) reads up to 200 notes and returns at most 50: whether the name matches, the number of matches in the text and up to three lines around them. The box on the Notes panel filters the list by name at once; after the typing stops, the notes whose text matches join the list, and their lines show above it with the match marked. The note opened next marks the matches in its text.
+- **The stack.** The console role may `s3:ListBucketVersions` on the data bucket for the `memory/*` prefix. It already had `s3:GetObjectVersion` (AG-3).
+- **README.** The Memory view's bullet, and `platform/README.md`'s blobs row (the versions kept 90 days).
+
+**Differences from the plan**
+- **"Applies the patch" is a three-way merge.** A proposal holds the whole note, not a patch, so Accept merges the base, the note now and the proposal. As in git, changes to adjacent lines count as a conflict: a line added since right after the line the agent changed opens the editor. The browser check found this with the mock's first fixture, and its fixture now adds the line elsewhere.
+- **The conditional write depends on the SDK in the Lambda runtime.** The console uses the AWS SDK that ships with `nodejs22.x` (its `package.json` has no S3 client). If that SDK did not know `IfMatch` and `IfNoneMatch`, it would drop them, and only the version check would guard the moment between the API's read of the note and its write. A person cannot hit that moment by hand, so round 4 does not check it; the unit test does, on a fake S3. If it matters, a later line can bundle the S3 client with the console.
+- **`stale` stays true when the note was deleted since;** `deletedSince` marks that case, and Accept writes the proposal as a new note.
+- **The history is the latest 20 versions,** from one `ListObjectVersions` page of 100 keys under the note's path (a note `a.md` and a note `a.md.old` share the prefix), with one `HeadObject` per version for its metadata.
+- **Versions written before this line,** or by anything other than the console, show "Not recorded". The seed marks only the notes that `up` copies, which are the ones S3 does not have yet.
+- **The console's CloudWatch log line still names the person** as it did before (their sign-in name). It is not Jira, Slack or a commit, and the S3 metadata keeps the name only.
+- **A long badge wraps** in a narrow proposal card (the browser check found "stale: …" past the card's edge at 400 px).
+
+**Not built.** Nothing else in the line.
+
+**Tests** (333 in all, all passing; 326 before)
+- `diff.test.mjs` (6, 3 new): `merge3`'s clean cases (one side, both sides alike, both sides apart), its conflicts with their markers (an empty base included), and its edges (the trailing newline, null past the limit, markers only as whole lines).
+- `console.test.mjs` (54, 4 new): a clean stale proposal accepts the merged text with `IfMatch` and the metadata (no `@`), a conflict is a 409, markers are a 400, a version that moved is a 409, an edited resolve is written, and a new note is written with `IfNoneMatch: '*'`; a lost race is a 409 and keeps the proposal; the history (the exact key, newest first, the seed, a decoded name, the proposal's time, the agent's name), `?version=` with the version before and the diff, a 404 and a 400; the search (lines, a name match, regex characters, and a 400 for a missing, too short or too long term). The viewer role may search.
+- **The browser check** (the POC environment's `test-set/browser/ux18.mjs`, on the mock console, at 1280 and 400 px in both themes; `run.sh` runs it): the base lines and badges; the three views of the clean stale proposal (the agent's `urgent`, the `Device` line since, and `urgent` applied to the note now); Accept on the conflict opens the editor focused with the three marker lines and sends nothing; Accept again with the markers is refused on the page; the clean proposal's dialog, and its post with `decision` and `version`; the conflict resolved by hand posts `content`; the inbox's stale badges; the glossary's three versions with who accepted each, Show of the second with its diff, and Back; the first version; the name filter; "priority" finds the glossary with its line marked, and the note opened from the hit marks it; no match says so. No page scrolls sideways, and there were no errors, CSP reports or console warnings.
+- `bash -n` passes on `aipf.sh`, and the stack template parses. The diff holds no account number, email or address.
+
+**Deploy.** This line changes the stack (the console role's `s3:ListBucketVersions` on `memory/*`), the console bundle (`index.mjs`, `diff.mjs`, `app.js`, `app.css`) and the seed copy in `aipf.sh`. The harness image, the gateway and the workflow do not change. It comes after line 18's deploy.
+1. Run `providers/aws/aipf.sh pause "line 19"`, and wait until no run is running.
+2. Run `providers/aws/aipf.sh up`.
+3. Run `providers/aws/aipf.sh resume`.
+
+To roll back, revert the line and run `up`. The metadata on the versions written meanwhile does no harm.
+
+In round 4, after the deploy:
+1. **E1.** The memory proposal from `r3-kb-return-policy` shows "Based on the version of …" with its id. Edit it (add "Every new route must be added to the README's API table.") and accept it. The note's history then has "Accepted by <name> from the <agent>'s proposal of <date>." with the `edited` badge, and `aws s3api head-object` on the note (masked) shows `accepted-by` as a name, with no `@`.
+2. **A stale proposal.** With a proposal waiting for a note, accept another change to the same note. The waiting one is marked stale and has the three views. Accept it when its change applies cleanly (the history marks it `merged`); otherwise Accept opens the editor with the conflict marked, and Accept with a marker left in is refused.
+3. **A race.** Open the Memory page in two tabs and accept the same proposal in both: the second answers "this proposal is gone: someone decided on it already". With two proposals for the same note, accept one in the first tab, then the other in the second without reloading: it answers "the note changed again since you opened the page: reload it and decide again". The same goes for a note changed with `aws s3 cp` after the page loaded.
+4. **History and search.** Show an earlier version of `project.md`, with its change from the one before, and go back. Search for a word in a note's text: the note joins the list with its line marked.
