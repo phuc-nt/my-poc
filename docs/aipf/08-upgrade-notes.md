@@ -1089,3 +1089,114 @@ Items: P1-5, P1-6.
 4. With the owner's go-ahead, run `providers/aws/aipf.sh branches prune --days 0` and then the same command with `--apply`, for the 19 round 3 branches.
 
 In round 4, C3 asks for a change on an open pull request, and its description must describe the change after it. E2 ends with a commented pull request and an item labelled `aipf-needs-person`, and `branches` lists no merged run's branch.
+
+## Line 14: indexes, the inbox and the runs list (`upgrade/14-indexes-inbox-runs`)
+
+Items: UX-8, UX-9, UX-10a.
+
+**Built**
+- **The indexes (UX-8).** The table gains three sparse global secondary indexes that project all attributes:
+  - `run-index` (`gsiRuns`, always `RUN`, by `startedAt`) and `issue-index` (`gsiIssue`, the work item, by `startedAt`) on every `RUN#` row;
+  - `open-index` (`openKind`: `question`, `approval` or `decision`, by `openedAt`) on a `HUMAN#` row while it waits.
+  - The orchestrator writes `gsiRuns` and `gsiIssue` on every new run (a duplicate's too), and `openKind` and `openedAt` on every question, approval and tester decision.
+  - An answer through its link (`humanPage`), a decision (`decidedIn`, and the console's claim of a tester decision) and a close (`closeOpenRows`) remove `openKind` and `openedAt` in the same write. The store's `update` gained `unset` for that: `REMOVE` on DynamoDB, the update mask on Firestore, a delete in memory.
+  - A decision that cannot resume its run lets its claim go and puts the row back in `open-index` as it was.
+- **The stepping.** The stack's new `TableIndexes` parameter (`0` to `3`, default `3`) says how many indexes exist, in the order `run-index`, `issue-index`, `open-index`.
+  - `aipf.sh up` counts the table's indexes (`table_indexes`) and runs one stack update per missing index. After each one, it waits until every index is `ACTIVE` (`wait_indexes`, up to an hour), and then it adds the next.
+  - A new table gets all three at once. A table that has all three gets the one update `up` always ran.
+  - The console role and the harness MCP function's role (`runs_list`) gain `${Table.Arn}/index/*`.
+- **The inbox's data (UX-8, UX-9).** `pendingHuman` is one `Query` of `open-index` per kind, oldest first.
+  - The rows of runs that have ended are left out, and so is a review of an earlier attempt.
+  - An approval comes with what the review sees first: CI, the reviewer agent's verdict on the attempt, and whether the pull request changes a dependency.
+  - A tester decision comes with its finding, masked as on the run page.
+  - The overview's counts read the same data.
+- **The runs list's data (UX-10a).** `GET runs` takes `status` (`running` or `ended`), `outcome` (a word of D-3), `issueKey`, `startedBy`, `from`, `to` and `cursor`.
+  - It queries `issue-index` for a work item and `run-index` otherwise, newest first, 50 a page. `from` and `to` bound the sort key, and a date in `to` takes in the whole day.
+  - The cursor is the index key of the page's last row, base64 JSON. It is checked field by field, and a bad cursor or work item key gives 400.
+  - The first page also has the chips' counts: the runs of each outcome for the page's work item, dates and starter, whatever the status or outcome. They come from at most ten index pages of two fields each, and `capped` says there were more.
+  - Mission control (20 runs), Insights (60) and the harness MCP's `runs_list` read `run-index` too. No list reads an execution any more: a run's status and outcome come from its `RUN` row and its sessions. The history is read only for the run page.
+- **The inbox (UX-9).** The sections come in the plan's order:
+  - pull requests to review;
+  - tester decisions;
+  - questions;
+  - memory proposals (from S3, as before);
+  - proposed work items.
+- **The inbox's cards:**
+  - Each card has its work item (to its run), its age ("45 m", "2 h 10 m", "3 d 4 h") and its Jira and CodeCommit links.
+  - A question or decision is overdue after 30 minutes, and a review after 2 hours. An overdue card has the red tone and its age in red.
+  - A review card has its checks line.
+  - A decision card shows the finding and is decided in place: Accept, Fix or Revert open the run page's dialog.
+  - The head says how many wait and since when.
+  - Home's "needs you" list is the same data: five items, oldest first.
+- **The runs list (UX-10a).**
+  - The chips are All, Running, Ended and each outcome, with counts. A chip with no runs is hidden unless it is the selected one.
+  - The filter fields are the work item, started by, from and to. A work item key is uppercased, and a bad key shows the error and keeps the filters.
+  - The columns are the plan's: Work item, Outcome (the reason as a tooltip, for example `escalated · tester found gaps`), Stage now, Attempt, Retries, Time, Cost, Started by and Started.
+  - Started, Time and Cost sort, with `aria-sort`. "More" loads the next page.
+  - The find box takes a run id, or a work item key, which opens that item's latest run.
+  - At 400 px the filters are two columns and the table scrolls in its own box.
+- **The backfill (`aipf.sh backfill [--apply]`, `providers/aws/backfill.mjs`).** One Scan of the `RUN`, `HUMAN`, `PR` and `Q#` rows. Its projection never reads `token`. The plan's writes:
+  - every `RUN#` row gets `gsiRuns` and `gsiIssue`, and a `startedAt` that is not ISO becomes ISO;
+  - a run with `lastReason` and no `retries` gets one retry from it;
+  - an unanswered `HUMAN#` row of a running run gets `openKind` and `openedAt` (from `openedAt`, `createdAt` or now), and the rest are closed with `closedReason: 'run ended before the upgrade'`;
+  - an answered or closed row that still has `openKind` leaves the index;
+  - a `Q#` row is closed unless the work item's running run started at or before its question;
+  - an `ISSUE#*/PR` row is deleted.
+
+  Each write has a condition, so a second run writes nothing, and a row that changed in between is skipped. The dry run lists the writes by run id or work item, never a `HUMAN#` id, then a three-line summary and "Nothing is written without --apply". `--apply` counts the writes and the skips, and a failure prints only its error name.
+
+**Differences from the plan**
+- **Some reads keep their Scans:** the reconciler, `closeOpenRows`, `queuePlace` and `humanRowsOf` (a run's questions and reviews, answered or not). `open-index` holds only the rows that wait, and a work item's reset closes by work item, not by run. The run page still reads its sessions with one `Query` per run.
+- **Every index read falls back to the Scan** while the index is missing, being built, or empty before the backfill (`unfilled`). The console works between the three stack updates and before the backfill, with the same pages, oldest or newest first.
+- **The indexes ship through one `TableIndexes` parameter** that `up` steps from 1 to 3, not three edits of the template. The Lambda code changes in the first update, and the first two updates run with the fallback.
+- **The live `startedAt` values are already ISO,** so the backfill's ISO step has nothing to change on the POC. It only adds the index keys, which needs no change of `startedAt`.
+- **The lists name a run's status from its `RUN` row**: `DONE`, not `SUCCEEDED`, in the lists and in `runs_list`. A run reset before P0-7 (status `reset`) reads `ABORTED`, as its execution did. The run page still reads the execution. The lists no longer call `ListExecutions`.
+- **The proposed work items are a Jira search link** with no count, oldest first. The console holds no Jira credentials, and the label comes with AG-4 in line 18. Without `JIRA_BASE_URL` the section says so and has no link.
+- **The review card's CI is always "passed".** The workflow asks for a review only after CI passes, so the card does not read CI again.
+- **The full runs table drops the "Agents" column,** per the plan's column list. Mission control's compact table keeps it.
+- **The runs list adds what the plan does not list:**
+  - the "Started by", "From" and "To" fields and the "Ended" chip;
+  - the sort orders the loaded rows, not the server's pages, so a sort after "More" covers every row shown.
+- **The backfill's retries have no `counted` flag.** The run page's fallback reads them as older records. A retry of a run that was not exhausted is attempt − 1, and its `at` is `attemptStartedAt`.
+- **The backfill also deletes `ISSUE#*/PR` rows and closes stale `Q#` rows,** per section 11. Those rows carry no run id, so a `Q#` row is matched against the work item's running run.
+
+**Tests** (288 in all, all passing; 271 before)
+- `console.test.mjs` (40):
+  - `GET runs` reads `run-index` newest first, 50 a page, with the next cursor and the chips' counts;
+  - its filters by status, outcome, starter, work item and start, with counts that keep the work item, dates and starter;
+  - the Scan fallback while `run-index` is missing or empty, with the same pages;
+  - the inbox from `open-index`, oldest first, with the review's checks, and without an ended run's rows or a stale review;
+  - the proposed work items' Jira link, and none without Jira;
+  - a decision that cannot resume its run puts its row back in `open-index`.
+- `orchestrator.test.mjs` (88): a run is in both run indexes, and a waiting row is in `open-index` until it is answered or closed.
+- `platform.test.mjs` (27): the store contract's `unset` in the same write, and Firestore's update mask.
+- `backfill.test.mjs` (8, new):
+  - `isoOf`;
+  - the `RUN` index keys and ISO times;
+  - the retries;
+  - open, close and unindex of `HUMAN#` rows, with no `HUMAN#` id in any text;
+  - `Q#` and `PR` rows;
+  - a second plan after the first is empty;
+  - the CLI arguments of each write, and DynamoDB JSON both ways.
+- **The browser pass** used a mock of the console API, in light, dark and 400 px wide, with no script errors, no CSP violations and no page scrolling sideways.
+  - The runs list: "More", the cost sort both ways, the outcome tooltip, the chips, the work item filter and a bad key.
+  - The find box, with a key, a run id and junk.
+  - The inbox: the late decision card, its finding, and Accept through the dialog.
+  - Home's five oldest.
+- **The stack:** `cfn-lint` gives 7 warnings, as on `main`. `validate-template` (through the deploy bucket) passed. The workflow does not change. The diff holds no account number, email (other than `@aipf.invalid`) or address.
+- **On AWS (read-only):** `backfill` (the dry run) against the POC table listed 152 writes:
+  - 53 `RUN` rows to index;
+  - 27 runs to get their retries;
+  - 24 `HUMAN#` rows to close (all their runs have ended) and none to open;
+  - 18 `Q#` rows to close;
+  - 30 `ISSUE#*/PR` rows to delete.
+
+  Nothing was written.
+
+**Deploy.** This line changes the stack (the table's indexes and two roles' grants), the orchestrator, the console and harness MCP functions (one code bundle) and `aipf.sh`. The harness image does not change.
+1. Run `providers/aws/aipf.sh pause "line 14"` and wait until no run is running.
+2. Run `providers/aws/aipf.sh up`. It runs three stack updates, one per index, each about 9 minutes, and waits until each index is `ACTIVE`. If it stops part way, run `up` again: it starts from the indexes the table has.
+3. Run `providers/aws/aipf.sh backfill` and read the list. With the owner's go-ahead, run `providers/aws/aipf.sh backfill --apply`. Run `backfill` again: it should list 0 writes.
+4. Run `providers/aws/aipf.sh resume`.
+
+In round 4, C6's inbox shows the same questions and pull requests as Slack, oldest first, with their ages, and an answer in one place takes the item out of the other within a refresh. No round 3 `HUMAN#` row is in the inbox. G4's runs come from `run-index`, and the runs list filters by work item through `issue-index` and pages with "More".
