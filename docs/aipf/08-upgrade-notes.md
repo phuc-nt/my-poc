@@ -956,3 +956,83 @@ Items: P1-3, UX-7.
 4. To turn the queue off without a revert, run `AIPF_MERGE_QUEUE=off providers/aws/aipf.sh up`. The console then merges (P0-2), and the other pull requests get the "check for conflicts" note.
 
 In round 4, B9 and B10 check two pull requests on one file, approved within a minute. The second merges after an automatic update and a green CI, or goes back to its developer as `rebase`, and no run counts a failure for it. The console shows the place in the queue and the step.
+
+## Line 12: the staging lease (`upgrade/12-staging-lease`)
+
+Items: P1-4, UX-20.
+
+**Built**
+- **The lease row (P1-4).** `PLATFORM/STAGING_LEASE` holds `runId`, `issueKey`, `prId`, `purpose` (`deploy` or `revert`), `takenAt` and `expiresAt`.
+  - `takeLease` does a conditional put on the holder it read. The lease is free when it is empty, already this run's (a revert after the decision), held past its time, or held by a run that has ended. Two runs that try at once take it once.
+  - The holder extends it at its steps: two hours from `takeLease`, `afterTester` and `accepted`, and 25 hours from `askDecision` (the 24-hour tester decision).
+  - `afterOperator` and `nextAttempt` release it on the condition of the run id; `finish` and `endRun` already did through `releaseRun`. The reconciler releases a lease older than its young-row window whose run has no record, has ended, or whose execution is not running, and posts one chat line for it.
+  - The run record gains `lease: { step, since, purpose, holder, holderSince, at, why }`, with the steps `waiting`, `taken` and `released`.
+- **The workflow's lease states.** `Decision` (`merged`) and `QueueExit` (`merged`) go to `LeaseStart` (`$leaseFor: deploy`, `$leaseSince`), then `TakeLease`, then `LeaseTaken`:
+  - taken: `DeployStaging`, or `Redeploy` for a revert;
+  - not taken: `LeaseWait` (30 s), then `TakeLease` again;
+  - after 45 minutes: `StagingAgain` (`nextAttempt`, reason `lease`, `waitsForStaging`), then `StagingLeft`. With rounds left it goes to `LeaseAgain` and waits again. Without, `StagingOut` escalates.
+  - a revert that waited 45 minutes goes to `RevertWaited` and escalates: the revert is merged and a person deploys `main`.
+  - `TesterDecision`'s `revert` goes to `RevertLease` (`$leaseFor: revert`), then `TakeLease`. The run holds the lease already, so it takes it at once.
+  - Each time-out posts a pull request note: staging was held by the named work item, the change is merged, and nothing is wrong with it.
+- **The trace.** The lease states are part of the "Deploy to staging" stage. One pass from `LeaseStart` to `DeployStaging` is one attempt, and the stage is `waiting` while another run holds staging. The revert's lease steps stay as they are. `StagingOut` and `RevertWaited` read "staging stayed held".
+- **The console's run views (UX-7).**
+  - The run view gives `lease` while the run is at the deploy, with `heldBy` (the work item, the run and since when) while it waits and another run holds staging.
+  - `app.js`: the flow and the stepper show the deploy as waiting, the progress strip says "waits · SCRUM-n has staging", and `nowText` names the holder, since when, the 45 minutes and "goes round again, which is no failure" (for a revert: "a person takes over").
+- **The Staging card** shows the last deploy's commit (from the image tag) and the holder ("held by SCRUM-n since …", "(revert)"), or "free: the next run to deploy takes it". The stop-staging dialog adds "Runs that reach the deploy wait for the lease."
+- **The Platform view (UX-20):**
+  - `docs` is `{ name: 'none', title: 'Not configured' }`, never `null`, and the card reads "the agents have no docs tools".
+  - The knowledge base card has the name, status, embedding model, answer model and last update from `bedrock-agent:GetKnowledgeBase`, with the id masked (`KB••••••78`).
+  - **Pause:** who paused, when and why, with "Pause…" (an optional reason) and "Resume".
+  - **Holders:** the merge queue and staging, each with its run, pull request, since and until, a "past its time" badge, and "Release…" with a reason. With the queue off, its row says the console merges at the approval.
+  - **Lost events:** the queue's depth and both alarms (a missing alarm reads `missing`), with "Replay oldest", "Replay all" and "Show the events" (sent, source, target, reason and how it came; never a payload).
+  - **Reconciler:** the last run and its last ten fixes, newest first, with links.
+  - Each read is best effort: a failed read gives `unknown` or nothing, and the rest of the view still loads.
+- **The console's new routes** (each writes the console's JSON audit line):
+  - `GET platform/events` peeks at up to 50 messages with a 30-second visibility and makes them visible again.
+  - `POST platform/events/replay` (`all` or the oldest) sends each orchestrator event to the orchestrator again as an `Event` invoke and deletes the message once Lambda accepts it. A repeat of an event already sent is deleted, and a snapshot event is left with "providers/aws/aipf.sh events replay starts the snapshot".
+  - `POST platform/pause` (`paused: true` or `false`) and `POST platform/lease/release` (`runId`, `what: staging` or `queue`, `reason`) go through the orchestrator's new `pause`, `resume` and `releaseLease` actions. A release names the run it releases. When another run holds it by then, the console gives 409 and names that run.
+- **The CLI.** `aipf.sh status` has a "Merge queue and staging lease" section with each holder, or `free`. `lost-events.mjs` now reads messages with the console's `console/events.mjs`.
+- **IAM and env.** The console role gains `sqs:GetQueueAttributes`, `ReceiveMessage`, `ChangeMessageVisibility` and `DeleteMessage` on the lost-events queue, and `cloudwatch:DescribeAlarms` on the two alarms. The console gets `LOST_EVENTS_QUEUE`. `bedrock:GetKnowledgeBase` and `lambda:InvokeFunction` on the orchestrator were there already.
+
+**Differences from the plan**
+- **A lease wait that runs out does not go to `AttemptsLeft`.** The change is merged by then, so a new developer attempt has nothing to do. `StagingAgain` counts a round (reason `lease`, no failure) and keeps the run's attempt, stage and feedback, and the run waits again until its rounds run out (`StagingOut`, then `Escalate`).
+- **A revert's wait that runs out escalates** (`RevertWaited`): the plan does not say. The revert is merged, and only its deploy waits.
+- **The lease's hold is per step** (two hours, 25 hours for the tester decision), not one fixed time, as the queue's is: a run that died holding staging blocks the others for two hours at most, and the reconciler frees it sooner.
+- **The audit list (UX-13)** is line 16's: the Platform view has no audit card yet. The new actions write the console's JSON audit line now.
+- **"Replay" and "Release" are for every console user** until UX-15's admin role (line 16).
+- **The console's replay is asynchronous** (an `Event` invoke): a message is deleted once Lambda accepts the event, and a failure of that invocation comes back to the queue through the orchestrator's invoke config. Snapshot events replay from the CLI only, because the console role cannot start CodeBuild.
+- **The console role needs `ChangeMessageVisibility` and `GetQueueAttributes`** as well as the plan's `ReceiveMessage` and `DeleteMessage`: the first makes peeked messages visible again, the second gives the depth.
+- **The pause and the release go through orchestrator actions.** The console role cannot write `PLATFORM` rows, and the orchestrator also posts the chat line.
+- **The release covers the merge queue too** (`what: queue`), as the plan's UX-20 card asks.
+- **The deploy stage's time includes the lease wait**, and the run's stage is `deploy` while it waits.
+- **The new SDK clients** (`@aws-sdk/client-sqs`, `client-cloudwatch`, `client-bedrock-agent`) come from the Lambda `nodejs22.x` runtime. `package.json` does not change.
+- **`ageOf` in `events.mjs` is clamped at 0**, so a clock skew never gives a negative age.
+- **`harness/runner/step.mjs`'s heartbeat thread keeps one heartbeat in flight.** This is not a plan item. Line 11 noted that `step.test.mjs`'s heartbeat test counted 4 beats instead of 3 when the file runs alone, and it then failed on `main` as well. Two heartbeats could overlap, so one went out after Step Functions said the step was gone. A tick now skips while a heartbeat is still on its way. The test passed five runs in a row, and the full suite passes. This is the only harness change in the line, so the harness image changes with it.
+
+**Tests** (264 in all, all passing; 250 before)
+- `orchestrator.test.mjs` (84):
+  - one run takes the lease, and a second waits and names the holder;
+  - the holder extends the lease at its steps, and the operator releases it;
+  - a hold past its time, or of an ended run, is taken over;
+  - 45 minutes of waiting count a round, no failure, and the run waits again;
+  - every end releases the lease on the condition of the run id;
+  - the reconciler releases an ended or dead run's lease, and leaves a young or a live one;
+  - the console's release, pause and resume.
+- `platform.test.mjs` (25): every staging deploy, the revert's too, comes after `TakeLease`, and every way on from it releases the lease.
+- `trace.test.mjs` (16): the lease is part of the deploy stage, waits while another run holds staging, and one pass is one attempt.
+- `console.test.mjs` (34):
+  - the run's lease with `heldBy`, and no holder for an expired or missing lease;
+  - the Staging card's commit and holder;
+  - the Platform view's docs, knowledge base, alarms, reconciler, pause and holders, best effort;
+  - `platform/events` without payloads;
+  - replay of the oldest and of all, with repeats, the snapshot left and a throttle;
+  - pause and resume, and the release of staging and the queue, with 400, 409 and 503.
+- **The stack:** `cfn-lint` gives 7 warnings, as on `main`. `validate-template` (through the deploy bucket) passed. `ValidateStateMachineDefinition` gives `OK` with no diagnostics. The diff holds no account number, email (other than `@aipf.invalid`) or address (other than `example.invalid`).
+- **Not yet on AWS.** B8 is round 4's.
+
+**Deploy.** This line changes the stack (the console's grants and env), the workflow, the orchestrator, the console, `aipf.sh` and the harness image (`step.mjs`).
+1. Run `providers/aws/aipf.sh pause "line 12"` and wait until no run is running.
+2. Run `providers/aws/aipf.sh build` for the harness image, then `providers/aws/aipf.sh up`. The new definition applies to new executions only. An execution from before never takes the lease, and the holder's steps leave it alone (`holdLease` returns false).
+3. Run `providers/aws/aipf.sh resume`, or press "Resume" on the Platform view.
+
+In round 4, B8 labels three items at once. The second and third wait at the deploy with "waits · SCRUM-n has staging". No tester agent sees another run's deploy. `aipf.sh status` shows the holder, and `PLATFORM/STAGING_LEASE` is empty once all three end.
