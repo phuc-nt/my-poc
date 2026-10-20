@@ -1200,3 +1200,71 @@ Items: UX-8, UX-9, UX-10a.
 4. Run `providers/aws/aipf.sh resume`.
 
 In round 4, C6's inbox shows the same questions and pull requests as Slack, oldest first, with their ages, and an answer in one place takes the item out of the other within a refresh. No round 3 `HUMAN#` row is in the inbox. G4's runs come from `run-index`, and the runs list filters by work item through `issue-index` and pages with "More".
+
+## Line 15: Insights, defined (`upgrade/15-insights-defined`)
+
+Items: UX-12, UX-12a.
+
+**Built**
+- **The window (UX-12a).** `GET insights` takes `days`: `7`, `14` (the default), `30` or `all`. Any other value gives 400.
+  - The window starts at 00:00 UTC on its first day, so "the last 14 days" is today and the 13 days before it, the same days as "Runs per day".
+  - The route reads the window's runs from `run-index`, newest first, from that day on, with no Scan. While the index is missing or not yet backfilled, it reads them with the Scan, as the lists do since line 14 (UX-11's window bug).
+  - At most 300 runs, the latest. `window.capped` says the window had more, and the page then says "the latest of the window only".
+  - The page has the chips 7 days, 14 days, 30 days and All. Its first line names the window and its real start, for example "The last 14 days, since Oct 7, 2026 (UTC): 16 runs", or "Every run, since …".
+  - With All, "Runs per day" starts at the oldest run's day, from 14 to 90 days long.
+- **The filters (UX-12a).** `harness` and `model` (a name of letters, digits and `.:/@-`, else 400).
+  - An engine keeps the runs of that engine. A model keeps the runs with a session on that model.
+  - With a filter, the agents and models tables count only the sessions that match it.
+  - The page has an Engine select and a Model select, each listing the window's engines or models with their run counts, before any filter applies, and a Clear button.
+  - A chosen filter that the new window does not have stays in its select with 0 runs, and the page says "No runs of this engine or model in the window".
+  - The page caches each window and filter for a minute. The Agents page reads the default window, as before.
+- **First pass (UX-12).** Two figures, each out of the done runs:
+  - "Done at attempt 1": the done runs that never went again.
+  - "CI green at attempt 1": the done runs whose first attempt did not end before CI passed. An attempt ends before CI when it ends for `ci`, `no_pr`, `error`, `killed` or `answer`. A run whose record does not say how attempt 1 ended is left out, and the figure says "N not on record".
+  - `firstPassRate` is "Done at attempt 1", as before.
+- **Rework (UX-12).** The runs with a retry for any reason but `answer`, out of every run of the window. The reasons come from `retries` (REC-2): `changes`, `tester`, `rebase`, `ci`, `no_pr`, `killed`, `deploy` and `lease`, and also `error` (a session that failed). A run from before REC-2 counts its one retry from `lastReason`.
+- **Retries by reason (UX-12).** This replaces "Why the developer went again". Each reason has a bar with how many runs went again for it and how many times. An answer is on its own grey line, "Answered (not rework)". The panel says a run can go again for several reasons.
+- **Costliest runs (UX-12a).** Each work item links to its run. The column is now "Outcome", and its badge has the end reason as a tooltip.
+- **The page.** Six figures, in rows of three, of six on a wide screen and of two at 400 px: success rate, done at attempt 1, CI green at attempt 1, rework, lead time and cost per done run. "How it is counted" explains the three new figures.
+- **The data.** `insightsOf` returns:
+  - `window` (`days`, `from`, `firstRun`, `runs` and `capped`);
+  - `filters` (`harness`, `model`, and the window's `harnesses` and `models` with their runs);
+  - `firstPass` (`doneAtAttempt1`, and `ciGreenAtAttempt1` with `unknown`);
+  - `rework` (`n`, `of`, `rate`, `reasons` and `answers`).
+
+  Each listed run has its `retries`, its `ciGreenFirst` and its `endReason`.
+
+**Differences from the plan**
+- **"CI green at attempt 1" comes from the retries,** not from a CI record. A run keeps no CI result per attempt, but each retry says how its attempt ended. A CI failure after the merge or of the image build also counts as `ci`, so it counts as "not green". The figure leaves out a done run with no record of attempt 1 (an older run that went again more than once).
+- **"Done at attempt 1" counts attempts literally.** An answer to the developer's question starts attempt 2, so a run with an answer is not done at attempt 1, although it is not rework.
+- **The lease counts as rework,** as the plan lists it, but `lease` covers two waits. A merge queue wait that runs out sends the change back to the developer, and that is a new attempt. A staging wait that runs out (`StagingAgain`) waits again at the same attempt, and the developer does no new work. Both count, so a run can be done at attempt 1 and still count as rework. The retry does not record which wait it was.
+- **The window is at most 300 runs,** and each run reads its sessions with one `Query`, inside the console's 29-second limit. The POC has about 50 runs.
+- **The window is in UTC days,** to match "Runs per day", not the last 24 × N hours.
+- **The filters' lists are taken before the filters apply,** so a person can switch from one engine to another without clearing.
+- **"Costliest runs" was already there.** This line adds the outcome's tooltip and renames the "Status" column to "Outcome".
+- **The response changed:** `reasons` (the old counts of `lastReason`) is replaced by `rework.reasons`. `window.from` is now the window's first day, and `window.firstRun` is the start of its oldest run. The console is the only reader. `runs_list` in the harness MCP does not read Insights.
+- **`reworkRate` changed its meaning.** It was the runs at attempt 2 or later. It is now the runs with a retry that is not an answer.
+- **On a phone,** "Retries by reason" puts each bar under its label, so a label is never cut. A work item key in a table no longer breaks at its hyphen.
+- **G4 in round 3 used `sessions --csv`,** which has no retries. Round 4's G4 takes them from the runs list's Retries column or the run page.
+
+**Tests** (294 in all, all passing; 288 before)
+- `insights.test.mjs` (12, 4 new):
+  - `retriesOf` and `ciGreenFirst`, with older records and the unknown case;
+  - first pass and rework by reason over seven runs: done at attempt 1, CI green with one unknown, rework without the answer, and the reasons in order;
+  - the window of 7, 30 and all days, and All's chart from 14 to 90 days;
+  - the engine and model filters, with the lists taken before them.
+- `console.test.mjs` (42, 2 new):
+  - `GET insights` reads `run-index` from the window's first day with no Scan, for 14 days by default, 30 and all, and applies the filters. `days` of `10`, `week` or `-7`, and an engine or model with a space or 201 characters, give 400. An empty window reads no Scan.
+  - The Scan fallback while the index is missing or not filled, and a window of 301 runs reads the latest 300 and says it is capped.
+- **The browser pass** used the mock of the console API, in light, dark and 400 px wide, with no script errors, no CSP violations and no page scrolling sideways.
+  - Six figures in even rows at 1360 px and 1700 px, and two by two at 400 px.
+  - "30 days", then the OpenCode engine: 1 run in the window, done at attempt 3 after an answer and a CI failure. Done at attempt 1 is 0%, CI green at attempt 1 is 0%, rework is 100%, and Clear appears.
+  - "Retries by reason" with the answer's grey line, and "Costliest runs" with its links and badges.
+- The diff holds no account number, email or address.
+
+**Deploy.** This line changes the console and harness MCP functions (one code bundle). The stack, the workflow, the orchestrator and the harness image do not change. It reads `run-index`, so it comes after line 14's deploy. Before line 14's backfill, Insights reads the window with the Scan.
+1. Run `providers/aws/aipf.sh pause "line 15"` and wait until no run is running.
+2. Run `providers/aws/aipf.sh up`.
+3. Run `providers/aws/aipf.sh resume`.
+
+In round 4, G4 recomputes the success rate, both first-pass figures, rework and the retries by reason for one window from the runs list (outcomes, attempts and retries) and the session records, and gets the Insights numbers. G4 also checks the window's start, 7 days against 30 days, and one engine filter.
