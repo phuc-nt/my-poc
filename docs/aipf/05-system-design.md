@@ -2,7 +2,7 @@
 
 This document is a first, high-level system design for the AI platform (AIPF) described in [01](01-why-an-internal-aipf.md) to [04](04-reference-platforms.md). It is for the engineers and architects who will build it. It turns the components in [02-platform-components.md](02-platform-components.md) into AWS services and the platform's own parts, for one specific context.
 
-Status: a draft design from internal discussion on 2026-10-18, updated on 2026-10-19 with the first POC results ([06](06-poc-architecture.md), sections 12 to 15). Only the POC has been built, and nothing has been load-tested. Service limits and Region availability named here must be checked before building (section 13).
+Status: a draft design from internal discussion on 2026-10-18, updated on 2026-10-19 with the results of both POC rounds, OpenCode with GLM-5 and Claude Code with Claude Sonnet 5.5 and Opus 5.5 ([06](06-poc-architecture.md), sections 12 to 16). Only the POC has been built, and nothing has been load-tested. Service limits and Region availability named here must be checked before building (section 13).
 
 ## 1. Context and design goals
 
@@ -17,7 +17,7 @@ Status: a draft design from internal discussion on 2026-10-18, updated on 2026-1
 | # | Goal | What it means for the design |
 |---|---|---|
 | G1 | Runs on AWS, in the same cloud environment as the products | All platform parts, sandboxes, knowledge bases and logs in the organisation's AWS accounts and main Region |
-| G2 | No fixed agent engine | Agent CLIs (Claude Code, Codex, OpenCode, Pi, Oh My Pi and others) are replaceable executors. The platform, not the CLI, owns roles, tools, knowledge, permissions and environments |
+| G2 | No fixed harness | Agent CLIs (Claude Code, Codex, OpenCode, Pi, Oh My Pi and others) are replaceable executors. The platform, not the CLI, owns roles, tools, knowledge, permissions and environments |
 | G3 | No fixed model provider | One model gateway in front of Amazon Bedrock and other providers; the model is chosen per role, project or task |
 | G4 | Works on CodeCommit repositories | Hosted coding agents do not cover CodeCommit (they need GitHub, GitLab, Bitbucket or Azure DevOps; see [04](04-reference-platforms.md), section 4), so the platform runs its own |
 | G5 | Environments per task and per project in AWS | Sandboxes and preview environments are created from each repository's specification and removed afterwards |
@@ -193,6 +193,7 @@ harness:
   allowed: [claude-code, codex, opencode, pi]
 model:
   default: bedrock/claude-sonnet       # resolved by the model gateway
+  hard: bedrock/claude-opus            # items marked hard; 2 to 5 times the cost per session in the POC
 limits:
   session_hours: 4
   budget_usd: 20
@@ -204,6 +205,7 @@ outcome_rubric: rubrics/developer-pr.md
 - **Flat hand-over through the board, not deep agent hierarchies.** Each state starts its own session with its own role. Results pass through Jira, Confluence, the pull request and project memory, which people can read.
 - **Inside one session, an agent CLI may use its own sub-agents.** Claude Code and others do this. The platform treats the session as one unit: one sandbox, one budget, one transcript.
 - This keeps the design independent of any one CLI's multi-agent features. It also matches the reference platforms' limits on delegation depth ([04](04-reference-platforms.md), section 7, lesson 10).
+- **The POC runs six agents in turn on one work item:** PM, designer, developer, reviewer, tester and operator. Each ends with a verdict, and its reply is handed to the next agents in their prompt, marked as input to check, while the story, the design and the reports are also posted to Jira and the pull request ([06](06-poc-architecture.md), section 18).
 
 ## 5. Harness layer: replaceable agent CLIs
 
@@ -271,7 +273,12 @@ commands:
   e2e: make test-e2e
 network:
   allow: [package-registries, internal-artifact-repo]
+environments:                   # deployed environments; dev is the sandbox itself
+  staging:
+    release: make migrate       # once per deploy, before the new version takes traffic
 ```
+
+The platform builds the deployable image from the same file, so a simple service needs no deployment code of its own. In the POC, staging runs the repository's start command in a platform image and runs `release` once per deploy ([06](06-poc-architecture.md), section 17.2).
 
 ### 6.2 From specification to sandbox
 
@@ -344,12 +351,14 @@ flowchart LR
 - **Each session runs under its own IAM role session,** with session tags: project, work item, role and harness. Every AWS action in CloudTrail can then be traced to the agent role and the work item.
   - An ECS task role session carries no session tags and no useful session name; the POC found this. So the session runner assumes the agent role itself, with tags and the work item as session name, and hands those credentials to the agent.
   - Whether AgentCore Policy can then match the session name or tags is still to verify. In the POC it saw only the role.
+- **One IAM role per agent, and the agent's name in every tool call.** In the POC, a filter between the CLI and the gateway adds the agent's name to each call, and the Cedar policy requires that it names the role that signed the call. The tools sign their output with it, so people see which agent wrote each comment ([06](06-poc-architecture.md), section 18.3).
 - **The role's permissions come from an IAM role template per agent role.** Examples:
   - The developer sandbox role may pull from its project's repositories, and push only to `agent/*` branches (CodeCommit's `codecommit:References` condition key). It cannot merge.
   - The QA role may read preview environments and test results.
   - The DevOps role may start pipelines, but not approve production stages.
 - **Attribute-based conditions** on the session tags stop a session from reaching another project's resources, in addition to the account boundary.
 - **People sign in through IAM Identity Center.** Approvals are recorded with the person's identity.
+- **People reach the platform from a chat client through their own gateway.** In the POC, this user gateway is AIPF MCP, a second AgentCore Gateway with a custom JWT authorizer, using the console's user pool. Its interceptor puts the signed-in person in every call and writes an audit line. The agents keep their IAM-signed gateway and its Cedar policies ([06](06-poc-architecture.md), section 19).
 
 ### 8.2 Keeping secrets out of the sandbox
 
@@ -361,6 +370,8 @@ The sandbox holds no long-lived third-party credentials:
 | Jira, Confluence, SharePoint, Slack, knowledge base, memory | Tools on the tool gateway, called with a session token. The gateway holds the OAuth credentials (AgentCore Identity) |
 | CodeCommit and AWS APIs | The task's IAM role session, with temporary credentials |
 | Test secrets for the application | Injected from Secrets Manager at task start, only test values, scoped to the project account |
+
+Keys that a tool needs for an outside API stay in a vault. In the POC, AgentCore Identity holds them as API key credential providers. An agent calls `vault___fetch` with a credential's name; the tools function adds the value to one header, for that credential's agents, hosts, paths and methods only, and takes the value and its usual encodings out of the response. The value never enters the sandbox, so the agent CLI in use (Claude Code, OpenCode or Pi) does not matter ([06](06-poc-architecture.md), section 19.6).
 
 Assume the agent can read anything in its sandbox. In the POC, the agent could read its task role credentials and, for Claude Code, the subscription token, and so could call the gateway without the MCP proxy. The gates still held, because they are in the gateway and IAM.
 
@@ -442,6 +453,8 @@ sequenceDiagram
     CP->>Ops: event: watch alarms and metrics
 ```
 
+- **Deploy scripts belong to the platform, not to the repository.** A change in the repository cannot change how it is deployed, and agents cannot start a deploy.
+- **A tester agent runs user acceptance tests on staging from outside** after every merge. It checks each acceptance criterion of the work item with requests to staging and posts a report with a verdict. A failure sends the developer agent back with the report, to fix forward from `main` through a new pull request. An operator agent then checks staging's health and writes the release note. The POC built both ([06](06-poc-architecture.md), sections 17.3 and 18).
 - **Agents use the existing pipelines;** they do not deploy by other means. The DevOps role can start a pipeline, read its state, and propose a rollback. Production stages need a person.
 - **Operations.** CloudWatch alarms start a DevOps session that investigates logs, metrics and recent deployments, and posts findings to Slack.
   - The organisation can also use AWS DevOps Agent for incident investigation ([04](04-reference-platforms.md), section 4.7) and connect it through MCP. It then becomes one more tool on the gateway.
@@ -455,7 +468,8 @@ sequenceDiagram
 - These go to CloudWatch for live views, and to S3 for analysis with Athena.
 - The model gateway records tokens and cost per session key. The tool gateway records every call.
 - **Cost reports use the Usage record type.** Credits cancel each service's cost in Cost Explorer, so reports without that filter show zero.
-- **The model dominates cost.** In the POC it was about 97% of a work item's cost; the sandbox, CI, knowledge base and workflow together were about $0.025 per item. Input was 99% of the tokens, so prompt caching is the main lever ([06](06-poc-architecture.md), section 14).
+- **The model dominates cost.** In the POC it was 94% to 97% of a work item's cost; the sandbox, CI, knowledge base and workflow together were about $0.02 to $0.025 per item ([06](06-poc-architecture.md), section 15).
+- **Caching is the main lever.** GLM-5 on Bedrock used no cache, and its input was 99% of the tokens. Claude Code cached its context, and a work item cost about a third as much at API prices, $0.34 against $0.96. Cache writes were then 65% of the model cost, so cost reports need uncached, cache read, cache write and output tokens apart.
 
 ### 10.2 Dashboards
 
@@ -465,6 +479,8 @@ sequenceDiagram
 | Flow | Time from request to production, time waiting for approval, items blocked |
 | Cost | Model cost, sandbox and preview cost (tagged per project and work item), people's approval time |
 | Harness and model | Success rate, cost and duration per harness and model, per role and kind of task |
+
+The POC's console has a first version: runs, what waits for a person, staging, and sessions, refusals, verdicts and cost per agent, next to the control plane that turns agents on or off and sets their models, and a chat with the knowledge base ([06](06-poc-architecture.md), section 18.4).
 
 ### 10.3 Evaluation runner
 
@@ -507,4 +523,4 @@ sequenceDiagram
 - **CodeCommit.** Event coverage in EventBridge for every pull request action the orchestrator needs. Push restriction by branch with `codecommit:References` in practice; the POC showed it limits push and branch deletion.
 - **ECS.** Fargate task size, storage and start time for the largest project environments, and which projects need ECS on EC2 for Docker.
 - **Data and contracts.** Customer contracts on where data and model calls may go. This decides which providers the model gateway may route to, per project.
-- **Cost.** Sandbox hours, preview environments, model usage and gateway calls for one work item, measured in phase 1 rather than estimated. The POC's first figures and an estimating formula are in [06](06-poc-architecture.md), section 14.
+- **Cost.** Sandbox hours, preview environments, model usage and gateway calls for one work item, measured in phase 1 rather than estimated. The POC's figures for both rounds and an estimating formula are in [06](06-poc-architecture.md), section 15.
