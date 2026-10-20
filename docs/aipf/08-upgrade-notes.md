@@ -1389,3 +1389,71 @@ In round 4, D8 runs as follows:
 3. As that user, open the run page. It has no Stop button and no review buttons, and `run_start` through the harness MCP is refused.
 4. As the owner (admin), change an agent's model and set it back. The Platform view shows both rows with the before and after.
 5. Remove the test user with `console-user remove`.
+
+## Line 17: the session's end, the lighter refresh and the browser pass (`upgrade/17-session-refresh-browser-pass`)
+
+Items: UX-22, UX-23, UX-24.
+
+**Built**
+- **The session's end (UX-22).** D-7 stays: there is no refresh token.
+  - `watchSession()` runs every 10 seconds. From five minutes before the ID token's `exp`, the top bar shows "Your session ends at HH:MM. Sign in again now: what you write here is kept, and you come back to this page." in the waiting tone. Once the token is gone (30 seconds before its `exp`, as `idToken()` already counts it), the bar turns to the bad tone with "Your session ended. Sign in again to go on: …" and a "Sign in again" button. The line is a `role="status"` region.
+  - A 401 from the API no longer drops the page for the sign-in screen. `signedOut()` removes the token, shows the same bar and keeps the hash. A send that meets it says "Your session ended. Sign in again at the top of the page: what you wrote here is kept." in the form's own status line, and moves the focus to "Sign in again". A view opened after the end, or one whose first load meets the 401, shows a "Your session ended" panel with the same button in place of its content.
+  - "Sign in again" is the existing `signIn()`. It keeps `location.hash` with the PKCE verifier, and `finishSignIn()` puts it back, so the person lands on the same run.
+  - **Drafts.** `sessionStorage` keys `aipf-draft:<key>`, written on each input and cleared by a successful send:
+    - answers: `answer:<runId>:<question id>`;
+    - change requests, overrides and closes on the review: `changes:`, `override:` and `close:` with the review's key;
+    - the reasons of the stop, "won't do", the tester decision, the pause and a release: `stop:<runId>`, `wontdo:<runId>`, `tester:<id>`, `pause`, `release:<what>`;
+    - the memory editor: `memory:<proposal id>`.
+
+    Cancel keeps a draft, so a dialog opened again shows it. Sign out clears them all.
+- **Lighter refresh (UX-23).**
+  - `GET runs/<id>` answers with a weak `ETag` over the SHA-256 of the whole response body. A request whose `If-None-Match` holds that tag (in a list, with or without `W/`) gets 304 with no body and the same `Cache-Control: no-store`. Only the run page is tagged; its review, its logs, the other views and every error answer in full.
+  - The client sends the tag of the copy on screen with `cache: 'no-store'`, so the browser's cache stays out of it and the 304 reaches the page. A 304 redraws nothing. The run's clock, "started … ago" and the steps' "working · …" are `data-tick` spans that `tick()` counts on in place.
+  - The 15-second refresh still skips a page with an open dialog or a typed text. A finished run is marked `data-ended` on its head, and its page asks for nothing more.
+  - `arrivals()` compares what waits for a person between refreshes on mission control, the inbox and the runs list. A new question, tester decision or review gives a toast that links to its run, for example "A question from the PM agent on SCRUM-22" with the link "Answer" ("Decide" or "Review"; "Open" below the operator role). At most three come at once, then one "N more wait for you" that links to the inbox. The tab's first read and the run on screen give none. A new memory proposal gives one too, except on the Memory view. A toast with a link stays 12 seconds, and as long as the pointer or the focus is on it.
+- **The browser pass (UX-24).**
+  - Every dialog is focus-trapped (`trapFocus()`: Tab and Shift+Tab go round inside it) and labelled by its heading (`aria-labelledby`). Esc closes it, and the focus goes back to where it was.
+  - Every table has a caption (screen-reader only; the panel's heading names it on screen) and `scope` on its header cells. The team matrix's row heads are `th scope="row"`.
+  - Status messages are live regions: the session line, the forms' status lines (`role="status"`) and the toasts. An error toast is `role="alert"`.
+  - The `?` key and "Keyboard shortcuts" in the side bar open a dialog that lists the shortcuts: g then a letter for each view, n (operators and admins), /, ? and Esc.
+  - **Contrast.** `test/contrast.test.mjs` reads the tokens of `app.css` and checks WCAG AA in both themes: text 4.5:1 on every background, a control's state 3:1. Five tokens changed to pass: `--faint`, `--accent-2`, `--off-fill`, `--c-ci` and `--c-deploy`. New ink tokens (`--ink`, `--c-developer-ink`, `--c-ci-ink`) carry the labels on the timeline's bars. The test also checks that both dark blocks hold the same values, and that no component writes a literal colour other than the count's ink on amber.
+  - **At 400 px:** the diff scrolls inside its block; the stepper wraps to rows of three (a step with lanes takes two places); the run page's tabs wrap; the inbox cards stack; and nothing scrolls the page sideways.
+  - Each logo has its own gradient id, so the Knowledge view, which shows several, has no duplicate id.
+
+**Differences from the plan**
+- **The ETag is a hash of the whole response body,** not of the run record and the history's last event id. The body is what the page draws, and it also changes with a person's answer, a decision or a review, which the record and the last event id may not. It costs one hash of a body the function builds anyway. The tag is weak, because a gateway may compress the body.
+- **On a 304 the times still move,** through `tick()`. Without it, a page that is never redrawn would show a frozen clock.
+- **The old refresh skipped any run that was not `RUNNING`.** A run that finished while its page was open kept its last running view. The check is now on the head's `data-ended`, which is set only once the ended run has been drawn.
+- **Drafts of dialogs come back when the dialog opens again,** not only after a sign-in. Cancel keeps the text; a send clears it.
+- **Toasts appear only on the count views** (mission control, the inbox and the runs list). The run page already shows its own question, and the other views do not read the counts.
+- **A mark fill under 3:1 sits next to its text.** The chips' and the stepper's colour fills are kept as they are, because each one is next to a word or a screen-reader text that names the state.
+- **On narrow screens the session's line is pinned to the foot of the screen.** The top bar is not sticky below 900 px, so a line in it would scroll away. The page and the toasts make room for it.
+- **The plan did not list these fixes, which the pass found:**
+  - At 400 px, the team page was 662 px wide: the screen-reader text in the matrix cells (absolutely positioned) escaped its scroll box. `.scroll` is now positioned.
+  - At 400 px, the run page's tabs went past the edge, and a focused tab was not scrolled into view. The tabs wrap below 640 px.
+  - The phone's nav strip clipped the focus ring. The ring is drawn inside the link there.
+  - The Knowledge view had the logo's gradient id more than once.
+  - On mission control at 1280 px, a live run's card broke its key over two lines ("SCRUM-" and "24"), and cut "Developer agent" with no ellipsis: an ellipsis does not apply to a flex box's own text. The key no longer wraps, and the name ends in an ellipsis in its own span. The screenshots showed it; the pass's audit now also looks for text cut with no ellipsis.
+  - That check found the same cut in two more places: a short bar's label on a run's timeline ("#1 rea"), and at 400 px the time shares' figures on Insights. Both are flex boxes; they are now blocks with a fixed line height, so the text ends in an ellipsis. The bar's title and the shares' legend hold the whole text.
+- **G5 and C7 ran against a local mock of the console,** before the deploy. The mock serves the product's own page, script and styles, and answers the API with fixture data (12 views, four runs in four states). A stand-in for the Cognito hosted UI answers `authorize` and `token` inside the browser. The deployed console needs an interactive sign-in with MFA, which only the owner can do. The tooling is in the POC environment's `test-set/browser/` (`run.sh`), and its results are in `test-set/round-4-results.md`.
+
+**Tests** (307 in all, all passing; 302 before)
+- `console.test.mjs` (49, 1 new): a run answers with a tag; the same tag gets 304 with no body, `Cache-Control: no-store` and no `Content-Type`; a list of tags and a tag without `W/` match too; an answer and a new step in the history change the tag; the runs list, the review and a 404 carry no tag.
+- `contrast.test.mjs` (new, 4): both themes' pairs, the two dark blocks the same, and no literal text colour.
+- **The browser pass,** on the mock, with headless Chrome driven by the DevTools protocol, by keyboard only:
+  - **G5:** 12 views at 1280 and 400 px, in light and dark. On each view: no sideways scroll, no element past the edge and no text cut with no ellipsis; every Tab stop visible, inside the screen and drawn with a focus ring; every field and control named; every table with a caption and header scopes; no duplicate id. The three dialogs (shortcuts, new run, stop) keep the Tab inside, are labelled, close on Esc and give the focus back. No script error. No findings in the four passes.
+  - **C7** at 1280 px in light and dark, and at 400 px: the warning, the draft kept while the session ends, a send while signed out, the sign-in and back to the same run with the draft, a 401 from a refused token, and the answer that lands.
+  - **UX-23:** 304 and no redraw while the run stays the same (the clock moves); 200 and a redraw on a change; no redraw while a text is typed; a toast with a link on mission control; no request for an ended run.
+- The diff holds no account number, email or address.
+
+**Deploy.** This line changes the console function's code (`index.mjs`, `app.js`, `app.css`). The stack, the workflow, the orchestrator and the harness image do not change. It comes after line 16's deploy.
+1. Run `providers/aws/aipf.sh pause "line 17"`, and wait until no run is running.
+2. Run `providers/aws/aipf.sh up`.
+3. Run `providers/aws/aipf.sh resume`.
+
+To roll back, revert the line and run `up`.
+
+In round 4, after the deploy, the owner repeats C7 and G5 on the deployed console:
+1. **C7.** Sign in to the console and open a run that waits for an answer. Type an answer, and leave the tab open past the token's hour (or remove `id_token` from the tab's session storage in the browser's developer tools). The top bar warns five minutes before, then says the session ended. Send: the form says to sign in again, and the focus is on "Sign in again". Sign in: the page is the same run, with the text in its box. Send: the answer lands, and the run goes on.
+2. **G5.** Open each view by the keyboard (g and a letter, / and a run's key) at desktop width and at 400 px (the browser's device toolbar), in both themes. Check that nothing scrolls sideways, every Tab stop shows a ring, and the dialogs (?, n, Stop run) keep the focus and close on Esc. Take a screenshot of each view, and add any finding to `round-4-results.md`.
+3. **UX-23.** In the browser's network panel, a run's page answers 304 every 15 seconds while nothing changes.
