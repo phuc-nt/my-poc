@@ -2,9 +2,9 @@
 
 This document plans the next upgrade of the AIPF for SDLC: what changes in the platform's features and in the console's user interface, in which order, how it is built and deployed, and how round 4 checks it. It is for the engineers or agents who implement it in `aipf-sdlc` and for the owner who decides the scope. It follows from the round 3 results (`environments/poc/test-set/round-3-results.md` in the POC environment: the scenario findings, "Evaluation of round 3" and G1 to G4), the POC architecture in [06](06-poc-architecture.md) and the names in [07](07-architecture-and-names.md).
 
-Status: final plan, written on 2026-10-20 and checked against the code of `aipf-sdlc` at commit `721f9c8`. Nothing in it is built. Every item names the code it touches as the code is today, with the old names of [07](07-architecture-and-names.md) section 8 (`harness`, `engine`, `aipf-poc-*`); the rename is out of this round's scope. Line numbers are those of `721f9c8` and move as the work lands.
+Status: final plan, written on 2026-10-20 and checked against the code of `aipf-sdlc` at commit `721f9c8`. Nothing in it is built. Every item names the code it touches as the code is today, with the old names of [07](07-architecture-and-names.md) section 8 (`harness`, `engine`, `aipf-poc-*`); the rename is out of this round's scope. Line numbers are those of `721f9c8` and move as the work lands. On 2026-10-20 the plan's claims about AWS behaviour were checked on AWS, in the selected Region, with temporary resources and with read-only looks at the POC. Section 15 lists every check and its result, and the items below already carry the corrections.
 
-**How to use this document.** Section 2 lists the decisions already taken, so an implementer does not reopen them. Sections 4 to 6 describe each item: what, why, where and how, and when it is done. Section 7 holds the shared technical design (data, workflow, API, AWS resources, registry), section 8 the order of work, section 9 the rules for whoever implements it, section 10 the tests, section 11 the deploy and rollback, and section 13 how round 4 checks the result.
+**How to use this document.** Section 2 lists the decisions already taken, so an implementer does not reopen them. Sections 4 to 6 describe each item: what, why, where and how, and when it is done. Section 7 holds the shared technical design (data, workflow, API, AWS resources, registry), section 8 the order of work, section 9 the rules for whoever implements it, section 10 the tests, section 11 the deploy and rollback, section 13 how round 4 checks the result, and section 15 what was verified on AWS. Where an item states a timing or an AWS behaviour, section 15 says how it was measured.
 
 ## 1. Summary
 
@@ -22,7 +22,7 @@ This round fixes the control plane first, then the outcomes and the flow, then w
 | Milestone | Theme | Items | Round 4 checks it with |
 |---|---|---|---|
 | M1 | Safe to use: one start per item, no lost events, stops that tell, decisions travel, pushes confined, rules ranked, records right | P0-1 to P0-7, REC-1 to REC-5, CT-3a | B1, B2, B5, B7, B12, C3, D4, D5, D9, F1, G1 |
-| M2 | Real outcomes, a fair flow, a faster pipeline | P1-1 to P1-6, CT-1, CT-2, CT-3b | A3, B8, B9, B10, B11, C3, C4, E2, the time table |
+| M2 | Real outcomes, a fair flow, a faster pipeline | P1-1 to P1-6, CT-1, CT-2, CT-3b, CT-4 | A3, B8, B9, B10, B11, C3, C4, E2, the time table |
 | M3 | The console: run page, inbox, runs, insights, roles and audit | UX-1 to UX-24 | G3, G4, C7, D8, G5 (browser pass) |
 | M4 | Agents and tools: instructions, memory, follow-ups, fixtures | AG-1 to AG-12, UX-18, UX-19 | D3, E1 to E6, B4, B6 |
 
@@ -31,7 +31,7 @@ The main measures for round 4 (section 13):
 - every person's decision visible to the later agents;
 - the four views agree on every run;
 - success on the round 3 set rises from 14 of 25 to at least 20 of 25, with declines and closes not counted as failures;
-- the platform's overhead per agent step falls from about 63 s to under 30 s, and a deploy from 264 s to under 120 s.
+- the platform's overhead per agent step falls from about 63 s to under 35 s (about 29 s expected), a deploy from 264 s to under 140 s (about 125 s expected), and a CI build from about 84 s to under 40 s (about 27 s expected), all from the parts measured on AWS (section 15).
 
 Sizes in this document: **S** is a change of one or two files with its tests; **M** a change across the orchestrator, the workflow or the console with tests and a deploy; **L** a change that adds a state, an index or an AWS resource and needs a scenario in round 4.
 
@@ -82,7 +82,7 @@ Every recommendation of round 3 ("What to improve or add, by priority") maps to 
 | P2-5 Console roles and a full audit | UX-13, UX-15 |
 | P2-6 Insights definitions | UX-10, UX-11, UX-12 |
 | P3-1 to P3-10 Agent instructions and tools | AG-1 to AG-10 (P3-9 is in P0-3: the platform posts each amendment) |
-| Cost 1 Cut the per-session overhead first | CT-1, CT-2, CT-3a, CT-3b |
+| Cost 1 Cut the per-session overhead first | CT-1, CT-2, CT-3a, CT-3b, CT-4 |
 | Cost 2 Keep Sonnet as the default; Opus for the PM on items with history | D-10, AG-11 (owner's choice) |
 
 ### 3.2 Scenario findings outside that list
@@ -114,7 +114,7 @@ Every recommendation of round 3 ("What to improve or add, by priority") maps to 
 | G1-1 to G1-4 Attempt off by one, stepper, `lastReason`, step time | REC-1, UX-1, REC-2, REC-3 |
 | G3-1 No audit of agent changes | UX-13 |
 | G3-2 Wrong Insights window start | UX-11 |
-| G3-3 Platform shows the knowledge base as null | UX-20 |
+| G3-3 Platform shows a `null` (it is the docs connection, not the knowledge base: section 15) | UX-20 |
 | G3-4 The developer's verdict is always `none` | REC-4, UX-14 |
 | G4-1 to G4-4 Stopped runs, first pass, rework, declines | UX-10, UX-12 |
 | Known weakness 2: staging data depends on the seed time | AG-5 |
@@ -145,11 +145,11 @@ Each item says what, why, where in the code and how, and when it is done. The pa
 - How:
   1. **Console resume.** After a successful merge or close, `decide` removes the `APPROVAL` row on the condition that the token matches, and sends the task success that `pullRequestEvent` would send: `{ decision: 'merged' }` or `{ decision: 'closed' }`. A `TaskTimedOut`, `TaskDoesNotExist` or `InvalidToken` error means the event got there first, and is not an error. The CodeCommit event stays as the path for merges made in CodeCommit itself. P1-3 later replaces the console's merge with `{ decision: 'approve' }`.
   2. **Kept events.** A new SQS queue `${App}-lost-events`, with 14 days of retention, receives:
-     - the orchestrator's failed asynchronous invocations, through `AWS::Lambda::EventInvokeConfig` with `MaximumRetryAttempts: 2`, `MaximumEventAgeInSeconds: 21600` and an `OnFailure` destination. Lambda sends events it drops at reserved concurrency 0 there too.
-     - the failed deliveries of the three rules' targets, through each target's `DeadLetterConfig` and `RetryPolicy` (`MaximumRetryAttempts: 185`, `MaximumEventAgeInSeconds: 86400`).
-     The queue policy allows `events.amazonaws.com` for those rules' ARNs; the orchestrator's role may send to it.
+     - the orchestrator's failed asynchronous invocations, through `AWS::Lambda::EventInvokeConfig` with `MaximumRetryAttempts: 2`, `MaximumEventAgeInSeconds: 21600` and an `OnFailure` destination. Lambda sends events it drops at reserved concurrency 0 there too, without retrying them: on AWS they reached the queue 4 to 6 s after the event, with `condition: ZeroReservedConcurrency`, `approximateInvokeCount: 0` and the original event in `requestPayload`, for a direct invoke and for an EventBridge event alike.
+     - the failed deliveries of the three rules' targets, through each target's `DeadLetterConfig` and `RetryPolicy` (`MaximumRetryAttempts: 185`, `MaximumEventAgeInSeconds: 86400`; EventBridge accepts both values). A dead-lettered message carries the original event as its body and the reason in the message attribute `ERROR_CODE` (for example `NO_PERMISSIONS`); on AWS it arrived 2.4 s after the event.
+     The queue policy allows `events.amazonaws.com` for those rules' ARNs. The orchestrator's role needs `sqs:SendMessage` on the queue, because Lambda writes the destination record with the function's role.
   3. **Alarms.** One alarm on `AWS/Lambda AsyncEventsDropped` for the orchestrator (sum above 0 over 5 minutes) and one on the queue's `ApproximateNumberOfMessagesVisible` above 0. Both show in the console (UX-20) and in `aipf.sh status`.
-  4. **Replay.** `aipf.sh events list` and `aipf.sh events replay [--all]` re-invoke the orchestrator with the original event and delete the message on success. A Lambda destination record carries it as `requestPayload`; an EventBridge dead-letter message carries it as the body. Replays are idempotent:
+  4. **Replay.** `aipf.sh events list` and `aipf.sh events replay [--all]` re-invoke the orchestrator with the original event and delete the message on success. A Lambda destination record carries it as `requestPayload` (and the reason in `requestContext.condition`); an EventBridge dead-letter message carries it as the body (and the reason in `ERROR_CODE`). `events list` shows the source, the reason and the age of each message, never the payload. Replays are idempotent:
      - `pullRequestEvent` finds no `APPROVAL` row after the first resume;
      - `executionEnded` ignores a terminal run;
      - `resume` already treats a used token as gone.
@@ -183,17 +183,19 @@ Each item says what, why, where in the code and how, and when it is done. The pa
 - How:
   1. **Two users.** The runner runs as root in the container. It spawns the agent CLI and the repository's commands (setup, prepare, tests) as `agent` (uid 1001), with an environment that has no `AWS_CONTAINER_CREDENTIALS_*`, no `ECS_CONTAINER_METADATA_URI*` and no task token. The agent cannot read root's `/proc/<pid>/environ`.
   2. **Scoped credentials.** The runner calls `sts:AssumeRole` on its own task role, with:
-     - `RoleSessionName` set to `<role>-<runId>-<attempt>` (cut to 64 characters);
-     - `DurationSeconds` 3600, the limit for a chained role;
-     - a session policy that allows `*` on `*` and denies the reference-writing CodeCommit actions unless `codecommit:References` is `refs/heads/agent/<KEY>`, in the same shape as the role's deny at `stack.yaml:518-527` but with the exact branch.
-     The task role's trust policy allows the role itself to assume it.
-  3. **Credential process.** The agent's `AWS_CONFIG_FILE` names `credential_process = /opt/aipf/runner/creds`, a small client that reads the scoped credentials from the runner over a Unix socket (`/run/aipf/creds.sock`, group `agent`). The runner refreshes them before they expire. `git-remote-codecommit` and the MCP proxy for AWS both use botocore, which honours `credential_process`.
+     - `RoleSessionName` set to `<role>-<runId>-<attempt>` (cut to 64 characters), so the session's ARN is `assumed-role/<task role>/developer-<runId>-<attempt>`;
+     - `DurationSeconds` 3600, the limit for a chained role (STS refuses 3601: "exceeds the 1 hour session limit for roles assumed by role chaining");
+     - a session policy that allows `*` on `*` and denies the reference-writing CodeCommit actions unless `codecommit:References` is `refs/heads/agent/<KEY>`, in the same shape as the role's deny at `stack.yaml:518-527` but with the exact branch. The tested document is 326 bytes, 27 % of the packed-policy limit.
+     The role needs two statements, because a role does not trust itself by default (without them STS refuses the call):
+     - in the trust policy, a statement whose principal is the account's root, `arn:aws:iam::${AWS::AccountId}:root`, with the condition `ArnEquals` `aws:PrincipalArn` = the role's own ARN. IAM refuses a trust policy that names the role itself while the role does not exist yet ("Invalid principal"), so a fresh stack cannot use the role ARN as the principal. In CloudFormation, build the ARN with `!Sub` from the role's known name and path; `!GetAtt` on the role itself is a circular reference.
+     - in the role's own policy, `sts:AssumeRole` on its own ARN, built the same way.
+  3. **Credential process.** The agent's `AWS_CONFIG_FILE` names `credential_process = /opt/aipf/runner/creds`, a small client that reads the scoped credentials from the runner over a Unix socket (`/run/aipf/creds.sock`, group `agent`). The runner refreshes them before they expire. `git-remote-codecommit` and the MCP proxy for AWS both use botocore, which honours `credential_process`. A chained session lasts at most an hour, so the runner assumes the role again after 50 minutes, and the client always returns the newest credentials with their `Expiration`.
   4. **The gateway principal.** With a session name, the gateway sees `assumed-role/aipf-poc-developer/<session>`. `principal()` in `gateway/policies.mjs:49` accepts both the bare role and the role followed by `/*`.
   5. **The pull request tool.** `codecommit___create_pull_request` (`gateway/tools.mjs`) refuses a `source_branch` other than `agent/<KEY>` of the run named in the call (P0-7 adds the run id).
   6. **What stays.** The runner's own force-push of the branch when a developer starts from `main` keeps the unscoped role: it is the run's branch. The role's `agent/*` allow and deny stay as the second layer.
-  7. **Detection.** A CodeCommit `referenceUpdated` rule sends pushes to the orchestrator's new `pushAudit` action. It reads the session name from `callerUserArn`, checks the pushed ref against that run's branch, and posts a Slack alert on a mismatch.
+  7. **Detection.** A CodeCommit rule on `referenceCreated`, `referenceUpdated` and `referenceDeleted` sends ref changes to the orchestrator's new `pushAudit` action: a push that creates a branch is a `referenceCreated` event, not a `referenceUpdated` one. It reads the session name from `callerUserArn`, which ends in `assumed-role/<task role>/<session>` for every push, checks the ref against that run's branch, and posts a Slack alert on a mismatch. A push by the unscoped role (the runner's own push in item 6) carries the runner's session name and is checked against the run in the same way.
   8. **Flag.** `AIPF_PUSH_SCOPE=session` in the task definitions turns on items 2 and 3, so a mistake can be turned off without a rebuild. The two users stay.
-- Done when: a unit test covers the session policy document; `test/mcp-identity.test.mjs` covers the environment the agent gets. In round 4 D4, the developer is asked to push to `agent/OTHER-1` and to `main`: both are refused by IAM, the refusal is in the session log, the run goes on, and `pushAudit` reports nothing.
+- Done when: a unit test covers the session policy document; `test/mcp-identity.test.mjs` covers the environment the agent gets. In round 4 D4, the developer is asked to push to `agent/OTHER-1` and to `main`: both are refused by IAM, the refusal is in the session log, the run goes on, and `pushAudit` reports nothing. Git reports the refusal as "You don't have permission to push changes to this branch." The same scoped session pushes and force-pushes its own branch, and cannot push a tag or delete a branch (all checked on a temporary repository, section 15).
 
 **P0-5. Rule precedence and a dependency gate.** (M)
 - What: every agent knows which rule wins, and a change to dependencies cannot merge from the console without a person's explicit tick.
@@ -253,7 +255,8 @@ Each item says what, why, where in the code and how, and when it is done. The pa
 **CT-3a. Measure the platform's time per session.** (S)
 - Why: section 8 of round 3: about 63 s per agent step is the platform's own time. The parts are unknown, because each session state's `Output: {}` discards the task description and `environmentSec` covers only the environment phase.
 - How:
-  - each session state keeps, from the `runTask.sync` result, `CreatedAt`, `PullStartedAt`, `PullStoppedAt`, `StartedAt`, `StoppingAt`, `StoppedAt`, `StopCode`, `StoppedReason` and the container's `ExitCode`, in a variable passed to its After step, which writes them as `ecs` on the session row. On the `Catch` path, it parses the task from the error's cause where it can.
+  - each session state keeps, from the `runTask.sync` result, `CreatedAt`, `PullStartedAt`, `PullStoppedAt`, `StartedAt`, `ExecutionStoppedAt`, `StoppingAt`, `StoppedAt`, `StopCode`, `StoppedReason` and the container's `ExitCode`, in a variable passed to its After step, which writes them as `ecs` on the session row. The result's fields are PascalCase and its times are epoch milliseconds; the After step stores ISO strings. On the `Catch` path, it parses the task from the error's cause where it can.
+  - `ExecutionStoppedAt` is when the containers exited. On Fargate it comes about 10 s before `StoppingAt`, so "stop" is two parts: exit to `StoppingAt`, and `StoppingAt` to `StoppedAt` (13 to 26 s).
   - The runner adds `workspaceSec`, the time of `prepareWorkspace`, beside `environmentSec`.
 - Done when: a test run's sessions show provisioning, image pull, start, workspace, environment, agent, stop and detection times that add up to the step's time. CT-3b uses them.
 
@@ -336,22 +339,59 @@ Each item says what, why, where in the code and how, and when it is done. The pa
 - How: a `Parallel` state `Checks` after `WhatHappened` with two branches:
   - CI, then `ImageBuild` (CT-2);
   - the reviewer.
-  Inside a branch, a failure is caught into a `Pass` state that returns `{ ci: 'failed' }` or `{ reviewer: 'error' }`, so the other branch finishes. Today's `Review` `Choice` (skip the reviewer when `$run.stages.reviewer` is off) moves inside the reviewer branch, which then returns `{ reviewer: 'off' }`. A new `AfterChecks` step records CI's result, the image tag and the dependency change (P0-5), and `ChecksResult` sends a CI failure to `CIFailed` and everything else to `RequestApproval`. `progressOf` (`console/trace.mjs:100`) draws the two as parallel lanes of one "Checks" stage (UX-1). It saves about 90 s per developer round.
+  Inside a branch, a failure is caught into a `Pass` state that returns `{ ci: 'failed' }` or `{ reviewer: 'error' }`, so the other branch finishes.
+  Each branch hands its facts out through its last state's `Output`, and `Checks` merges them with `"Output": "{% $merge($states.result) %}"`. A JSONata variable assigned inside a branch does not exist after the `Parallel`: Step Functions accepts such a definition, only warns (`POSSIBLY_UNDEFINED_VARIABLE`), and the variable is undefined at run time. Variables assigned before `Checks`, such as `$run`, are readable inside the branches. Today's `Review` `Choice` (skip the reviewer when `$run.stages.reviewer` is off) moves inside the reviewer branch, which then returns `{ reviewer: 'off' }`. A new `AfterChecks` step records CI's result, the image tag and the dependency change (P0-5), and `ChecksResult` sends a CI failure to `CIFailed` and everything else to `RequestApproval`. `progressOf` (`console/trace.mjs:100`) draws the two as parallel lanes of one "Checks" stage (UX-1). It saves about 90 s per developer round.
 
 **CT-2. A deploy that only rolls out.** (M)
-- Why: a deploy took 264 s, most of it building the image in CodeBuild.
+- Why: a deploy takes 230 to 266 s. The image build is not the cause. In the eight deploys of `aipf-poc-deploy` on 2026-10-20, CodeBuild's own phases (queue, provisioning, source) took 10 to 23 s and the build phase 218 to 253 s, of which (from the build log's times):
+
+  | Part of the build phase | Time |
+  |---|---|
+  | Copy the source from S3; commit and database facts | about 7 s |
+  | Build and push the image | about 12 s |
+  | Register the task definition | about 2 s |
+  | The release task (`ecs run-task`, then `aws ecs wait tasks-stopped`) | about 46 s |
+  | The rollout (`deploy.sh` polls every 10 s until `rolloutState` is `COMPLETED`) | about 150 s |
+  | Tag the commit | about 1 s |
+
+  The rollout's `COMPLETED` is bookkeeping: on a temporary service with staging's settings, the new task was `HEALTHY` 60 to 63 s after `update-service` and the old one was told to stop at 66 to 68 s, but `COMPLETED` came at 138 to 150 s, about 55 s after the old task's `STOPPED`. The release waits for `STOPPED` too, which comes about 25 s after the container exits, while its exit code shows in `DescribeTasks` after about 12 s.
 - How:
   - `ImageBuild` runs the deploy project's build half on the branch head, pushes the image to the app repository with the commit as its tag, and skips the build when the tag exists;
   - after a fast-forward merge (P1-3), `main`'s head is that commit, so `DeployStaging` starts the deploy project with `IMAGE_TAG` set, and the project runs only the release command (`environments.staging.release` of `.aipf/environment.yaml`) and the service update;
-  - a merge made in CodeCommit itself has no image yet, so the project builds it first, as today.
-- Done when: the round 4 time table shows a deploy under 120 s. The split between build, push, release and rollout comes from the CodeBuild phases (`BatchGetBuilds`).
+  - a merge made in CodeCommit itself has no image yet, so the project builds it first, as today;
+  - **the release** (`providers/aws/deploy/deploy.sh:58-71`) polls `DescribeTasks` every 2 s and goes on when the `app` container's `exitCode` is set, instead of `aws ecs wait tasks-stopped` (about 13 s sooner, plus up to 6 s of the waiter's own poll). A non-zero exit code, or a task that stops without one, fails the deploy as today;
+  - **the rollout** (`deploy.sh:73-86`) polls every 3 s and ends when the new deployment has its desired count running and every task of it `HEALTHY`, and the old deployment has no running task. It writes the deployment id to the build's output, and the orchestrator stores it on the run. `AfterTester` reads that deployment's `rolloutState`: `FAILED` (the circuit breaker rolled back) sends the run to `DeployFailed`, whatever the tester said;
+  - the staging app's health check `Interval` (`stack.yaml:856`) goes from 10 s to 5 s, which should bring `HEALTHY` a few seconds sooner (expected, not measured);
+  - the app keeps forwarding `SIGTERM` (`providers/aws/deploy/start.mjs`): an old task that ignored it was killed after the 30 s `stopTimeout` and pushed `COMPLETED` to 171 s.
+  - Not done: moving the release into CodeBuild's own build. The deploy project has no VPC settings and the database is in the VPC, so it would need the project in the VPC with a route out.
+- Expected: about 15 s of CodeBuild start, 7 s of source and facts, 2 s for the task definition, about 33 s of release, about 67 s of rollout and 1 s of tag: about 125 s.
+- Done when: the round 4 time table shows a deploy under 140 s. The split between build, push, release and rollout comes from the CodeBuild phases (`BatchGetBuilds`) and the build log's times.
 
 **CT-3b. Cut what CT-3a measures.** (M)
-- How, by rule, from the measured parts:
-  - if stop plus detection is above 15 s, switch the session states to `ecs:runTask.waitForTaskToken`. The runner sends `SendTaskSuccess` after its record is written and a heartbeat every 60 s (`HeartbeatSeconds: 300`). `AfterX` refuses a token whose session row is missing, and stops the task if it still runs. This needs P0-4's two users, or the agent could read the token and end its own step early. The task roles get `states:SendTaskSuccess`, `SendTaskFailure` and `SendTaskHeartbeat`; where IAM allows only `*` as their resource, the token is what scopes the call.
-  - if the image pull is above 15 s, add a Seekable OCI (SOCI) index to the snapshot images so Fargate loads them lazily.
-  - the snapshot already holds the clone and `npm ci` (`harness/snapshot.Dockerfile` runs `session.mjs setup`), so the workspace phase needs only `git fetch`. If it is above 5 s, fetch only the run's branch and `main`.
-- Done when: the round 4 time table shows the platform's overhead per agent step under 30 s.
+- Why: the parts are already measured, from the ECS times of round 3's 210 session steps in the execution history and from temporary Fargate tasks (section 15):
+
+  | Part of a session step | Time |
+  |---|---|
+  | Provisioning (`CreatedAt` to `PullStartedAt`) | 10 to 21 s |
+  | Image pull of the session image (407 MB compressed) and the `db` sidecar | about 15 s |
+  | Container start | about 5 s |
+  | From the runner's record to the end of the step | 35 s (median) |
+
+  The last part is all waiting for ECS: the runner exits 0.2 s after it writes its record; ECS sets `StoppingAt` 10.0 s after the exit (p90 21.1 s) and `StoppedAt` 13.8 s after that; Step Functions sees it 1.2 s later. On temporary tasks, neither the `db` sidecar nor a shorter `stopTimeout` changed that lag: it is Fargate's.
+- How, in order:
+  1. **Wait for a token, not for the task.** The session states (`workflow.asl.json:32`, `:114`, `:182`, `:393`, `:514`) switch from `ecs:runTask.sync` to `ecs:runTask.waitForTaskToken` and pass `$states.context.Task.Token` to the `harness` container as `AIPF_TASK_TOKEN`. The runner sends `SendTaskSuccess` right after its record is written, and `SendTaskHeartbeat` every 60 s (`HeartbeatSeconds: 300`). This removes the 35 s wait, so a step ends about 34 s sooner. `AfterX` refuses a token whose session row is missing, and stops the task with `ecs:StopTask` if it still runs. This needs P0-4's two users, or the agent could read the token and end its own step early. The task roles get `states:SendTaskSuccess`, `SendTaskFailure` and `SendTaskHeartbeat`; IAM allows only `*` as their resource, so the token is what scopes the call.
+  2. **A task that dies without a word.** With a token, Step Functions no longer watches the task, so a session that crashes or runs out of memory would wait for the heartbeat timeout. A rule on `aws.ecs` `ECS Task State Change` with `lastStatus: STOPPED` on the sessions' cluster and task family sends the event to the orchestrator's new `taskStopped` action. The event carries `overrides.containerOverrides[].environment`, where the token is, and `containers[].exitCode`, `stopCode` and `stoppedReason`. The action calls `SendTaskFailure` (error `TaskStopped`, those three as the cause). When the runner already succeeded, the call fails with `TaskTimedOut` or `InvalidToken`, which is not an error. On AWS the event arrived within about 7 s of `StoppedAt` with the override's value. The heartbeat timeout stays as the backstop for a lost event.
+  3. **The image pull,** only if it is still above 10 s in CT-3a's numbers. A Seekable OCI (SOCI) index lets Fargate start before the whole image is loaded. It works per container image, only from ECR private repositories, needs the SOCI index manifest v2, and is worth it for images above about 250 MiB, so it applies to the session image only. The `db` sidecar comes from `public.ecr.aws` (`stack.yaml:591`) and took 7.3 to 7.5 s to pull on its own on the temporary tasks; the task's pull ends with the slower image, so SOCI can save at most about 8 s.
+  4. **The workspace.** The snapshot already holds the clone and `npm ci` (`harness/snapshot.Dockerfile` runs `session.mjs setup`), so the workspace phase needs only `git fetch`. If `workspaceSec` is above 5 s, fetch only the run's branch and `main`.
+  Provisioning stays: it is Fargate's, and D-12 keeps one task per session.
+- Expected: about 63 s to about 29 s per step with item 1 alone.
+- Done when: the round 4 time table shows the platform's overhead per agent step under 35 s.
+
+**CT-4. CI without the runtime install.** (S)
+- Why: CI (`aipf-poc-ci`, `standard:7.0` on `SMALL`, `stack.yaml:340`) runs the repository's own `buildspec.yml`, and the one in `aipf-poc-sample` asks for `runtime-versions: nodejs: 22`. CodeBuild then runs `n` inside the source phase. In CI's last eight builds the source phase took 62 to 69 s of 82 to 109 s; the install, lint and tests took about 11 s. On a temporary project the install alone took 55 to 58 s, on `SMALL` and on `MEDIUM` alike. The image already holds Node.js 18, 20, 22, 24 and 26 under `/usr/local/n/versions/node/`, and putting 22 first on `PATH` costs nothing: that build's source phase took 0 s and it ran Node.js v22.23.3. (An ARM image, `aarch64:3.0`, installs it in 14 s.) CI runs once per developer round and, with the merge queue (P1-3), again on the merged head, one merge at a time.
+- How: a pull request to `aipf-poc-sample`'s `buildspec.yml` (it is the project's file, so a person merges it) drops `runtime-versions` and starts the install commands with `export PATH="$(ls -d /usr/local/n/versions/node/22.* | tail -n 1)/bin:$PATH"` and `node --version`. The POC environment's `NOTES.md` says the same for any project repository on this CI image.
+- Expected: CI from about 84 s to about 27 s.
+- Done when: CI's source phase is under 10 s in `BatchGetBuilds`, and CI still runs on Node.js 22.
 
 ### 4.3 M4: agent instructions and tools
 
@@ -543,9 +583,9 @@ The run page is `runPage` (`app.js:1016`), with `progressStrip`, `nowText`, `rev
 
 **UX-15. Console roles.** (L)
 - Three Cognito groups, `viewer`, `operator` and `admin` (D-8), with the permissions of section 7.3.
-- The HTTP API's JWT authorizer passes `cognito:groups` to the function as one string, such as `[admin]` or `[admin operator]`, not as a list. `api()` (`index.mjs:665`) parses both forms, takes the highest role, and returns 403 with the needed role.
-- `app.js` reads the role from the ID token, hides what the role cannot do, and shows the role in the user menu.
-- `aipf.sh console-user add <email> --role <role>` sets the group. The two round 3 users, `phucnt@aipf.invalid` and `r3-runner@aipf.invalid`, become `admin` and `operator`.
+- The HTTP API's JWT authorizer passes `cognito:groups` to the function as one string, not as a list: `[viewer]`, or `[operator admin]` for two groups, in no fixed order. A user in no group has no `cognito:groups` claim at all. `api()` (`index.mjs:665`) parses the string form and a list form, takes the highest role, treats a missing claim as `viewer`, and returns 403 with the needed role. (Checked on AWS with a temporary pool, HTTP API and authorizer; a bare token and a `Bearer` token both pass.)
+- `app.js` reads the role from the ID token, hides what the role cannot do, and shows the role in the user menu. A token carries the groups of its sign-in, so a person whose group changed signs in again.
+- `aipf.sh console-user add <email> --role <role>` sets the group, `operator` by default. The pool has one user today, `phucnt@aipf.invalid`, who becomes `admin`. Because a user with no group is a `viewer`, the groups and that membership go in before the console code that enforces the roles (section 11), or the owner is locked out of every action.
 - Security note: the answer page that Slack links to (`humanPage`) is a link that works without signing in. It keeps answering questions and change requests only. Approvals, tester decisions and "won't do" need the signed-in console.
 
 **UX-16. Names.** (S) The view is "Agents". "Engine" becomes "harness" in the console's text and the Platform view (`engineName`, `app.js:123`, and the Agents footer). The API's `engine` fields stay until the code rename (D-9).
@@ -561,7 +601,8 @@ The run page is `runPage` (`app.js:1016`), with `progressStrip`, `nowText`, `rev
 ### 5.7 Platform
 
 **UX-20. The platform's state.** (M)
-- **The knowledge base.** `platformView` (`index.mjs:575`) returns `knowledgeBase: { connected: Boolean(E.KB_ID), model }`, and the stack sets `KB_ID` and `KB_MODEL` on the console (`stack.yaml:1423-1424`), so the code cannot return a bare `null`. First reproduce G3 finding 3 in the browser and with `GET platform`: either the deployed bundle was older than the code, or the check read `model`. Then show the knowledge base's name, status and model from `bedrock-agent:GetKnowledgeBase`, with the id masked.
+- **The `null` of G3 finding 3** is the docs connection, not the knowledge base. The deployed console has `KB_ID` and `KB_MODEL` set, so `knowledgeBase.connected` is true. The `PLATFORM/connections` row stores `docs` as a DynamoDB `NULL` because no docs tool (Confluence) is configured, and `platformView` (`index.mjs:580`) passes it on as `docs: null`; the view draws it as "Not connected" (`app.js:1393`). `platformView` returns `docs: { name: 'none', title: 'Not configured' }` instead, so the API has no bare `null`, and the card says "Not configured: the agents have no docs tools".
+- **The knowledge base.** The card shows the knowledge base's name, status and model from `bedrock-agent:GetKnowledgeBase`, with the id masked.
 - **New cards:**
   - the lost-events queue's depth and both alarms, with a "Replay" button for admins (P0-2);
   - the reconciler's last run and what it fixed;
@@ -629,7 +670,7 @@ The table keeps its key schema (`pk`, `sk`). New and changed attributes:
 | `PLATFORM/RECONCILER` | `lastRunAt`, `fixed[]` | orchestrator | console |
 | `PLATFORM/AUDIT#<time>#<id>` | `who`, `what`, `target`, `before`, `after` | console, CLI | console |
 
-The three global secondary indexes (UX-8) project all attributes. CloudFormation and DynamoDB add one index per table update, so they ship in three stack updates (section 11).
+The three global secondary indexes (UX-8) project all attributes. DynamoDB builds one new index at a time per table and refuses a second while one is being created (`LimitExceededException`: "Only 1 online index can be created or deleted simultaneously per table"), so they ship in three stack updates (section 11). On a copy of today's table (510 items, about 0.9 MB), one index took 511 s to become `ACTIVE`, so the three take about 25 minutes of stack updates; queries work as soon as each is `ACTIVE`.
 
 ### 7.2 Workflow
 
@@ -682,7 +723,8 @@ Rules for the definition:
 - every path out of the queue releases it, and every end releases the lease;
 - the `End` states run the `end` action and finish in `Ended` (`Succeed`);
 - every Lambda step has the retry of P0-2;
-- each session state keeps the ECS timestamps (CT-3a).
+- each session state keeps the ECS timestamps (CT-3a);
+- a `Parallel` state hands its branches' facts out through `Output` (`{% $merge($states.result) %}`), never through a variable assigned inside a branch (CT-1).
 
 ### 7.3 Console API and roles
 
@@ -714,12 +756,14 @@ All in the selected Region, ap-southeast-2, and tagged `Project=aipf-poc`.
 | Dead-letter and retry settings on the targets of `MainChangedRule`, `PullRequestRule`, `WorkflowEndedRule` | P0-2 | – |
 | Two CloudWatch alarms | P0-2 | dropped events; queue depth |
 | A scheduled rule `rate(5 minutes)` to the orchestrator (`reconcile`) | P0-2 | about 8,600 calls a month |
-| A CodeCommit `referenceUpdated` rule to the orchestrator (`pushAudit`) | P0-4 | – |
-| Task roles: trust in themselves; `sts:AssumeRole` on themselves; `states:SendTask*` (CT-3b only) | P0-4, CT-3b | – |
+| A CodeCommit rule on `referenceCreated`, `referenceUpdated` and `referenceDeleted` to the orchestrator (`pushAudit`) | P0-4 | – |
+| Task roles: a trust statement for the account root with `ArnEquals aws:PrincipalArn` = the role's own ARN; `sts:AssumeRole` on themselves; `states:SendTask*` (CT-3b only) | P0-4, CT-3b | the ARN built with `!Sub`, not `!GetAtt` |
+| An `ECS Task State Change` rule (`STOPPED`, the sessions' family) to the orchestrator (`taskStopped`) | CT-3b | – |
 | CodeBuild project `${App}-update-branch` | P1-3 | real git; pushes `agent/*` only |
-| Orchestrator role: `codecommit:GetMergeOptions`, `MergePullRequestByFastForward`, `DeleteBranch`, `UpdatePullRequestStatus`, `ecs:StopTask` (CT-3b), `codebuild:StartBuild` | P1-3, P1-6, CT-3b | – |
+| Orchestrator role: `codecommit:GetMergeOptions`, `MergePullRequestByFastForward`, `DeleteBranch`, `UpdatePullRequestStatus`, `ecs:StopTask` and `states:SendTaskFailure` (CT-3b), `codebuild:StartBuild`, `sqs:SendMessage` on the lost-events queue (P0-2) | P1-3, P1-6, CT-3b, P0-2 | – |
+| Staging app's health check `Interval` 5 s | CT-2 | `stack.yaml:856` |
 | Console role: `bedrock:GetKnowledgeBase`, `cloudwatch:DescribeAlarms`, `sqs:ReceiveMessage`/`DeleteMessage` on the queue, `lambda:InvokeFunction` on the orchestrator (replay) | UX-20, P0-2 | – |
-| Three GSIs on the table | UX-8 | one per stack update |
+| Three GSIs on the table | UX-8 | one per stack update, about 9 minutes each |
 | Cognito groups `viewer`, `operator`, `admin` | UX-15 | – |
 
 The added cost is small next to staging's fixed cost: one queue, two alarms, a five-minute schedule, a little more CodeBuild time per merge, and three indexes on a small table. Round 4's cost check (section 13) measures it.
@@ -753,7 +797,7 @@ Each line is one branch with its commits and tests on `aipf-sdlc`, deployed to t
 | 7 | P0-5; UX-6's banner and override reason | M, M | – | D5 passes |
 | 8 | REC-3, REC-5, CT-3a; UX-1, UX-2, UX-3 | S, S, S, M, S, S | 1 | G1's four views agree; the time parts are recorded |
 | 9 | P1-2; P1-1 with the tester decision; UX-10; UX-5 | M, L, S, M | 5 | A3, C4 and B11 end as named |
-| 10 | CT-1, CT-2, CT-3b | M, M, M | 8 | Overhead per step under 30 s on a test run |
+| 10 | CT-1, CT-2, CT-3b; CT-4 (a pull request to `aipf-poc-sample`) | M, M, M, S | 8 (CT-3b also 6) | Overhead per step under 35 s and a deploy under 140 s on a test run |
 | 11 | P1-3; UX-7 | L, S | 9, 10 | B9 and B10 pass |
 | 12 | P1-4; UX-20 | M, M | 3 | B8 passes |
 | 13 | P1-5; P1-6 | S, M | 4 | E2's clean-up; no stale branches |
@@ -772,7 +816,7 @@ Steps 1 to 8 are M1, 9 to 13 are M2, 14 to 17 are M3, and 18 and 19 are M4. M1 a
 |---|---|
 | P1-3, the merge queue | Keep `AIPF_MERGE_QUEUE=off`: the console merges and resumes (P0-2), and after each merge the orchestrator comments on every other open `agent/*` pull request |
 | P0-4's scoped credentials | Keep `AIPF_PUSH_SCOPE` off: the two users and `pushAudit` still give detection |
-| CT-3b's waitForTaskToken | Keep `runTask.sync`: the SOCI index and the fetch cut still apply |
+| CT-3b's waitForTaskToken | Keep `runTask.sync`, and move the overhead target to about 60 s: the stop wait it removes is about 34 of the 63 s. The fetch cut, the SOCI index, CT-2 and CT-4 do not depend on it |
 | UX-8's indexes | Keep the `Scan`s, with the server-side sort oldest first |
 
 ### 8.3 Out of this round
@@ -817,14 +861,14 @@ These apply to a person or an agent working on the plan.
 | P0-6 | `orchestrator.test.mjs`: six label cases | F1 |
 | P0-7 | `orchestrator.test.mjs`: `endRun` stop and reset; `tools.test.mjs`: `prId` written, ended run refused | B1, B7 |
 | REC-1 to REC-5 | `orchestrator.test.mjs`; `trace.test.mjs` for REC-3 | G1 |
-| CT-3a, CT-3b | `orchestrator.test.mjs`: ECS facts on the session row; for CT-3b, token without a session row refused | Time table |
+| CT-3a, CT-3b | `orchestrator.test.mjs`: ECS facts on the session row (PascalCase, epoch ms in; ISO out); for CT-3b, token without a session row refused, and `taskStopped` failing the token from a recorded `ECS Task State Change` event, a used token ignored | Time table |
 | P1-1 | `orchestrator.test.mjs`: each end; `insights.test.mjs`: `outcomeOf` | A3, C4, B11 |
 | P1-2 | `orchestrator.test.mjs`: each reason, both budgets | C3, B9 |
 | P1-3 | `orchestrator.test.mjs`: queue, fast-forward, conflict; workflow check | B9, B10 |
 | P1-4 | `orchestrator.test.mjs`: take, wait, expiry, release | B8 |
 | P1-5 | `tools.test.mjs`: own and other pull request | C3 |
 | P1-6 | `orchestrator.test.mjs`; `connectors.test.mjs`: `deleteBranch`, `addLabel` | E2 |
-| CT-1, CT-2 | workflow check; `trace.test.mjs`: parallel lanes | Time table |
+| CT-1, CT-2, CT-4 | workflow check, which also fails on a variable assigned in a `Parallel` branch and read after it; `trace.test.mjs`: parallel lanes; a new `deploy.test.mjs` runs `deploy.sh`'s release and rollout waits against a stub `aws` on `PATH` | Time table |
 | UX-1 to UX-3 | `trace.test.mjs`: `progressOf` with failed, escalated and attempts | G1, G5 |
 | UX-8 to UX-12a | `insights.test.mjs`: definitions and window; `console.test.mjs`: queries and cursor | G4, C6 |
 | UX-13, UX-15 | `console.test.mjs`: audit row, 403 per role, both group formats | D8, G3 |
@@ -838,10 +882,12 @@ The "workflow check" is a test in `test/platform.test.mjs` that loads `providers
 
 **Stack updates on the POC,** in this order, each after a pause and drain (rule 8):
 1. P0-2: the queue, the invoke config, the alarms, the schedule, the retries and the `StartRun` catch.
-2. P0-4: the task roles' trust and permissions, then `build` for the harness image and `snapshot`.
-3. P1-3, CT-1, CT-2: the update-branch project and the workflow's new states.
-4. to 6. UX-8: `run-index`, then `issue-index`, then `open-index`, one stack update each. Each waits until the index is `ACTIVE`.
-7. UX-15: the Cognito groups, then `console-user add` for the two users.
+2. P0-4: the task roles' trust and permissions, then `build` for the harness image and `snapshot`. The self statement is the account root with `ArnEquals aws:PrincipalArn` on the role's own ARN, built with `!Sub`; IAM refuses a trust that names the role itself while the role is being created.
+3. P1-3, CT-1, CT-2, CT-3b: the update-branch project, the workflow's new states, the ECS stop rule and the staging app's health check `Interval`.
+4. to 6. UX-8: `run-index`, then `issue-index`, then `open-index`, one stack update each. Each waits until the index is `ACTIVE` (about 9 minutes on today's table); DynamoDB refuses the next index while one is being created.
+7. UX-15: the Cognito groups, then `console-user add phucnt@aipf.invalid --role admin`, both before the console code that enforces the roles. A user with no group is a `viewer`.
+
+CT-4 is not a stack update: it is a pull request to `aipf-poc-sample`, merged by a person, at any point.
 
 **Backfill.** `aipf.sh backfill` runs after the indexes, once, as a dry run first and then with `--apply`. It is idempotent. It:
 - sets `gsiRuns` and `gsiIssue` on every `RUN#` row and turns `startedAt` into an ISO string;
@@ -862,8 +908,11 @@ The "workflow check" is a test in `test/platform.test.mjs` that loads `providers
 | Risk or decision | Why it matters | Proposal |
 |---|---|---|
 | The merge queue (P1-3) adds states, a CodeBuild project and a second CI when `main` moved | It is the largest item, and it adds time per merge when runs overlap | Build it after CT-1 and CT-2 so the net time still falls; the flag gives the fallback of section 8.2 |
-| P0-4 runs the runner as root inside the container and adds a credential socket | A mistake blocks every push or every gateway call | Test on the dev environment first; the flag turns off the scoped credentials; the role's `agent/*` rule stays |
-| P0-4's limit holds only while the agent cannot reach the container's credentials | Any other way to the task role's credentials, such as a guessable credentials path, would bypass it | `pushAudit` detects a push to the wrong branch, and round 4 D4 tests it |
+| P0-4 runs the runner as root inside the container and adds a credential socket | A mistake blocks every push or every gateway call; a trust without the self statement denies the scoped `AssumeRole` | Test on the dev environment first; the flag turns off the scoped credentials; the role's `agent/*` rule stays |
+| P0-4's limit holds only while the agent cannot reach the container's credentials | Any other way to the task role's credentials, such as a guessable credentials path, would bypass it. Today the gap is real: the runner and the agent both run as `agent` (uid 1001), and on a temporary repository the unscoped role pushed to another run's branch | `pushAudit` detects a push to the wrong branch, and round 4 D4 tests it |
+| CT-3b's token is in the task's overrides | Anyone in the project with `ecs:DescribeTasks`, and the ECS event, can read it and end that step | Acceptable inside the project; the agent never sees it once P0-4 splits the users; the token dies with the step |
+| CT-3b ends a step when the runner says so, not when the task stops | A task that keeps running after its token was sent holds a Fargate task and its cost; a task that dies before it sends waits for the heartbeat timeout | `AfterX` stops a task that still runs; the `taskStopped` rule fails a token within seconds; the heartbeat timeout (300 s) is the backstop |
+| CT-2 counts the rollout done before ECS says `COMPLETED` | A circuit-breaker rollback after that point would leave the tester on the old version | `AfterTester` reads the deployment's `rolloutState` and sends a `FAILED` one to `DeployFailed` |
 | Jira statuses "Needs a person" and "Won't do" (P1-1, P1-6) | The project's workflow may not have them | Labels always; statuses when the Jira admin adds them (D-6) |
 | Console roles (UX-15) | A wrong default locks people out | New users `operator`; the owner `admin`; `console-user add` fixes a mistake |
 | The answer page linked from Slack works without signing in | Anyone with the link can answer that question | Keep it for questions and change requests only (UX-15); the link expires when the row closes |
@@ -913,7 +962,7 @@ The "workflow check" is a test in `test/platform.test.mjs` that loads `providers
 | Outcomes named | A3 `declined`, C4 `closed`, B11 `reverted`; none counted as a failure |
 | The four views agree | G1 with no disagreement in attempts, stages, reasons or times |
 | Success on the round 3 set | At least 20 of 25 runs `done`, with declined, closed, won't do and stopped runs excluded |
-| Time | Overhead per step under 30 s; deploy under 120 s; a Done run on Sonnet under 20 minutes of run time |
+| Time | Overhead per step under 35 s; deploy under 140 s; CI under 40 s; a Done run on Sonnet under 20 minutes of run time |
 | The console | G3 and G4 findings closed; G5 recorded with no blocking issue; D8 passes |
 
 ## 14. What to write when the round is done
@@ -922,3 +971,43 @@ The "workflow check" is a test in `test/platform.test.mjs` that loads `providers
 - The measured figures and the decisions go into [06](06-poc-architecture.md) as a new section, with the time and cost tables.
 - The POC environment's `NOTES.md` gets its results row.
 - The items of this plan that were not built move to the next plan, with their reason.
+
+## 15. Verified on AWS (2026-10-20)
+
+Each claim of this plan about AWS behaviour or about the POC's state was checked in the selected Region (`ap-southeast-2`). Behaviour was tested on temporary resources named `aipf-plan08-*` and tagged `Project=aipf-poc` and `Purpose=plan-08-verify`. The POC was only read: execution histories, build records and logs, and resource settings. No POC resource was changed. The temporary resources are listed for the owner, who decides whether to delete them.
+
+**Behaviour, on temporary resources:**
+
+| Item | Claim checked | How | Result | What it changed in the plan |
+|---|---|---|---|---|
+| P0-2 | Lambda keeps the events it drops at reserved concurrency 0 | A function at concurrency 0 with an `OnFailure` destination to a queue; one direct asynchronous invoke and one EventBridge event | No retry. Both reached the queue in 4 to 6 s with `condition: ZeroReservedConcurrency`, `approximateInvokeCount: 0` and the original event in `requestPayload`. `AsyncEventsDropped` counted them | The invoke config and the alarm stay; replay reads `requestPayload` (items 2 to 4) |
+| P0-2 | A rule target's dead-letter queue keeps a failed delivery | A rule on a temporary bus whose Lambda target had lost its permission for EventBridge, with `DeadLetterConfig` and `RetryPolicy` 185 / 86400 | Both values accepted. The message arrived 2.4 s after the event, with the original event as its body and `ERROR_CODE` `NO_PERMISSIONS` | Replay reads the body and `ERROR_CODE`; `events list` never prints the payload |
+| P0-4 | A task role can assume itself to get scoped credentials | A temporary role, assumed from the caller, then assuming itself | Denied without a self statement. Allowed with a trust statement on the account root and `ArnEquals aws:PrincipalArn` = the role, plus `sts:AssumeRole` on itself in its own policy. A new role whose trust names itself is refused at creation ("Invalid principal") | The two statements, built with `!Sub` (item 2, section 11 update 2) |
+| P0-4 | The chained session's limits | The same role, `DurationSeconds` 3600 and 3601 | 3600 granted; 3601 refused ("exceeds the 1 hour session limit for roles assumed by role chaining"). The session ARN is `assumed-role/<role>/<session name>`. The session policy is 326 bytes, 27 % of the packed limit | Refresh after 50 minutes (item 3) |
+| P0-4 | The session policy limits pushes to the run's branch | A temporary repository; pushes with the scoped session and with the unscoped role | Scoped: its own branch pushed and force-pushed; another branch, `main`, a tag and a branch delete refused, with git's "You don't have permission to push changes to this branch." Unscoped: another `agent/` branch pushed, `main` refused | Done-when of P0-4; the risk row in section 12 |
+| P0-4 | `pushAudit` sees every push and who made it | A rule on the temporary repository's ref changes, to a queue | A new branch is `referenceCreated`, a push to it `referenceUpdated`, a delete `referenceDeleted`; each has `callerUserArn` ending in `assumed-role/<role>/<session>` | The rule covers the three events (item 7, section 7.4) |
+| CT-3a, CT-3b | The 35 s after the runner's record is ECS's stop | Eight temporary Fargate tasks in four shapes: one container; a session-like task with the `db` sidecar; the sidecar with a 2 s `stopTimeout`; a main container that ignores `SIGTERM` | Exit to `StoppingAt` 10 s in every shape; `StoppingAt` to `StoppedAt` 13 to 24 s. Provisioning 10 to 21 s; the sidecar's pull 7.3 to 7.5 s | The two-part stop (CT-3a); waitForTaskToken is the lever, not task settings (CT-3b) |
+| CT-3b | The ECS event can fail a token | A rule on `ECS Task State Change`, `lastStatus: STOPPED`, for the temporary cluster, to a queue; a task with a fake token in its overrides | Arrived 7.3 s after `StoppedAt`, with the override's name and value, `containers[].exitCode`, `stopCode` and `stoppedReason` | The `taskStopped` rule and action (item 2) |
+| CT-3b | SOCI shortens the pull | Not tried; from the ECS documentation | Private ECR only, index manifest v2, worth it above about 250 MiB | Item 3 is conditional, and bounded by the sidecar's pull |
+| CT-2 | The rollout's `COMPLETED` comes long after the new task serves | A temporary service with staging's size, health check, `stopTimeout` and deployment settings; four deploys | New task `HEALTHY` at 60 to 63 s, old task told to stop at 66 to 68 s, `COMPLETED` at 138 to 150 s. With an old task that ignores `SIGTERM`, `COMPLETED` at 171.5 s | The rollout's end condition and the `SIGTERM` rule |
+| CT-2 | The release's exit code is known before `STOPPED` | Two one-shot tasks on the same cluster | `exitCode` showed in `DescribeTasks` about 12 s after the exit, and `STOPPED` about 25 s after it | The release polls `exitCode` |
+| CT-4 | The runtime install is CI's source phase | A temporary CodeBuild project on the CI image, with and without `runtime-versions`, and with `PATH` set | Source phase 55 to 58 s with `nodejs: 22` on `SMALL` and `MEDIUM`; 0 s with `PATH` set, running Node.js v22.23.3; 14 s on `aarch64:3.0` | CT-4 |
+| CT-1 | A JSONata variable set in a `Parallel` branch is readable after it | Two temporary state machines | It is not: the definition is accepted with the warning `POSSIBLY_UNDEFINED_VARIABLE`, and the variable is undefined at run time. `$merge($states.result)` on the `Parallel`'s `Output` gives both branches' facts | The `Checks` output rule (CT-1, section 7.2, section 10) |
+| UX-8 | Index creation time, and one index at a time | A temporary table with 510 items like the POC's; a second index requested while one was being created, and two in one call | `issue-index` was `ACTIVE` after 511 s, and a query on it worked. Both other requests were refused: `LimitExceededException`, "Only 1 online index can be created or deleted simultaneously per table" | One index per stack update, about 9 minutes each (section 7.1, section 11) |
+| UX-15 | The form of `cognito:groups` at the function | A temporary user pool with three test users, an HTTP API with a JWT authorizer, and a function that returns its claims | One string: `[operator admin]` (order not fixed), `[viewer]`, or no claim for a user in no group. A bare token and a `Bearer` token both pass | The parser, the missing-claim rule and the order of section 11 |
+
+**The POC's state, read only:**
+
+| What | Finding | Where it is used |
+|---|---|---|
+| Deployed code | `721f9c8`, the commit the plan's line numbers refer to | Status |
+| Round 3 session steps | 210 steps in the execution history; median 35 s from the runner's record to the end of the step | CT-3b |
+| Deploys and CI | Eight builds of each: deploy 230 to 266 s, build phase 218 to 253 s; CI 82 to 109 s, source phase 62 to 69 s | CT-2, CT-4 |
+| Orchestrator and rules | No `EventInvokeConfig`, no dead-letter queue, no `RetryPolicy` | P0-2 |
+| Table | No global secondary index | UX-8 |
+| Console pool | One user, `phucnt@aipf.invalid`, in no group | UX-15, section 11 |
+| Containers | The runner and the agent CLI both run as `agent` (uid 1001) | P0-4, section 12 |
+| Developer role | No statement that lets it assume itself | P0-4 |
+| G3 finding 3 | `PLATFORM/connections` holds `docs` as `NULL`; the console has `KB_ID` and `KB_MODEL` set | UX-20 |
+
+**Temporary resources left for the owner's decision:** IAM roles `aipf-plan08-sfn`, `aipf-plan08-fn`, `aipf-plan08-build` and `aipf-plan08-push`; the queue `aipf-plan08-lost`; the functions `aipf-plan08-fn` and `aipf-plan08-claims`; the bus `aipf-plan08-bus` with its rule `aipf-plan08-rule`, and the rules `aipf-plan08-push-events` and `aipf-plan08-ecs-events` on the default bus; the table `aipf-plan08-table`; the CodeBuild project `aipf-plan08-runtime` and its log group; the repository `aipf-plan08-push`; the cluster `aipf-plan08` with its task definitions and the service `aipf-plan08-roll` (scaled to 0); the state machines `aipf-plan08-output-merge` and `aipf-plan08-inner-variable-after`; the user pool `aipf-plan08-pool`; the HTTP API `aipf-plan08-api`.
