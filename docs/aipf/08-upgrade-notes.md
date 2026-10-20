@@ -854,3 +854,105 @@ Items: CT-1, CT-2, CT-3b, CT-4.
 5. CT-4: a person merges pull request 60 in `aipf-poc-sample`, at any time. The merge rebuilds the snapshot, as any change to `main` does.
 
 In round 4, check that the platform's overhead per agent step is under 35 s (CT-3a's parts), the deploy under 140 s (CodeBuild's phases and the log's times), CI's source phase under 10 s, and CI and the reviewer side by side in the console.
+
+## Line 11: the merge queue (`upgrade/11-merge-queue`)
+
+Items: P1-3, UX-7.
+
+**Built**
+- **Approve goes into the queue (P1-3, item 1).** With `AIPF_MERGE_QUEUE` other than `off` (the stack's new `MergeQueue` parameter, `on` by default; `aipf.sh` passes `AIPF_MERGE_QUEUE`), the console's Approve records the approval, does not merge, and resumes the step with `{ decision: 'approve', by, revisionId, commit }`.
+  - `review.mjs` gains `approve` and `recordApproval`. `recordApproval` is the comment, the approval and the override of an old approval rule, as before; `approveAndMerge` now uses it too. The comment says the merge queue merges it.
+  - The console writes the record's `stage: 'queue'` and `queue: { step: 'waiting', since, at }` with the resume (REC-5), so the lists show the queue before its first step.
+  - The order is approve, resume, then mark the review answered. When the resume fails, the approval row is back, the review stays open, and the person gets a 503: "approve again in a minute".
+- **The workflow's queue states (item 2):**
+  - `Decision` sends `approve` to `QueueStart`, which keeps the approved commit as `$approvedCommit` and `$branchHead`.
+  - `TakeQueue` (the orchestrator's `takeQueue`) does a conditional put of `PLATFORM/MERGE_QUEUE` with the run, the work item, the pull request, `takenAt` and `expiresAt`. The queue is free when it is empty, already this run's, held past its time, or held by a run that has ended. Otherwise `QueueWait` (30 s) loops back, and 30 minutes after the approval the run leaves as `lease` with a pull request note.
+  - `MainMoved` (`mainMoved`, `scm.mergeState`) checks whether `main` can fast-forward to the branch: `current` goes to `Merge`, `moved` to `UpdateBranch`.
+  - `UpdateBranch` runs the new CodeBuild project `${App}-update-branch` (`providers/aws/deploy/update-branch.sh`, ARM `SMALL`, no source, logs in `/${App}/update-branch`). It clones the repository, checks that the branch is at `$branchHead`, and merges `origin/main` with real git under the platform's identity (`aipf-platform@example.invalid`). It pushes without force and writes `AIPF_UPDATE` (`updated`, `current`, `conflict` or `changed`), `AIPF_COMMIT` and `AIPF_CONFLICTS`.
+  - `BranchUpdated` (`branchUpdated`) handles the result:
+    - `updated` goes to `MergedCI` and `MergedImage`: CI and the image build on the merged head.
+    - `conflict` leaves the queue as `rebase` with the files, a note, and no failure counted (D-5).
+    - `changed` is a push nobody approved, and escalates.
+  - `Merge` (`mergeQueued`) fast-forwards `main` to the head CI passed. A head past the approved commit must hold only the platform's two-parent merges (at most ten, checked by `scm.commit`). The approval then stands for the new revision: the approval rules are set aside with a comment. If `main` moved meanwhile, the run goes back to `MainMoved`; a push meanwhile escalates.
+  - Every way out passes through `ReleaseQueue` (`releaseQueue`, conditional on the run), then `QueueExit`:
+    - `merged` goes to `DeployStaging`;
+    - `rebase` and `lease` go to `QueueAgain` (`nextAttempt`, not counted);
+    - `ci` goes to `CIFailed` ("on the merged head");
+    - `closed` goes to `Closed`;
+    - anything else escalates.
+
+    Platform step failures go through `QueueError` to the same release. `releaseRun` also frees the queue at any end, and a hold lasts 60 minutes from each queue step.
+- **A merge made in CodeCommit (item 3)** still arrives as `merged` and skips the queue. One made while the run waits in the queue is seen by `mainMoved` and `mergeQueued` and goes on to the deploy.
+- **Other open pull requests (item 4).** After every merge into `main`, `pullRequestEvent` posts on every other open `agent/*` pull request into `main`. With the queue on: `main moved to <commit>; this branch is merged with it before its own merge.` With it off, the note asks the person to check for conflicts before approving.
+- **The console (item 5, UX-6, UX-7):**
+  - `queueStep` writes `run.queue = { step, since, at, holder?, files?, commit?, exit? }`. The steps are `waiting`, `taken`, `update`, `ci`, `merge`, `conflict`, `merged` and `done`.
+  - The run view gives `queue` while the stage is `queue`. While the run waits, the queue view adds `ahead` (the holder, plus the runs that wait with an earlier approval) and `heldBy`.
+  - The review view gives `mergeQueue` and, with it, `queue.ahead` and `queue.heldBy`.
+  - `trace.mjs` has a "Merge queue" stage between the review and the deploy. A pass through the queue, with its 30 s loop, is one attempt, and the stage waits while another run holds the queue. A conflict comes back to the developer as "back from the merge queue".
+  - `app.js`:
+    - the flow and the stepper have the queue;
+    - the timeline has "Update branch" and "CI on the merged head" lanes;
+    - the review panel has the queue line ("Merge queue: N pull requests before this one · main moved since CI: it is merged in first"). With the queue, Approve is not held back by CodeCommit's conflict view (D-5);
+    - the button reads "Approve" with the queue and "Approve and merge" without it, and the dialog has the plan's two texts;
+    - the reasons `rebase` and `lease` name the queue.
+  - **UX-7, `nowText`** names whose decision is pending and since when (a clock time and "ago") for the review, the tester decision and an agent's question. A review adds "the reconciler checks merged pull requests every 5 minutes". In the queue, it names the place ("N pull requests before this one", the holder and since when, the 30-minute wait) or the step (merging main into the branch, CI on the merged head with the commit, a conflict with its files, merging into main).
+- **The rollout.** `requestApproval` marks the `HUMAN` and `APPROVAL` rows `mergeQueue: true` only when the workflow passes `mergeQueue: true` (the new definition) and the flag is on. An execution started before this line keeps the console's merge.
+- **Connectors.** The scm contract gains `mergeState`, `mergeFastForward`, `approvals`, `overrideApprovals`, `commit` and `openPullRequests`. CodeCommit has all of them. GitHub has the reads; its merge and approval-rule calls throw, because the AWS provider runs on CodeCommit only. The view gains `mergeCommit` when there is one.
+- **IAM.**
+  - The orchestrator gets the `MergeQueue` statement: `GetMergeOptions`, `MergePullRequestByFastForward`, `EvaluatePullRequestApprovalRules`, `OverridePullRequestApprovalRules` and `GetCommit`.
+  - The workflow role may start the update-branch project.
+  - `UpdateBranchRole` gets `GitPull`, and `GitPush` only on `refs/heads/agent/*` (an explicit deny for any other reference). It may also read `platform/*` in the data bucket and write its own logs.
+
+**Differences from the plan**
+- **`StartBuild` of the update-branch project is on the workflow role**, as for CI, not on the orchestrator's: the workflow starts the build (`startBuild.sync`).
+- **The orchestrator needs more CodeCommit calls than the plan lists:** `EvaluatePullRequestApprovalRules`, `OverridePullRequestApprovalRules` and `GetCommit`. CodeCommit resets approvals on each new revision, so a head with the queue's merge of `main` needs the person's approval carried over. The queue does that only along a chain of the platform's own merge commits back to the approved commit (D-5: "a clean update of `main` needs no new review").
+- **A push to the branch after the approval escalates** (`pushed`): the plan does not say. Nobody approved that change, so a person looks at the run.
+- **The other-pull-request note** comes from `pullRequestEvent` for every merge into `main`, the queue's and CodeCommit's alike, not only after `Merge`.
+- **UX-7's staging lease text** ("waiting for staging: held by …") waits for line 12, which builds the lease's record (P1-4). `nowText` names the merge queue's holder now.
+- **The script is in `providers/aws/deploy/`**, next to `deploy.sh`, and `aipf.sh up` uploads it with the others.
+- **`mergeState` reads `main` by name**, at its tip, not the pull request's stored destination commit, which is old.
+- **The queue's hold is 60 minutes from each queue step**, not one fixed time: a run that died holding the queue blocks the others for an hour at most.
+- **A queue wait that runs out posts a pull request note**, as well as going back as `lease`.
+- **The console computes the queue position** from the `RUN` rows (a Scan, until the indexes of UX-8) and the holder row. No position is stored.
+- **The approval's pull request note mentions the queue**, and so does the chat message.
+- **The run's `checks` image is not recorded again** after the build on the merged head. `DeployStaging` still passes the first image as `IMAGE_TAG`. `main`'s head is then the merged head, whose image `MergedImage` built, so `deploy.sh` finds that image by its tag (`image_exists`) and does not build again. It logs "main moved past the checked image".
+- **The workflow ignores the `revisionId` the console sends.** It reads the revision from `mergeState` at the merge.
+- **The trace's stage id is `queue`**, as the record's stage is, so the console's two sources agree.
+- **The console writes `stage: 'queue'`** and the `waiting` step at the approval (REC-5), as it writes `deploy` after its own merge.
+- **The trace makes one attempt of a queue pass.** Without that, each 30 s loop of `TakeQueue` and `QueueWait` would be one more attempt.
+- **`test/step.test.mjs`'s heartbeat test** counts 4 beats instead of 3 when that file runs alone: the test's fake endpoint runs on the main thread that the test blocks. It passes in the full run, and neither the test nor `harness/` changed in this line.
+
+**Tests** (250 in all, all passing; 228 before)
+- `update-branch.test.mjs` (5, new): `update-branch.sh` against real git in a temporary directory. It covers:
+  - a current branch, with nothing pushed;
+  - a merge pushed as the platform's two-parent commit;
+  - a real conflict that lists its files and leaves the branch;
+  - a branch past the expected head, which it does not touch;
+  - agent branches and commit ids only.
+- `orchestrator.test.mjs` (79):
+  - one run takes the queue, a second waits and names the holder, and takes it after the release;
+  - a hold past its time, or of an ended run, is taken over, and 30 minutes of waiting end as `lease`;
+  - `MainMoved`: current or moved, and a merge, a close or a push meanwhile;
+  - `BranchUpdated`: CI on the merged head, and a conflict as `rebase` with its files and no failure;
+  - `Merge` at the approved head with no override; past it only along the platform's merges, with the override and its comment; back to `MainMoved` when `main` moved; a push meanwhile escalates;
+  - `ciFailed` on the merged head;
+  - `requestApproval` marks the rows only with the queue on and in the new workflow;
+  - the other pull requests' note in both wordings.
+- `connectors.test.mjs` (23): CodeCommit's queue calls.
+- `platform.test.mjs` (24): `Approve` goes to the queue, every way out passes through `ReleaseQueue`, and the exits are as above.
+- `trace.test.mjs` (15): the queue is one stage that waits while another run holds it; two passes are two attempts; a CodeCommit merge skips it; a failed CI on the merged head fails the queue's attempt.
+- `console.test.mjs` (27):
+  - Approve with the queue resumes with the person, the revision and the commit, merges nothing, and writes the queue stage;
+  - `off`, or rows without the flag, merge as before;
+  - a failed resume gives 503, keeps the review open, and a second Approve goes through;
+  - the place in the queue on the review view and the run page, with the holder, an expired hold and the run that holds the queue itself.
+- **The stack:** `cfn-lint` gives 7 warnings, as on `main`. `validate-template` (through the deploy bucket) passed. `ValidateStateMachineDefinition` gives `OK` with no diagnostics.
+- **Not yet on AWS.** B9 and B10 (two approved pull requests on one file within a minute) are round 4's.
+
+**Deploy.** This line changes the stack (the `MergeQueue` parameter, the update-branch project, its role and log group, the grants), the workflow, the orchestrator, the console and the platform scripts in the bucket.
+1. Run `providers/aws/aipf.sh pause "line 11"` and wait until no run is running.
+2. Run `providers/aws/aipf.sh up`. It uploads `update-branch.sh` with `deploy.sh`, and sets `MergeQueue=on` unless `AIPF_MERGE_QUEUE=off` is set. The new definition applies to new executions only, and their approval rows carry the flag. A run that waits on a review from before keeps the console's merge.
+3. Run `providers/aws/aipf.sh resume`.
+4. To turn the queue off without a revert, run `AIPF_MERGE_QUEUE=off providers/aws/aipf.sh up`. The console then merges (P0-2), and the other pull requests get the "check for conflicts" note.
+
+In round 4, B9 and B10 check two pull requests on one file, approved within a minute. The second merges after an automatic update and a green CI, or goes back to its developer as `rebase`, and no run counts a failure for it. The console shows the place in the queue and the step.
