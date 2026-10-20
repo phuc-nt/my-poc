@@ -1036,3 +1036,56 @@ Items: P1-4, UX-20.
 3. Run `providers/aws/aipf.sh resume`, or press "Resume" on the Platform view.
 
 In round 4, B8 labels three items at once. The second and third wait at the deploy with "waits · SCRUM-n has staging". No tester agent sees another run's deploy. `aipf.sh status` shows the holder, and `PLATFORM/STAGING_LEASE` is empty once all three end.
+
+## Line 13: the pull request description and the clean-up (`upgrade/13-pr-description-and-cleanup`)
+
+Items: P1-5, P1-6.
+
+**Built**
+- **The description tool (P1-5).** `codecommit___update_pull_request` (`pull_request_id`, an optional `title`, `description`) is in `registry/tools.json` and `gateway/tools.mjs`.
+  - It changes the run's own pull request (`RUN#<run>.prId`) through `scm.updatePullRequest`.
+  - It refuses another pull request ("pull request 6 is not this run's; this run's is 5"), a run with no pull request yet, a session that names no run, and an empty description.
+  - The developer agent has the tool (`registry/agents.json`). `developer.md` step 6 says to update the title and description after every push to an open pull request, with the same sections, after every change request.
+- **The escalation (P1-6).** `escalate`:
+  - ends the run first (`finish`: the lock, the approval, the staging lease, the merge queue and the open rows);
+  - comments `[AIPF platform] This run ended: <reason>. A person takes it from here.` on the run's pull request;
+  - labels the work item `aipf-needs-person`, and moves it to "Needs a person" when the project has that status (`transition` returns `moved: false` otherwise);
+  - writes a Jira note with the full reason and what it did ("Pull request n says so. The branch agent/KEY stays for that person. The work item has the label … and is in Needs a person.");
+  - posts the reason's first paragraph to the chat, with the same tail and the console link;
+  - keeps the branch, and returns `{ runId, prId, commented, labelled, moved }`.
+- **Merged branches.** `done` deletes the run's branch through `scm.deleteBranch` and says so in its Jira note ("The branch agent/KEY is deleted."). So do the `closed` and `done` ends. `deleteRunBranch` deletes only `agent/<the run's work item>`, never another work item's branch or `main`.
+- **The CLI.** `aipf.sh branches [list|prune [--apply]] [--days N]` (`providers/aws/branches.mjs`) lists each `agent/*` branch with its latest run, the run's outcome, the time since it ended, its pull request's state and what prune does with it.
+  - `prune` lists the branches whose run ended more than seven days ago (or N) and whose pull request is merged or closed. `--apply` deletes them, and a failed delete prints only the error name.
+  - A branch with no run on record, a running run, no pull request or an open one is kept.
+  - The pull request comes from the run's record, or else from the latest pull request whose source is the branch.
+- **IAM.** The tools function's role gains `codecommit:UpdatePullRequestTitle` and `UpdatePullRequestDescription`. The orchestrator role had `DeleteBranch` (on `agent/*`) already.
+
+**Differences from the plan**
+- **The tools role needs two more grants** (`UpdatePullRequestTitle`, `UpdatePullRequestDescription`). Section 7's IAM table lists only the orchestrator role's.
+- **`update_pull_request` also refuses a session that names no run** and an empty description. The plan names only another pull request.
+- **The `done` end deletes the branch too**, as `done` does: its pull request was merged. `reverted` keeps the branch.
+- **`escalate` finds the pull request** from the run's record, or else from the branch's open pull request, and comments only when it found one. It never deletes the branch.
+- **The chat gets the reason's first paragraph, and the Jira note the whole reason.**
+- **`branches` has `--days N`** (default 7) for the one-time prune. Round 3 ran on 2026-10-20, so every round 3 run ended less than seven days ago, and `prune --apply` alone deletes none of the 19 branches before 2026-10-27. On the POC, `branches list` lists 19 branches and 0 to prune. `branches prune --days 0` (a dry run) lists all 19: 17 with a merged pull request and 2 with a closed one. Nothing is deleted. The one-time prune (`branches prune --apply --days 0`) waits for the owner's go-ahead.
+- **Where the project has no "Needs a person" status,** the label alone marks the work item, and the notes leave the status out.
+
+**Tests** (271 in all, all passing; 264 before)
+- `tools.test.mjs`: the run's own pull request, with and without a title; another one; a run without a pull request; a session without a run; an empty description.
+- `orchestrator.test.mjs` (87):
+  - escalate comments on the pull request, labels and moves the work item, posts the first paragraph with the console link, releases every row and keeps the branch;
+  - escalate finds the branch's open pull request, and a tracker outage still ends the run `escalated`;
+  - done deletes its own branch, and keeps `agent/<another item>`, `feature/…` and `main`;
+  - each end: `closed` and `done` delete the branch, the others keep it;
+  - the done and escalate texts.
+- `branches.test.mjs` (3, new): the latest run per branch; the prune decision for each case, `--days 0` too; the age text.
+- `connectors.test.mjs` already covered `deleteBranch` (never `main`, a missing branch is `deleted: false`) and `addLabel`.
+- **The stack:** `cfn-lint` gives 7 warnings, as on `main`. `validate-template` (through the deploy bucket) passed. The workflow does not change. The diff holds no account number, email or address.
+- **On AWS (read-only):** `branches list` and `branches prune --days 0` ran against the POC in about 30 seconds.
+
+**Deploy.** This line changes the stack (the tools role), the gateway tools function and its tool list, the orchestrator, `aipf.sh` and the harness image (`registry/` is copied into it: `agents.json` and `developer.md`).
+1. Run `providers/aws/aipf.sh pause "line 13"` and wait until no run is running.
+2. Run `providers/aws/aipf.sh build` for the harness image, then `providers/aws/aipf.sh up` for the stack, the functions and the gateway's targets.
+3. Run `providers/aws/aipf.sh resume`.
+4. With the owner's go-ahead, run `providers/aws/aipf.sh branches prune --days 0` and then the same command with `--apply`, for the 19 round 3 branches.
+
+In round 4, C3 asks for a change on an open pull request, and its description must describe the change after it. E2 ends with a commented pull request and an item labelled `aipf-needs-person`, and `branches` lists no merged run's branch.
