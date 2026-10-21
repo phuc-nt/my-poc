@@ -4,6 +4,8 @@ This document plans the next upgrade of the AIPF for SDLC: what changes in the p
 
 Status: final plan, written on 2026-10-20 and checked against the code of `aipf-sdlc` at commit `721f9c8`. Nothing in it is built. Every item names the code it touches as the code is today, with the old names of [07](07-architecture-and-names.md) section 8 (`harness`, `engine`, `aipf-poc-*`); the rename is out of this round's scope. Line numbers are those of `721f9c8` and move as the work lands. On 2026-10-20 the plan's claims about AWS behaviour were checked on AWS, in the selected Region, with temporary resources and with read-only looks at the POC. Section 15 lists every check and its result, and the items below already carry the corrections.
 
+Update, 2026-10-21: built, deployed on 2026-10-21 and checked by round 4 and the re-checks after it. The result against section 13 is in [06](06-poc-architecture.md) sections 22.3 and 22.7: every criterion is met but one P0 scenario, F1, which fails on Jira's own event delivery. The items not built, with their reason, and the findings for the next plan are in section 22.6.
+
 **How to use this document.** Section 2 lists the decisions already taken, so an implementer does not reopen them. Sections 4 to 6 describe each item: what, why, where and how, and when it is done. Section 7 holds the shared technical design (data, workflow, API, AWS resources, registry), section 8 the order of work, section 9 the rules for whoever implements it, section 10 the tests, section 11 the deploy and rollback, section 13 how round 4 checks the result, and section 15 what was verified on AWS. Where an item states a timing or an AWS behaviour, section 15 says how it was measured.
 
 ## 1. Summary

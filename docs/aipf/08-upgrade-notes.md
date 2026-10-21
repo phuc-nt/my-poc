@@ -1708,7 +1708,7 @@ The window ran from 23:15 UTC on 2026-10-20 to 00:29 UTC on 2026-10-21, with the
 
 ## After round 4
 
-Round 4 left three of section 13's criteria open: D5's rule precedence, CI under 40 s and the deployed browser pass. Two product commits on top of `f07134c` took up D5 and CT-3b item 3, and a pull request to the sample repository took up CI. The checks are in `environments/poc/test-set/round-4-results.md`, "Re-checks after round 4".
+Round 4 left four of section 13's criteria open: D5's rule precedence, CI under 40 s, the deployed browser pass and the success rate on round 3's set. Two product commits on top of `f07134c` took up D5 and CT-3b item 3, and a pull request to the sample repository took up CI. The checks are in `environments/poc/test-set/round-4-results.md`, "Re-checks after round 4".
 
 **The deploy.** On 2026-10-21, with the pause on and no run running: `providers/aws/aipf.sh up` at 04:31 UTC (about 15 minutes), then `build` at 04:50 (about a minute, the snapshot build with the SOCI index), then `resume` at 04:53. `main` is `ec202a3`; the tests number 336, all passing.
 
@@ -1742,14 +1742,29 @@ Round 4 left three of section 13's criteria open: D5's rule precedence, CI under
   - "New run" opens only after the agents' list loads, with no busy sign;
   - the pass's MFA setup uses the harness CLI client's admin sign-in.
 
-**Where this differs from plan 08.** CT-3b item 3 and the CI change were built after the round, not before it, so round 4's own figures (overhead median 33.0 s, CI median 55 s) predate them. The 7 SOCI steps are a small sample, and CI's 28.2 to 29.1 s comes from three builds of `main`; neither holds for the runs until the next round.
+**Round 3's scenarios that round 4 did not run (the success rate).** Round 4 covered round 3's set except A1, A2, B3, C1, D1, E1 and E4. These ran on 2026-10-21 from 06:28 to 07:17 UTC, all at once, on fresh items SCRUM-119 to SCRUM-125 (the `r4b-*` entries of `test-set/work-items.json`), B3 twice. Every session ran on Claude Code, Sonnet 5.5, with the PM of B3's second run on Opus 5.5. The details are in `round-4-results.md`, "Round 3's scenarios that round 4 did not run".
+- All pass, B3 with a finding. Six runs ended `done`, E4 `declined` and B3's first run `stopped`. With round 4's runs, 17 of 18 counted runs ended `done` (94%; the criterion asks 80%).
+- 8 runs, 52 sessions, $8.46 of model cost. CI 33 to 38 s over 15 builds; overhead per agent step 25.7 s at the median over 52 steps, all under 35 s; 51 of 52 pulls by SOCI; deploys 114.5 s at the median.
+- AG-4 on the platform: B3's designer proposed SCRUM-126 (a fixture with an age) through `jira___propose_issue`, a Task labelled `aipf-proposed`.
+- Findings:
+  - a late answer's text is lost, so the next run's PM asks again (B3);
+  - a merge-queue conflict asks the person again: three approvals for A1 and B3, two for C1;
+  - a developer's report of passing checks is trusted (C1's attempt 2 broke the test file; CI and the reviewer caught it);
+  - three parallel items added migration `008` (E2 again);
+  - the tester gives `fail` for "could not check" (B4 again);
+  - 7 of 14 image builds waited for the build slot (B8 again), and the step list shows those steps as `failed`;
+  - the PM asks a person about an injection it already set aside (D1);
+  - 11 memory proposals stay open, all stale since E1's accept (E6 again).
+
+**Where this differs from plan 08.** CT-3b item 3 and the CI change were built after the round, not before it, so round 4's own figures (overhead median 33.0 s, CI median 55 s) predate them. The 7 SOCI steps were a small sample, and CI's 28.2 to 29.1 s came from three builds of `main`; the later runs' 52 steps and 15 builds hold both. Round 3's set was not rerun as one set of 25: the success rate counts round 4's runs and the seven scenarios round 4 had not run, 18 counted runs.
 
 **For the next plan** (not built here):
 - line 6's two gaps;
 - the harness container's start: wait for `db` to start, not to be healthy, and have the runner wait for `pg_isready` before the repository's setup;
 - the sample's `AGENTS.md` line 55 ("unless the work item needs one"), through a pull request;
 - `afterDeveloper`'s question, seen on the platform;
-- the browser pass's findings above.
+- the browser pass's findings above;
+- the later runs' findings above.
 
 **Still the owner's:**
 - set the console pool's MFA to `ON` again;
