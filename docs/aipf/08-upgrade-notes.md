@@ -1689,6 +1689,7 @@ The window ran from 23:15 UTC on 2026-10-20 to 00:29 UTC on 2026-10-21, with the
   - Round 3's staging data: 31 tickets (`T-3` to `T-34`; there was no `T-15`) and their 4 notes were deleted. `T-1` and `T-2` were kept, and no test-made device existed.
   - `pm-opus on` was set; the audit trail has its row.
   - `branches prune` waits until round 4 is over, because D4 needs `agent/SCRUM-75`. The dry run listed 19 branches, that one included.
+  - After round 4, on 2026-10-21, `branches prune --days 0 --apply` deleted the 16 branches left, every one with its pull request merged. The other three (`agent/SCRUM-96`, `agent/SCRUM-98` and `agent/SCRUM-101`) were deleted when round 4's runs on those items ended `closed`. The repository keeps `main`, `ag-5-test-data` and `ct-4-ci-path`.
 
 **Where the deploy differed from the steps above**
 - **Step 1.** `main` was `f07134c`, one commit past `e3da207`. That commit fixes a 500 on the console's overview: the query sent the index sort key's name when it did not use it. It went live with the first `up`'s last stack pass. The tests then numbered 333, all passing.
