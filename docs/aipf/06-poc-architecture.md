@@ -1191,21 +1191,21 @@ Not checked yet:
 
 | Criterion (plan section 13) | Met? | Detail |
 |---|---|---|
-| Every P0 scenario passes: B1, B2, B5, B7, B12, C3, D4, D5, F1 | Partly | Seven pass. F1 passes once Jira sends the event, but Jira did not send 4 of the 8 label additions recorded. D5 failed its first part in the round (no agent asked before adding a dependency); its third run, after the fix, passes (22.7) |
+| Every P0 scenario passes: B1, B2, B5, B7, B12, C3, D4, D5, F1 | Partly in the round; yes after it | Seven pass. F1 passes once Jira sends the event, but Jira did not send 4 of the 8 label additions recorded. D5 failed its first part in the round (no agent asked before adding a dependency); its third run, after the fix, passes. After the webhook's fix, F1 passes: 12 of 12 label changes arrived (22.7) |
 | Outcomes named, none counted as a failure | Yes | A3 and D3 `declined`; C4, D2 and D5 `closed`; B11 `reverted`; failures 0 |
 | The four views agree (G1) | Yes, with one gap | Sessions, attempts, outcomes, verdicts, tokens and costs agree. The console's step list leaves out the merge queue's waits |
-| Success on round 3's set: at least 20 of 25 runs `done` | Not measured in the round; yes after it | Round 3's set was not rerun. Of round 4's 12 counted runs, 11 ended `done` and one `reverted`, as its scenario meant. After the round, round 3's seven scenarios that round 4 had not run ran on fresh items: with them, 17 of 18 counted runs ended `done` (94%). The set is 18 counted runs, not 25 (22.7) |
-| Overhead per agent step under 35 s | Partly; yes after the round | Median 33.0 s, mean 31.7 s. The developer and the reviewer stay at about 40 s. With SOCI after the round: median 21.1 s over 7 steps, then 25.7 s over 52 steps, all under 35 s (22.7) |
+| Success on round 3's set: at least 20 of 25 runs `done` | Not measured in the round; yes after it | Round 3's set was not rerun. Of round 4's 12 counted runs, 11 ended `done` and one `reverted`, as its scenario meant. After the round, round 3's seven scenarios that round 4 had not run ran on fresh items: with them, 17 of 18 counted runs ended `done` (94%), and with the fixes' runs 19 of 20 (95%). The set is 20 counted runs, not 25 (22.7) |
+| Overhead per agent step under 35 s | Partly; yes after the round | Median 33.0 s, mean 31.7 s. The developer and the reviewer stay at about 40 s. With SOCI after the round: median 21.1 s over 7 steps, then 25.7 s over 52 steps, then 19.2 s over 24 steps, all under 35 s (22.7) |
 | A deploy under 140 s | Yes, at the median | Median 123 s; 2 of 14 over |
 | CI under 40 s | No in the round; yes after it | Median 55 s in the round, down from 91 s. After pull request 82's merge, CI on `main` took 28.2 to 29.1 s, and the later runs' 15 builds 33 to 38 s (22.7) |
 | A Done run on Sonnet under 20 minutes of run time | Yes | Median 17 min 44 s; runs without rework take 10 to 11 minutes. With the later runs: 17 min 25 s over 12 (22.7) |
 | The console: G3 and G4 findings closed, G5 recorded, D8 passes | Yes, after the round | G3, G4 and D8's API pass. G5 and C7 passed on a local mock in the round, and on the deployed console after it, with D8's page; seven findings, none blocking (22.7) |
 
-The control plane that failed in round 3 now holds. No run started twice, no event was lost inside the platform (the four dropped during a throttle were kept and replayed with no duplicate effect), every person's decision reached the later agents, and the new endings work. What still fails is rule precedence when the work item, `AGENTS.md` and a handoff agree against a role's rule (D5), Jira's own delivery of label events (F1), and the CI target.
+The control plane that failed in round 3 now holds. No run started twice, no event was lost inside the platform (the four dropped during a throttle were kept and replayed with no duplicate effect), every person's decision reached the later agents, and the new endings work. What failed in the round is rule precedence when the work item, `AGENTS.md` and a handoff agree against a role's rule (D5), Jira's own delivery of label events (F1), and the CI target. All three were fixed and checked after the round, with B6's and B11's P0 findings (22.7): every criterion of section 13 is met.
 
 Not checked in round 4:
 - the deployed browser pass (G5, C7 and D8's page), run after the round (22.7);
-- AIPF MCP through the user gateway, and its audit line (G2 called the tools directly);
+- AIPF MCP through the user gateway, and its audit line (G2 called the tools directly), checked after the round with an MCP client (22.7);
 - round 3's set of 25 runs as one set: its seven scenarios that round 4 had not run, E1 and E4 among them, ran after the round (22.7);
 - E1's edit before an accept (after the round, E1's proposal was accepted as proposed);
 - the knowledge chat, which calls a Bedrock model.
@@ -1266,7 +1266,7 @@ Every session ran on the Claude subscription, so the model cost below is the Cla
 - **Opus** was 17% of the sessions and 35% of the model cost. E2's hard item, all six agents on Opus, cost $3.34; runs of the same size on Sonnet cost $0.6 to $0.8.
 - **A Sonnet session costs a third more** than in round 3. Its prompt now carries the memory notes, the person's earlier decisions, the earlier runs and more tools.
 - **The round's test runs cost more than ordinary items.** Most scenarios asked for rework on purpose: a change request, a rebase, a revert, a stop or a question.
-- **Real AWS cost.** `aipf.sh cost` for 2026-09-21 to 2026-10-22, the whole project before credits: $20.46, all of it covered by credits ($20.47). Amazon Bedrock is $14.00 of it, from the GLM-5 use of the first rounds; round 4 used no Bedrock model. CodeCommit is $2.00, RDS $0.88, CodeBuild $0.84, ECS $0.80, and every other service under $0.60. Cost Explorer had no data for 2026-10-21 yet, and the `Project` tag is not active as a cost allocation tag, so the cost added by plan 08's resources cannot be separated yet.
+- **Real AWS cost.** `aipf.sh cost` for 2026-09-21 to 2026-10-22, the whole project before credits: $20.46, all of it covered by credits ($20.47). Amazon Bedrock is $14.00 of it, from the GLM-5 use of the first rounds; round 4 used no Bedrock model. CodeCommit is $2.00, RDS $0.88, CodeBuild $0.84, ECS $0.80, and every other service under $0.60. Cost Explorer had no data for 2026-10-21 yet, and the `Project` tag is not active as a cost allocation tag, so the cost added by plan 08's resources cannot be separated yet. At 08:32 UTC, for 2026-10-14 to 2026-10-22: $20.18, all covered by credits; by day $14.28 on 2026-10-18 (the Bedrock use), $1.04 on 2026-10-19 and $4.74 on 2026-10-20 (CodeCommit $2.00, CodeBuild $0.75, RDS $0.63, Route 53 $0.50, ECS $0.48). A day without runs costs about $1. The `Project` tag cannot be activated at all: the project is a linked account, and only the management account activates cost allocation tags. So the added cost is read by day and service, from 2026-10-22 for 2026-10-21.
 
 **The production estimate of section 15.6, again.** Section 15.6 counted developer sessions only. With the six agents and round 4's mix, a work item takes about 8 sessions:
 - the model, at API prices: about $1.20 per item on Sonnet; about $1.45 with round 4's mix, where the PM is on Opus for items with history and one item in sixteen is all on Opus;
@@ -1298,25 +1298,26 @@ These go to the next plan, not to plan 08. The full list, with each finding's sc
 
 | Priority | Finding | Scenario |
 |---|---|---|
-| P0 | A handoff outranked a role's rule: the PM's "nothing blocks it" let the developer add a dependency without asking. Built after the round (`a1b2a15`), and D5's third run passes (22.7). Still to do: the sample's `AGENTS.md` line that invites the reading, and `afterDeveloper`'s question seen on the platform | D5 |
-| P0 | Jira did not send 4 of 8 label additions. Register the webhook without its JQL filter and filter in the orchestrator, or have the reconciler look for `aipf` labels with no run | F1 |
-| P0 | A killed session ends the attempt as finished. Count it as a failure and start a new attempt | B6 |
-| P0 | The revert path: take the merge queue for the revert, delete the run's branch, and say that a migration stays applied | B11 |
+| P0 | A handoff outranked a role's rule: the PM's "nothing blocks it" let the developer add a dependency without asking. Built after the round (`a1b2a15`), and D5's third run passes. Done after the round: the sample's `AGENTS.md` line through pull request 90, and `afterDeveloper`'s question seen on the platform (22.7) | D5 |
+| P0 | Jira did not send 4 of 8 label additions. Register the webhook without its JQL filter and filter in the orchestrator, or have the reconciler look for `aipf` labels with no run. Built after the round (`0dd1de4`, the filter names the project): 12 of 12 label changes arrived (22.7) | F1 |
+| P0 | A killed session ends the attempt as finished. Count it as a failure and start a new attempt. Built after the round (`3a51446`) and passes (22.7) | B6 |
+| P0 | The revert path: take the merge queue for the revert, delete the run's branch, and say that a migration stays applied. Built after the round (`56986f1`) and passes (22.7) | B11 |
 | P1 | Image builds wait behind each other and behind deploys. Give image builds their own CodeBuild project; keep the limit of one for deploys. After the round, 7 of 14 image builds of seven parallel runs waited, 1,895 s in all | B8, after the round |
 | P1 | Two parallel items both added migration `007`, and three later ones `008`. Check for a duplicate number in CI, or number migrations at merge time | E2, after the round |
 | P1 | A reviewer approved a pull request that lacked its feature, and a reviewer's verdict changed between attempts on the same test. Add checks that do not vary, such as CI in a second time zone, and a diff-against-story check for the reviewer | B9, B11 |
 | P1 | The tester's fixture cannot backdate rows, and the tester has no `unverified` verdict. After the round, B3's tester gave `fail` with no defect, and its designer proposed SCRUM-126 for the fixture | B4, B3 |
 | P1 | A merge-queue conflict asks the person again: three approvals for A1 and B3, two for C1, as parallel items changed the same files. Decide whether a merge-only change the reviewer approved can go back to the queue without the person | A1, B3, C1 |
 | P1 | A developer's report of passing checks is trusted: C1's attempt 2 broke the test file and reported the tests pass; CI and the reviewer caught it. Have the runner run the checks after the session | C1 |
-| P1 | A close reason stays in the pull request; a declined item stays In Progress; `aipf-needs-person` stays after a later `done`; the lost-events alarm stays on until the queue is replayed | D5, A3, D3, B11, B12 |
+| P1 | A close reason stays in the pull request; a declined or stopped item stays In Progress; `aipf-needs-person` stays after a later `done`; the lost-events alarm stays on until the queue is replayed | D5, A3, D3, B11, B12, G2 |
 | P2 | The run page: the merge queue's wait as its own step, and the earlier runs the record already keeps | G1, line 18 |
 | P2 | Saving only an agent's model turns an optional agent back on | G3 |
 | P2 | The work item is not corrected after a person's decision; MCP tools disagree on the Jira link; the tester posts staging's internal address in Jira | E3, G2 |
 | P2 | The deployed console: a refresh drops the keyboard focus (mission control and the runs list have no `ETag`); the stepper scrolls on a run that ended early; a question shows raw markdown; agents name people from the item's history; "Sign in again" asks for nothing while the hosted UI's session is open; "New run" opens late | G5 deployed (22.7) |
 | P2 | A late answer is lost: the 410 is right, but the text is not kept, so the next run's PM asked again; `aipf.sh answer` cannot send to a closed question. A retried step shows as `failed` in the step list | B3, after the round |
-| P3 | Memory proposals pile up; Confluence tools are listed but missing for three roles; the vault redaction misses fields named after the credential; the developer's first `no_pr` instead of a question; the browser pass sets up MFA through the harness CLI client; the PM asks a person about an injection it has already set aside. After the round, 11 memory proposals stay open, all stale | E6, line 18, D2, G5, D1 |
+| P2 | A stop through AIPF MCP names the caller by its user id, in Jira and in `endedBy`. Name the caller in words a person reads, without an email address in Jira | G2, after the round |
+| P3 | Memory proposals pile up; Confluence tools are listed but missing for three roles; the vault redaction misses fields named after the credential; the developer's first `no_pr` instead of a question; the browser pass sets up MFA through the harness CLI client; the PM asks a person about an injection it has already set aside. After the round, 11 memory proposals stay open, all stale. The interceptor writes an audit line for a call the gateway then refuses on the protocol version (the gateway supports MCP 2025-03-26 only); `revertQueue` writes no log line | E6, line 18, D2, G5, D1, G2, B11 |
 | Time | CI under 40 s: met after pull request 82 (28.2 to 29.1 s on `main`, 33 to 38 s over the later runs' 15 builds). The developer's and the reviewer's `db` health wait | CI, overhead |
-| Cost | Keep Sonnet as the default and Opus for the PM on items with history | Cost |
+| Cost | Keep Sonnet as the default and Opus for the PM on items with history. The `Project` tag cannot be a cost allocation tag in a linked account: change `up`'s message, which says to run it again tomorrow, and have `cost` read the added cost by day and service | Cost |
 
 **Found during the deploy:**
 - a merge to `main` outside a run rebuilds the snapshot but does not redeploy staging;
@@ -1324,8 +1325,8 @@ These go to the next plan, not to plan 08. The full list, with each finding's sc
 - CodeCommit refuses an approval from a pull request's author, so the owner's own pull requests need the console's override.
 
 **After round 4, still to do:**
-- AIPF MCP through the user gateway, once the runner's Claude Code is connected to it;
-- `aipf.sh cost` again once Cost Explorer has 2026-10-21, with the `Project` tag activated in Billing.
+- AIPF MCP through the user gateway: checked after the round with an MCP client and a console user (22.7). Connecting Claude Code to it (`harness login` and `harness connect`) is the owner's, as it signs in through a browser with a password and an authenticator;
+- `aipf.sh cost` again once Cost Explorer has 2026-10-21 (from 2026-10-22), read by day and service, as the `Project` tag cannot be activated in a linked account.
 
 ### 22.7 After round 4
 
@@ -1356,4 +1357,23 @@ On 2026-10-21, from 04:30 to 06:17 UTC, three of the open criteria were worked o
 - CI: 15 builds of 33 to 38 s, median 35.5 s. Overhead per agent step: median 25.7 s over 52 steps, all under 35 s; the developer 26.8 s and the reviewer 26.5 s at the median. 51 of 52 pulls by SOCI, median 5.1 s. Deploys: median 114.5 s.
 - 7 of 14 image builds waited for the deploy project's one build slot (B8), 1,895 s in all. The new findings are in 22.6.
 
-With these, section 13's criteria stand as follows: P0 partly (F1, Jira's own event delivery, still fails); success on round 3's set met (17 of 18 counted runs); overhead, CI and run time met over 52 steps and 15 builds; the console met.
+With these, section 13's criteria stood as follows: P0 partly (F1, Jira's own event delivery, still failed); success on round 3's set met (17 of 18 counted runs); overhead, CI and run time met over 52 steps and 15 builds; the console met.
+
+**The round 4 fixes.** From 07:52 to 08:47 UTC the last P0 scenario and the three P0 findings still open were fixed, deployed with the pause on (`pause`, `up`, `webhook`, `resume`) and checked on SCRUM-127 to SCRUM-130, with G2 through the user gateway. Product `main` has 342 tests, all passing. Every session ran on Claude Code, Sonnet 5.5.
+
+| What | Change | Result |
+|---|---|---|
+| F1, Jira's label events (P0) | `0dd1de4`: the webhook's JQL filter names the project instead of the label, which Jira tested against a search index that lagged; the orchestrator checks the label change itself, as before. `webhook` updates a registered webhook in place | PASS. 12 of 12 changes of the `aipf` label arrived, against 4 of 8 in the round: a label added during the pause, three that started runs 2.2 to 7.3 s after the addition, two removals and additions during a run (1.7 to 2.1 s each), and the removals after the runs ended |
+| B6, a killed session (P0) | `3a51446`: a session the platform stopped is `killed`, a failed attempt, and the new attempt's feedback starts with how the session ended and AG-10's sentence | PASS. The developer's attempt was stopped 15 s after it was running: the session row says `killed`, exit 143; the run's failures went to 1 and attempt 3 did the change request. `done` |
+| B11, the revert path (P0) | `56986f1`: the revert takes the merge queue (409 while it is busy), names the migrations that stay applied in the revert pull request, the reverted one and the Jira comment, and `end` deletes the reverted run's branch | PASS. The revert got 409 while another run's pull request merged, then 200 with revert pull request 93 and migration `010_product_warehouse.sql` named; staging redeployed from `main` in 123 s; the branch is gone |
+| D5's leftovers | The sample's `AGENTS.md` line 55 through pull request 90; `afterDeveloper`'s question on the platform | PASS. Line 55 now reads "Do not add a dependency, or a dev dependency, without a person's yes in the run, even when the work item names it", and a new version counts as adding one. The PM and the developer asked first; when pull request 92 added `luxon`, the platform asked before CI, and the person's "keep" became an amendment. `done` |
+| G2, AIPF MCP through the user gateway | `test-set/mcp/g2.sh`: an MCP client with a console user's access token on the harness CLI app client, made for the check and removed after it | PASS, twice, the second time with the pool's MFA required. 401 without a token; 17 tools; `run_start`, a refused second start, `run_get`, `run_trace`, `run_stop` and a refused second stop. The interceptor wrote one audit line per call, with the argument names only |
+
+- G2 differs from the plan, which says "once the runner's Claude Code is connected": `harness connect` signs in through a browser with a password and an authenticator, so the check used its own client on the same gateway, authorizer, interceptor and tools.
+- 5 runs, 25 sessions, $3.151 of model cost on Sonnet; 1 h 12 min of wall time, 26 min 40 s of it waiting for the person. The two Done runs took 17 min 46 s (with the killed attempt) and 16 min 0 s without the waits.
+- CI: 6 builds of 34 to 39 s, median 36.5 s. Overhead per agent step: median 19.2 s over 24 steps, all under 35 s. 24 of 24 pulls by SOCI, median 4.0 s. Deploys: 111 to 134 s.
+- With these runs, 19 of 20 counted runs ended `done` (95%).
+- The console pool's MFA is required again (`ON`).
+- The new findings are in 22.6: the MCP's stop names the caller by its user id (P2), a stopped item stays In Progress (P1), an audit line for a call the gateway refused and `revertQueue`'s missing log line (P3), and the `Project` tag that a linked account cannot activate (cost).
+
+**Section 13's criteria now:** every P0 scenario passes, F1 included; the outcomes are named; the four views agree; success on round 3's set is met (19 of 20 counted runs); overhead per step, deploy, CI and run time are met; the console is met. Plan 08 is built and checked. What stays is the owner's: rotating the Slack bot token, connecting Claude Code to AIPF MCP (`harness login`), revoking the Claude token at the POC's end, and reading 2026-10-21's cost from 2026-10-22.

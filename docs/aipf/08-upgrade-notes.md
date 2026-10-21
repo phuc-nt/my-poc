@@ -1758,17 +1758,37 @@ Round 4 left four of section 13's criteria open: D5's rule precedence, CI under 
 
 **Where this differs from plan 08.** CT-3b item 3 and the CI change were built after the round, not before it, so round 4's own figures (overhead median 33.0 s, CI median 55 s) predate them. The 7 SOCI steps were a small sample, and CI's 28.2 to 29.1 s came from three builds of `main`; the later runs' 52 steps and 15 builds hold both. Round 3's set was not rerun as one set of 25: the success rate counts round 4's runs and the seven scenarios round 4 had not run, 18 counted runs.
 
+**The round 4 fixes (F1, B6, B11, D5's leftovers and G2).** After the re-checks above, one P0 scenario still failed (F1), two P0 findings were open (B6 and B11), D5 had two leftovers and G2 had not gone through the user gateway. Three product commits on top of `ec202a3` took them up; `main` has 342 tests, all passing. The checks are in `round-4-results.md`, "The round 4 fixes".
+- F1 (`0dd1de4`): the webhook's JQL filter was `labels = aipf`, and Jira tests it against a search index that may not hold a label just added, so it did not send 4 of 8 label additions. The filter now names the project (`project = SCRUM`), and the orchestrator checks the label change itself, as before. `webhook` updates a registered webhook in place when its filter, address or events differ.
+- B6 (`3a51446`): `afterDeveloper` gives `killed` for a session the platform stopped, with an open pull request or not. The workflow sends it to a new attempt with the reason `killed`, counted against the failure budget, and the feedback starts with how the session ended and AG-10's sentence.
+- B11 (`56986f1`): the console's revert takes the merge queue through the orchestrator's `revertQueue` action, for five minutes at most, and lets it go after the merge or a failure; a busy queue answers 409. `end` deletes a reverted run's branch. The revert pull request, the reverted one, the console's answer and the run's Jira comment name the migrations that stay applied.
+- The sample's `AGENTS.md` line 55, through pull request 90 (SCRUM-127, which was also B6's item): "Do not add a dependency, or a dev dependency, without a person's yes in the run, even when the work item names it; say in the pull request who allowed it.", then "A new version of a dependency counts as adding one." The seed `environments/poc/sample-repo/AGENTS.md` has both lines.
+- G2 through the user gateway: `environments/poc/test-set/mcp/g2.sh` makes a console user at `aipf.invalid` (group `admin`), signs it in on the harness CLI app client (with an authenticator app when the pool's MFA requires one), calls the `aipf-poc-harness` gateway over streamable HTTP with `g2.mjs`, prints the interceptor's audit lines for the window, and removes the user. No token, password or address is printed.
+
+**The deploy of the fixes.** With the pause on and no run running: `pause` at 07:52 UTC, `up` from 07:53 to 08:08, `webhook` at 07:54 (it updated the registered webhook in place), `resume` at 08:09:14. The session image did not change, so there was no snapshot build.
+
+**The checks, on SCRUM-127 to SCRUM-130** (the `r4c-*` entries of `test-set/work-items.json`), every session on Claude Code, Sonnet 5.5:
+- F1: PASS. 12 of 12 changes of the `aipf` label arrived, against 4 of 8 in the round: one added during the pause, three that started runs 2.2 to 7.3 s after the addition, two removals and additions on a running item (1.7 to 2.1 s each), and the removals after the runs ended.
+- B6: PASS. The developer's attempt 2 on SCRUM-127 was stopped 15 s after its task was running. The session row says `killed`, exit 143; the run's failures went to 1, and attempt 3's feedback starts "The previous developer session ended after 25 s: the platform stopped it (exit 143)." The stopped session's runner had pushed the change on its way out, so attempt 3 found it on the branch. `done`.
+- B11: PASS. SCRUM-129's tester gave `fail` on pull request 91 (migration `010_product_warehouse.sql`). The person's revert got 409 while the queue merged pull request 90, then 200 with revert pull request 93 and the migration named. Staging redeployed from `main` in 123 s; the Jira comment names the migration and the commit staging runs; `agent/SCRUM-129` is deleted.
+- D5's question: PASS. On SCRUM-128 the PM and the developer asked first. When pull request 92 added `luxon` 3.7.2, the platform asked before CI ("[AIPF platform] Pull request 92 adds a package…"), and the person's "keep" became an amendment. `done`.
+- G2: PASS, twice, the second time with the pool's MFA required. 401 without a token; 17 tools, 11 of them `harness___*`; `run_start`, a refused second start, `run_get`, `run_trace`, `run_stop` (the run `ABORTED`, outcome `stopped`) and a refused second stop. The interceptor wrote one audit line per call, with the argument names and never their values.
+- 5 runs, 25 sessions, $3.151 of model cost; CI 34 to 39 s over 6 builds; overhead per agent step 19.2 s at the median over 24 steps, all under 35 s; 24 of 24 pulls by SOCI; deploys 111 to 134 s. With these runs, 19 of 20 counted runs ended `done` (95%).
+
+**Where the fixes differ from plan 08.** G2 says "once the runner's Claude Code is connected". `harness connect` signs in through a browser with the person's password and authenticator, so the check used its own MCP client with the same app client and a console user's access token: the gateway, the authorizer, the interceptor and the tools are the ones Claude Code calls. The `afterDeveloper` question came as a backstop: the agents asked first, as their rules now say.
+
 **For the next plan** (not built here):
 - line 6's two gaps;
 - the harness container's start: wait for `db` to start, not to be healthy, and have the runner wait for `pg_isready` before the repository's setup;
-- the sample's `AGENTS.md` line 55 ("unless the work item needs one"), through a pull request;
-- `afterDeveloper`'s question, seen on the platform;
 - the browser pass's findings above;
-- the later runs' findings above.
+- the later runs' findings above;
+- the fixes' findings: a stop through AIPF MCP names the caller by its user id in Jira and in `endedBy`; a stopped item stays In Progress, as a declined one does; the interceptor writes an audit line for a call the gateway then refuses on the protocol version (the gateway supports MCP 2025-03-26 only); `revertQueue` writes no log line;
+- the cost: the `Project` tag cannot be a cost allocation tag, as the project is a linked account (`ce update-cost-allocation-tags-status` answers AccessDenied). Change `up`'s message, which says to run it again tomorrow, and read the added cost by day and service.
+
+**Done after the round:** the console pool's MFA is `ON` again, with the authenticator app; G2's second run had to set one up at sign-in.
 
 **Still the owner's:**
-- set the console pool's MFA to `ON` again;
-- rotate the Slack bot token;
-- run `harness login` and `harness connect` again;
-- run `cost` on 2026-10-22, with the `Project` tag activated in Billing;
+- rotate the Slack bot token: in Slack's admin pages, then `secrets.env` and `up`;
+- run `harness login` and `harness connect` again: a browser sign-in with the owner's password and authenticator;
+- read the cost of 2026-10-21 by day and service once Cost Explorer has it (from 2026-10-22): `cost 2026-10-14 2026-10-22` at 08:32 UTC gave $20.18 of usage before credits, all covered, with 2026-10-21 not in yet;
 - revoke the Claude subscription token at the end of the POC.
