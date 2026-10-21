@@ -1197,7 +1197,7 @@ Not checked yet:
 | Success on round 3's set: at least 20 of 25 runs `done` | Not measured | Round 3's set was not rerun. Of round 4's 12 counted runs, 11 ended `done` and one `reverted`, as its scenario meant |
 | Overhead per agent step under 35 s | Partly; yes after the round | Median 33.0 s, mean 31.7 s. The developer and the reviewer stay at about 40 s. With SOCI after the round: median 21.1 s over 7 steps, all under 35 s (22.7) |
 | A deploy under 140 s | Yes, at the median | Median 123 s; 2 of 14 over |
-| CI under 40 s | No; yes on pull request 82's branch | Median 55 s, down from 91 s. Pull request 82 runs CI in 28.8 s, once a person merges it (22.7) |
+| CI under 40 s | No in the round; yes after it | Median 55 s in the round, down from 91 s. After pull request 82's merge, CI on `main` took 28.2 to 29.1 s (22.7) |
 | A Done run on Sonnet under 20 minutes of run time | Yes | Median 17 min 44 s; runs without rework take 10 to 11 minutes |
 | The console: G3 and G4 findings closed, G5 recorded, D8 passes | Yes, after the round | G3, G4 and D8's API pass. G5 and C7 passed on a local mock in the round, and on the deployed console after it, with D8's page; seven findings, none blocking (22.7) |
 
@@ -1312,7 +1312,7 @@ These go to the next plan, not to plan 08. The full list, with each finding's sc
 | P2 | The work item is not corrected after a person's decision; MCP tools disagree on the Jira link; the tester posts staging's internal address in Jira | E3, G2 |
 | P2 | The deployed console: a refresh drops the keyboard focus (mission control and the runs list have no `ETag`); the stepper scrolls on a run that ended early; a question shows raw markdown; agents name people from the item's history; "Sign in again" asks for nothing while the hosted UI's session is open; "New run" opens late | G5 deployed (22.7) |
 | P3 | Memory proposals pile up; Confluence tools are listed but missing for three roles; the vault redaction misses fields named after the credential; the developer's first `no_pr` instead of a question; the browser pass sets up MFA through the harness CLI client | E6, line 18, D2, G5 |
-| Time | CI under 40 s: pull request 82 (28.8 s) waits for a person's merge. The developer's and the reviewer's `db` health wait | CI, overhead |
+| Time | CI under 40 s: met on `main` after pull request 82 (28.2 to 29.1 s). The developer's and the reviewer's `db` health wait | CI, overhead |
 | Cost | Keep Sonnet as the default and Opus for the PM on items with history | Cost |
 
 **Found during the deploy:**
@@ -1321,20 +1321,19 @@ These go to the next plan, not to plan 08. The full list, with each finding's sc
 - CodeCommit refuses an approval from a pull request's author, so the owner's own pull requests need the console's override.
 
 **After round 4, still to do:**
-- merge pull request 82 in `aipf-poc-sample`, by a person;
 - AIPF MCP through the user gateway, once the runner's Claude Code is connected to it;
 - `aipf.sh cost` again once Cost Explorer has 2026-10-21, with the `Project` tag activated in Billing.
 
 ### 22.7 After round 4
 
-On 2026-10-21, from 04:30 to 05:50 UTC, three of the open criteria were worked on and checked again on the deployed platform. Every agent session ran on Claude Code. The details are in `test-set/round-4-results.md`, "Re-checks after round 4", and [08-upgrade-notes.md](08-upgrade-notes.md), "After round 4".
+On 2026-10-21, from 04:30 to 06:17 UTC, three of the open criteria were worked on and checked again on the deployed platform. Every agent session ran on Claude Code. The details are in `test-set/round-4-results.md`, "Re-checks after round 4", and [08-upgrade-notes.md](08-upgrade-notes.md), "After round 4".
 
 | What | Change | Result |
 |---|---|---|
 | D5's rule precedence (P0-5) | `a1b2a15`: the preamble says a lower source never settles a conflict with a higher one; the PM and the reviewer get the dependency rule; `afterDeveloper` asks a person when a pull request adds a package no amendment names | PASS. The PM asked, got "no", and declined; no dependency was added. 2 min 50 s, $0.546 on Opus |
-| CI under 40 s (CT-4) | Pull request 82: npm fetched with a sha512 check instead of the image's own, slow on a cold disk; the database's container started during the install | 28.8 s on the branch. It applies once a person merges it |
+| CI under 40 s (CT-4) | Pull request 82: npm fetched with a sha512 check instead of the image's own, slow on a cold disk; the database's container started during the install | 28.8 s on the branch. Merged at 06:13 UTC with the owner's go-ahead; three builds of `main` took 28.2, 28.4 and 29.1 s |
 | The image pull (CT-3b item 3) | `ec202a3`: the session image's SOCI index, and the snapshotter on each session row | Pulls of 3.4 to 6.6 s, from about 14 s. Overhead per step 21.1 s at the median over 7 steps, all under 35 s |
 | The workspace fetch (CT-3b item 4) | None: `workspaceSec` was 1 to 4 s over 134 sessions | Not needed. The developer's and the reviewer's 8 to 10 s is the `db` health wait |
 | The deployed browser pass (G5, C7, D8's page) | `live.sh`: two console users with an authenticator app, made for the pass and removed after it | PASS for all three, through the managed sign-in page and API Gateway. Seven findings, none blocking (22.6, P2 and P3) |
 
-With these, section 13's criteria stand as follows: P0 partly (F1, Jira's own event delivery, still fails); overhead met on a small sample; CI met on a branch that waits for a person's merge; the console met. The 7 SOCI steps and CI's builds on one branch are small samples, to check again over the next round.
+With these, section 13's criteria stand as follows: P0 partly (F1, Jira's own event delivery, still fails); overhead met on a small sample; CI met on `main`; the console met. The 7 SOCI steps and CI's three builds of `main` are small samples, to check again over the next round.

@@ -1728,7 +1728,7 @@ Round 4 left three of section 13's criteria open: D5's rule precedence, CI under
 **CI (CT-4 again, pull request 82).** In round 4 the install phase took about 26 s of CI's 55 s. The CodeBuild image's disk loads its blocks on first read, so the image's own npm (about 2,000 files) took 15 to 20 s to start.
 - Pull request 82 to `aipf-poc-sample` (branch `ct-4b-ci-cold-disk`) fetches the same npm 11.7.0 from the registry, checks it against its sha512, and starts it in about 1 s. It also starts the database's container during the install.
 - CI on the branch: 28.8 s, with the lint, unit (74) and integration (120) tests passing.
-- It is open. The repository's approval rule needs a person to merge it, and nothing here bypasses that rule.
+- Merged at 06:13 UTC with the owner's go-ahead. The repository's approval rule was overridden for it, with the owner's decision in a comment on the pull request, as for pull request 60. Three builds of `main` after the merge took 28.2, 28.4 and 29.1 s, with the same tests passing.
 
 **The deployed browser pass (line 17's step, G5, C7 and D8's page).** `environments/poc/test-set/browser/live.sh` ran it on the deployed console, through the managed sign-in page, the JWT authorizer and API Gateway.
 - Users: two console users at `aipf.invalid` (`aipf-plan08-g5-admin`, `aipf-plan08-d8-viewer`), made by the script with an authenticator app and removed after each run. The pool's MFA is optional, so the script set up the app through the harness CLI client's admin sign-in and made it each user's MFA.
@@ -1742,7 +1742,7 @@ Round 4 left three of section 13's criteria open: D5's rule precedence, CI under
   - "New run" opens only after the agents' list loads, with no busy sign;
   - the pass's MFA setup uses the harness CLI client's admin sign-in.
 
-**Where this differs from plan 08.** CT-3b item 3 and the CI change were built after the round, not before it, so round 4's own figures (overhead median 33.0 s, CI median 55 s) predate them. The 7 SOCI steps are a small sample, and CI's 28.8 s comes from one branch's builds; neither holds for the runs until the next round, and CI's change only once pull request 82 is merged.
+**Where this differs from plan 08.** CT-3b item 3 and the CI change were built after the round, not before it, so round 4's own figures (overhead median 33.0 s, CI median 55 s) predate them. The 7 SOCI steps are a small sample, and CI's 28.2 to 29.1 s comes from three builds of `main`; neither holds for the runs until the next round.
 
 **For the next plan** (not built here):
 - line 6's two gaps;
@@ -1752,7 +1752,6 @@ Round 4 left three of section 13's criteria open: D5's rule precedence, CI under
 - the browser pass's findings above.
 
 **Still the owner's:**
-- merge pull request 82;
 - set the console pool's MFA to `ON` again;
 - rotate the Slack bot token;
 - run `harness login` and `harness connect` again;
