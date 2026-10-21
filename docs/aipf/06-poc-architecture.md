@@ -11,6 +11,7 @@ Status:
 - Cost Explorer figures for the test days will be added when they appear, about a day after the tests.
 - The dev and staging environments and the UAT agent were added on 2026-10-19 (section 17).
 - The six agents and the web console (section 18), AIPF MCP, the user gateway (section 19), and the person's review in the console (section 20) were added on 2026-10-19. A full six-agent run went from the work item to a healthy staging release, with the person's decisions made in the console (section 20.6).
+- Plan 08 ([08](08-upgrade-plan.md)) was built on 2026-10-20, deployed that night and checked by round 4 on 2026-10-21, on Claude Code only. Its figures, decisions and what moves to the next plan are in section 22.
 
 ## 1. What the POC must show
 
@@ -1150,3 +1151,175 @@ Not checked yet:
 - **Diff limits.** Large pull requests are shown in part, and the rest is in CodeCommit.
 - **The page polls.** A decision shows on another person's page within 15 seconds.
 - **No roles.** Every console user can decide.
+
+## 22. Round 4: plan 08 built and measured
+
+[08](08-upgrade-plan.md) planned the upgrade after round 3. Its 19 lines were built on `aipf-sdlc`'s `main` on 2026-10-20, deployed to the POC in one window that night, and checked by round 4 on 2026-10-21. Each line's build notes are in [08-upgrade-notes.md](08-upgrade-notes.md). The scenarios, each run's record and the full evaluation are in the POC environment's `test-set/round-4-results.md`. This section keeps the measured figures, the decisions and what moves to the next plan. Section 21 is kept for the owner's write-up of round 3.
+
+### 22.1 What was built and deployed
+
+| Milestone | Built | Not built |
+|---|---|---|
+| M1: one start per item, no lost events, stops that tell, decisions that travel, pushes confined, rules ranked, records right | P0-1 to P0-7, REC-1 to REC-5, CT-3a | – |
+| M2: named outcomes, a fair failure budget, the merge queue, the staging lease, a faster pipeline | P1-1 to P1-6, CT-1, CT-2, CT-3b items 1 and 2, CT-4 | CT-3b items 3 and 4 (section 22.6) |
+| M3: the console's run page, inbox, runs list, Insights, roles and audit | UX-1 to UX-17, UX-20 to UX-24 | – |
+| M4: the agents' instructions, memory, follow-ups and fixtures | AG-1 to AG-12, UX-18, UX-19 | – |
+
+- **The code.** `main` holds the 19 lines in 21 commits, then one fix the deploy found (a 500 on the console's overview), at `f07134c`. 333 unit tests pass.
+- **The deploy** ran from 23:15 UTC on 2026-10-20 to 00:29 UTC on 2026-10-21, with the platform paused and no run running:
+  - the first `up`: 41 min 24 s, of which 28 min for the three new table indexes;
+  - `build` (the harness image, then the session snapshot): 68 s;
+  - the second `up`, which turned the console roles on: 14 min 37 s.
+- **The backfill** made 152 writes: index keys, ISO times and retries on old runs, and the close of rounds 1 to 3's open questions and approvals. A second backfill found nothing.
+- **The sample repository** got two pull requests, merged with the owner's go-ahead: CI without the runtime install (CT-4), and the tester's test data fixture (line 18).
+- **Staging.** Round 3's 31 test tickets and their notes were deleted, with the owner's go-ahead. Staging kept running for the round.
+
+### 22.2 Decisions
+
+| Decision | Set to | What round 4 showed |
+|---|---|---|
+| The merge queue (P1-3, `AIPF_MERGE_QUEUE`) | On | B9 and B10: two pull requests on the same code, approved 4 s apart, merged in turn. One automatic branch update, one rebase sent back to the developer, no failure counted, and `main` green with both. The queue adds a wait when runs overlap: 452 s for the second pull request |
+| Scoped push credentials (P0-4, `AIPF_PUSH_SCOPE`) | On | D4: no push left the run's branch. No agent tried, so IAM's refusal was checked only on a temporary repository during the build |
+| Console roles (UX-15, `AIPF_CONSOLE_ROLES`) | On. The owner is `admin`; new users are `operator` | D8: a `viewer` gets 403 from the API when it stops a run or approves |
+| The PM on Opus for items with history (AG-11, `pm-opus`) | On, by the owner's choice | 10 of the 21 runs had an Opus PM. Those PMs read the earlier runs and the person's earlier decisions. An Opus session cost 2.6 times a Sonnet one |
+| Jira outcomes as labels (D-6) | `aipf-needs-person`, `aipf-declined`, `aipf-closed`, `aipf-wont-do` | The project's workflow has no such statuses |
+| The engine (D-10) | Claude Code on the subscription: Sonnet 5.5 by default, Opus 5.5 for one hard item (E2) | No run used another engine |
+
+### 22.3 What round 4 found
+
+21 runs on 16 work items, 127 sessions, every one on Claude Code.
+
+| Criterion (plan section 13) | Met? | Detail |
+|---|---|---|
+| Every P0 scenario passes: B1, B2, B5, B7, B12, C3, D4, D5, F1 | Partly | Seven pass. F1 passes once Jira sends the event, but Jira did not send 4 of the 8 label additions recorded. D5 fails its first part: no agent asked before adding a dependency |
+| Outcomes named, none counted as a failure | Yes | A3 and D3 `declined`; C4, D2 and D5 `closed`; B11 `reverted`; failures 0 |
+| The four views agree (G1) | Yes, with one gap | Sessions, attempts, outcomes, verdicts, tokens and costs agree. The console's step list leaves out the merge queue's waits |
+| Success on round 3's set: at least 20 of 25 runs `done` | Not measured | Round 3's set was not rerun. Of round 4's 12 counted runs, 11 ended `done` and one `reverted`, as its scenario meant |
+| Overhead per agent step under 35 s | Partly | Median 33.0 s, mean 31.7 s. The developer and the reviewer stay at about 40 s |
+| A deploy under 140 s | Yes, at the median | Median 123 s; 2 of 14 over |
+| CI under 40 s | No | Median 55 s, down from 91 s |
+| A Done run on Sonnet under 20 minutes of run time | Yes | Median 17 min 44 s; runs without rework take 10 to 11 minutes |
+| The console: G3 and G4 findings closed, G5 recorded, D8 passes | Partly | G3, G4 and D8's API pass. G5 and C7 passed on a local mock; the deployed browser pass is the owner's step and did not run |
+
+The control plane that failed in round 3 now holds. No run started twice, no event was lost inside the platform (the four dropped during a throttle were kept and replayed with no duplicate effect), every person's decision reached the later agents, and the new endings work. What still fails is rule precedence when the work item, `AGENTS.md` and a handoff agree against a role's rule (D5), Jira's own delivery of label events (F1), and the CI target.
+
+Not checked in round 4:
+- the deployed browser pass (G5, C7 and D8's page);
+- AIPF MCP through the user gateway, and its audit line (G2 called the tools directly);
+- round 3's set of 25 runs;
+- E1's edit-and-accept step and E4, which had no item;
+- the knowledge chat, which calls a Bedrock model.
+
+### 22.4 Time
+
+The platform's overhead per agent step halved. Model sessions are now a third of the time not spent waiting for a person, instead of under a quarter.
+
+| Stage | Round 4 median (s) | Round 3 median (s) |
+|---|---|---|
+| PM | 62.5 | 81 |
+| Designer | 63 | 88 |
+| Developer | 85 | 110 |
+| CI | 55 | 91 |
+| Reviewer | 66 | 97.5 |
+| Deploy to staging | 123 | 264 |
+| Tester | 122 | 86 |
+| Operator | 58 | 81 |
+| A person's answer | 85 | 80.5 |
+| A person's review | 114 | 166 |
+| A person's tester decision (new) | 140.5 | – |
+| Image build | 42 | – |
+| The merge queue's branch update (new) | 24.5 | – |
+
+| Measure | Round 4 | Round 3 |
+|---|---|---|
+| Agent step, mean | 75.8 s | 97.3 s |
+| Agent session, mean | 44.1 s | 34.4 s |
+| Overhead per agent step, mean | 31.7 s | 62.9 s |
+| Model sessions, share of the time not waiting for a person | 34.6% | 22.9% |
+| A Done run on Sonnet, median wall time | 23 min 22 s | 30 min 11 s (any model) |
+| The same, without the person's waits | 17 min 44 s | 20 min 22 s (any model) |
+
+- **Where the overhead went.** Waiting for a token instead of the task's stop (CT-3b item 1) removed most of it. What is left, per step, is provisioning (about 11 s), the image pull (about 15 s) and the start. The developer's and the reviewer's start part takes 8 to 10 s more, for the workspace's clone and branch. Over 110 steps the median is 33.0 s.
+- **The tester got slower,** from 32 s to 95 s per session, because its sessions now create and delete their own test data on staging (AG-5).
+- **CI** is 55 s on 24 of 27 runs (50 to 58 s). CT-4 removed the runtime install; the install phase still takes about 26 s of a build.
+- **Deploy** is 123 s at the median. Over 140 s: one deploy at 149 s, and one at 179 s after a wait for the staging lease.
+- **Image builds wait for each other.** The deploy project allows one build at a time and runs every run's image builds as well as the deploys. With three runs at once (B8), one image build took 192 s and another 243 s, against about 40 s alone.
+- **A person's waits** were 1 h 36 min of the 5 h 49 min of wall time summed over the runs.
+
+### 22.5 Cost
+
+Every session ran on the Claude subscription, so the model cost below is the Claude Code CLI's estimate at API prices, not a charge.
+
+| | Round 4 | Round 3 |
+|---|---|---|
+| Runs, sessions | 21 runs, 127 sessions | 25 runs, 158 sessions |
+| Model cost at API prices | $23.08, of which Opus $8.11 | $24.19, of which Opus $9.30 |
+| Per work item | 16 items: about 7.9 sessions, about $1.44 | 21 items: 7.5 sessions, $1.15 |
+| A Done run on Sonnet only, mean | 7 runs: $1.20 and 8.3 sessions | $0.86 and 7.8 sessions |
+
+| Model | Sessions | Model cost | Mean per session |
+|---|---|---|---|
+| Sonnet 5.5 | 105 | $14.97 | $0.143 (round 3: $0.108) |
+| Opus 5.5 | 22 | $8.11 | $0.368 |
+
+- **A Done run** on any model cost $1.54 on average.
+- **Opus** was 17% of the sessions and 35% of the model cost. E2's hard item, all six agents on Opus, cost $3.34; runs of the same size on Sonnet cost $0.6 to $0.8.
+- **A Sonnet session costs a third more** than in round 3. Its prompt now carries the memory notes, the person's earlier decisions, the earlier runs and more tools.
+- **The round's test runs cost more than ordinary items.** Most scenarios asked for rework on purpose: a change request, a rebase, a revert, a stop or a question.
+- **Real AWS cost.** `aipf.sh cost` for 2026-09-21 to 2026-10-22, the whole project before credits: $20.46, all of it covered by credits ($20.47). Amazon Bedrock is $14.00 of it, from the GLM-5 use of the first rounds; round 4 used no Bedrock model. CodeCommit is $2.00, RDS $0.88, CodeBuild $0.84, ECS $0.80, and every other service under $0.60. Cost Explorer had no data for 2026-10-21 yet, and the `Project` tag is not active as a cost allocation tag, so the cost added by plan 08's resources cannot be separated yet.
+
+**The production estimate of section 15.6, again.** Section 15.6 counted developer sessions only. With the six agents and round 4's mix, a work item takes about 8 sessions:
+- the model, at API prices: about $1.20 per item on Sonnet; about $1.45 with round 4's mix, where the PM is on Opus for items with history and one item in sixteen is all on Opus;
+- the infrastructure, from round 4's time sums at the prices of section 15.3: Fargate for the sessions (about $0.016 per item) and CodeBuild for CI, image builds and deploys (about $0.03), so about $0.05 per item;
+- for example, 500 work items a month: about $600 to $725 for the model through an API key, about $25 of usage-based infrastructure, and the fixed cost of section 15.4 with staging running (about $35).
+
+The limits of section 15.6 still hold. Round 4's items were small, and its scenarios asked for more rework than ordinary work would.
+
+### 22.6 For the next plan
+
+These go to the next plan, not to plan 08. The full list, with each finding's scenario, is in `test-set/round-4-results.md`, "Findings for the next plan, by priority".
+
+**Not built in plan 08, with the reason.**
+
+| Item | Why it was not built | Round 4's numbers | Next |
+|---|---|---|---|
+| CT-3b item 3: a SOCI index for the session image | The plan built it only if the image pull stayed above 10 s | The pull is about 15 s in every step | Build it |
+| CT-3b item 4: fetch only the run's branch and `main` | The plan built it only if `workspaceSec` stayed above 5 s | 0 to 2 s | Not needed. The developer's and the reviewer's 8 to 10 s is the clone and branch, which a prebuilt workspace would cut |
+| The two gaps of line 6 | Outside the line | – | Limit the agent roles' `PutItem` to their own run's items. Stop trusting git's configuration in the snapshot, or check it before the runner's session prepares the workspace |
+
+**Out of plan 08 by its section 8.3, to decide again:**
+- the rename of resources, gateways and tools (D-9), which waits for the owner;
+- a change of criteria routed through the PM: round 4's amendments covered the tester's need (C3, B11, E2, E3), so it is not needed yet;
+- structured handoffs: free text held, but D5 shows that a handoff can outrank a role's rule (below);
+- CI and review again on every open pull request after each merge: the queue's CI on the merged head caught what it had to (B9, B10);
+- a warm pool and CI inside the developer's task (D-12): the overhead target is nearly met without them.
+
+**Round 4's findings, by priority.**
+
+| Priority | Finding | Scenario |
+|---|---|---|
+| P0 | A handoff outranked a role's rule: the PM's "nothing blocks it" let the developer add a dependency without asking. Give the dependency rule to every role, say in the preamble that a handoff does not settle a conflict with a role's rule, and have the platform ask a person when a dependency changes without an amendment that allows it | D5 |
+| P0 | Jira did not send 4 of 8 label additions. Register the webhook without its JQL filter and filter in the orchestrator, or have the reconciler look for `aipf` labels with no run | F1 |
+| P0 | A killed session ends the attempt as finished. Count it as a failure and start a new attempt | B6 |
+| P0 | The revert path: take the merge queue for the revert, delete the run's branch, and say that a migration stays applied | B11 |
+| P1 | Image builds wait behind each other and behind deploys. Give image builds their own CodeBuild project; keep the limit of one for deploys | B8 |
+| P1 | Two parallel items both added migration `007`. Check for a duplicate number in CI, or number migrations at merge time | E2 |
+| P1 | A reviewer approved a pull request that lacked its feature, and a reviewer's verdict changed between attempts on the same test. Add checks that do not vary, such as CI in a second time zone, and a diff-against-story check for the reviewer | B9, B11 |
+| P1 | The tester's fixture cannot backdate rows, and the tester has no `unverified` verdict | B4 |
+| P1 | A close reason stays in the pull request; a declined item stays In Progress; `aipf-needs-person` stays after a later `done`; the lost-events alarm stays on until the queue is replayed | D5, A3, D3, B11, B12 |
+| P2 | The run page: the merge queue's wait as its own step, and the earlier runs the record already keeps | G1, line 18 |
+| P2 | Saving only an agent's model turns an optional agent back on | G3 |
+| P2 | The work item is not corrected after a person's decision; MCP tools disagree on the Jira link; the tester posts staging's internal address in Jira | E3, G2 |
+| P3 | Memory proposals pile up; Confluence tools are listed but missing for three roles; the vault redaction misses fields named after the credential; the developer's first `no_pr` instead of a question | E6, line 18, D2 |
+| Time | CI under 40 s: cache the dependencies in the CI image and run lint and unit tests in parallel. A prebuilt workspace for the developer and the reviewer | CI, overhead |
+| Cost | Keep Sonnet as the default and Opus for the PM on items with history | Cost |
+
+**Found during the deploy:**
+- a merge to `main` outside a run rebuilds the snapshot but does not redeploy staging;
+- CI runs only for a run's branch, so a person's pull request needs CI started by hand;
+- CodeCommit refuses an approval from a pull request's author, so the owner's own pull requests need the console's override.
+
+**After round 4, still to do:**
+- the deployed browser pass (G5, C7, D8's page), by the owner;
+- AIPF MCP through the user gateway, once the runner's Claude Code is connected to it;
+- `aipf.sh cost` again once Cost Explorer has 2026-10-21, with the `Project` tag activated in Billing.
