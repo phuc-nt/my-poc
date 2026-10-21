@@ -1792,3 +1792,13 @@ Round 4 left four of section 13's criteria open: D5's rule precedence, CI under 
 - run `harness login` and `harness connect` again: a browser sign-in with the owner's password and authenticator;
 - read the cost of 2026-10-21 by day and service once Cost Explorer has it (from 2026-10-22): `cost 2026-10-14 2026-10-22` at 08:32 UTC gave $20.18 of usage before credits, all covered, with 2026-10-21 not in yet;
 - revoke the Claude subscription token at the end of the POC.
+
+## The knowledge base benchmark and the pause
+
+On 2026-10-21 the knowledge base was benchmarked against reading the same documents as files, a ten-times corpus, the whole corpus in context, and no documents, on Claude Code with Sonnet 5.5. The summary is in [06](06-poc-architecture.md) 22.8 and in [docs/09](../09-bedrock-managed-knowledge-base.md); the runner, the results and the options for the knowledge base are in the product repository (`bench/kb/`, `docs/kb-benchmark.md`, commit `ff0d4fd`).
+
+- The knowledge base is needed (4 of 56 answers right without documents) and accurate (56 of 56, 64 of 64), but reading files was as accurate and cheaper at today's corpus size.
+- `infra/kb.sh mcp-config` prints the proxy with `--read-only`, which hid both gateway tools. Not changed.
+
+**Paused at the current architecture (2026-10-22).** The proposals of `docs/kb-benchmark.md` (the Markdown mirror, the knowledge base indexed from it, the business-rules catalog) are not built, and nothing else of "For the next plan" above is either. The architecture is the one of 06 22.7.
+

@@ -1377,3 +1377,13 @@ With these, section 13's criteria stood as follows: P0 partly (F1, Jira's own ev
 - The new findings are in 22.6: the MCP's stop names the caller by its user id (P2), a stopped item stays In Progress (P1), an audit line for a call the gateway refused and `revertQueue`'s missing log line (P3), and the `Project` tag that a linked account cannot activate (cost).
 
 **Section 13's criteria now:** every P0 scenario passes, F1 included; the outcomes are named; the four views agree; success on round 3's set is met (19 of 20 counted runs); overhead per step, deploy, CI and run time are met; the console is met. Plan 08 is built and checked. What stays is the owner's: rotating the Slack bot token, connecting Claude Code to AIPF MCP (`harness login`), revoking the Claude token at the POC's end, and reading 2026-10-21's cost from 2026-10-22.
+
+### 22.8 The knowledge base benchmark, and the pause
+
+On 2026-10-21 a benchmark asked whether the knowledge base helps an agent with a work item, and whether reading the documents as files would do better. The details are in [docs/09](../09-bedrock-managed-knowledge-base.md), "The knowledge base in an agent's work", and in the `aipf-sdlc` repository, `docs/kb-benchmark.md`.
+
+- With the knowledge base the agent got 56 of 56 questions and 64 of 64 work item values right; without documents, 4 of 56 and 2 of 64. Reading the same documents as Markdown files with `Grep` and `Read` was as accurate and cheaper at this size ($0.103 against $0.132 per work item at list price). At ten times the corpus, reading files cost more than the knowledge base ($0.144).
+- The proposals: a Markdown mirror of Confluence and SharePoint read with `Grep` and `Read`, the knowledge base indexed from that mirror with `GetDocumentContent` and fewer passages, and later a business-rules catalog over MCP.
+
+**The pause (2026-10-22).** None of these proposals is built. The POC stays at the architecture of 22.7: agents read the knowledge base through `kb___Retrieve`, and AG-1 is unchanged.
+

@@ -433,6 +433,25 @@ Where the conversion runs depends on the connector:
 
 Not tried here: agentic retrieval, document permissions, media, metadata filters, the schedule over several days, and any connector other than Confluence Cloud, SharePoint Online and Amazon S3.
 
+### The knowledge base in an agent's work: a benchmark
+
+On 2026-10-21 the same questions and work items were given to Claude Code (`claude -p`, Claude Sonnet 5.5, two runs each), with five ways to reach the documents: only the knowledge base's `Retrieve` tool (`kb`); the same documents converted to Markdown and text, read with `Grep`, `Read` and `Glob` (`files`); a corpus ten times as large, with nine superseded yearly versions of every document (`files10`); the whole corpus in the system prompt, about 151k tokens (`ctx`); and nothing (`none`). The questions are the 28 of `kb/test-questions.json`; the work items are six that need business rules, scored field by field against `kb/content.py`. The runner, the results and the options for the AIPF are in the `aipf-sdlc` repository, `bench/kb/` and `docs/kb-benchmark.md`.
+
+| Arm | Questions right | Work item values right | Tokens processed per work item | List-price cost per work item |
+|---|---|---|---|---|
+| kb | 56 of 56 | 64 of 64 | 45.8k | $0.132 |
+| files | 56 of 56 | 64 of 64 | 59.1k | $0.103 |
+| files10 | 56 of 56 | 64 of 64 | 110.7k | $0.144 |
+| ctx | 56 of 56 | 64 of 64 | 151.6k | $0.039 with a warm cache; a cold question cost $0.61 |
+| none | 4 of 56 | 2 of 64 | | |
+
+- The knowledge base gives the agent the facts it needs: without documents the agent got 4 of 56 answers right. Reading the files was as accurate and, at this corpus size, 45% cheaper per question and 22% per work item, because `Retrieve` always returns eight passages (7 to 10 KB) while `Grep` returns the matching lines.
+- The cost of reading files grows with the corpus (74% more tokens per question and 87% per work item at ten times the size); the knowledge base's does not. The benchmark did not measure the knowledge base's accuracy on a large corpus.
+- The knowledge base found the facts that live only in PDF, PowerPoint and text files despite the accent damage above.
+- `infra/kb.sh mcp-config` prints the proxy with `--read-only`. With the proxy version of 2026-10-21 that flag hid both gateway tools: the IDE connected and saw no tool. Without it, both tools appear.
+
+The proposals (a Markdown mirror read with `Grep` and `Read`, the knowledge base indexed from that mirror, a business-rules catalog over MCP) are not built. The AIPF POC stays on the knowledge base as it is.
+
 ## 11. Strengths, limits and when to choose it
 
 ### Strengths and limits

@@ -126,7 +126,7 @@ The bot answers in the language of the question, cites each fact with a number, 
 }
 ```
 
-The proxy ([aws/mcp-proxy-for-aws](https://github.com/aws/mcp-proxy-for-aws)) signs each request with the AWS credentials of the person running the IDE; add `--profile <name>` for a named profile. That identity needs `bedrock-agentcore:InvokeGateway` on the gateway. Check the package name and flags against the proxy's README before rolling it out, as they have changed between releases.
+The proxy ([aws/mcp-proxy-for-aws](https://github.com/aws/mcp-proxy-for-aws)) signs each request with the AWS credentials of the person running the IDE; add `--profile <name>` for a named profile. That identity needs `bedrock-agentcore:InvokeGateway` on the gateway. Check the package name and flags against the proxy's README before rolling it out, as they have changed between releases. With the proxy version of 2026-10-21, `--read-only` hid both of the gateway's tools, so the IDE connected but saw no tool; remove that flag from the printed entry until the script is changed.
 
 ## 8. Keeping content fresh, and cost
 
