@@ -1659,3 +1659,46 @@ Round 4 then follows section 13 of 08, with each line's "In round 4" list above.
   - `AIPF_MERGE_QUEUE=off`: the merge queue (P1-3);
   - `AIPF_PUSH_SCOPE=off`: the scoped push credentials (P0-4);
   - `AIPF_CONSOLE_ROLES=off`: the console roles (UX-15).
+
+## What the deploy of 2026-10-21 found
+
+The window ran from 23:15 UTC on 2026-10-20 to 00:29 UTC on 2026-10-21, with the pause on throughout and no run running. Every step above ran, steps 8 and 9 with the owner's go-ahead.
+
+**Times**
+
+| Step | Time |
+|---|---|
+| 3. The first `up` (the three indexes, then the gateway and the last stack pass) | 41 min 24 s; the indexes alone took 28 min |
+| 4. `build` (the harness image, then the snapshot) | 68 s |
+| 6. The second `up`, which turned the console roles on | 14 min 37 s |
+| 8. A snapshot rebuild after a merge | 37 to 45 s |
+| 8. `staging deploy` (the CodeBuild build; the rollout ended 99 s later) | 130 s |
+| 8. CI on the new `main` | 44 s, of which the install phase took 26 s |
+
+**What the steps gave**
+- **Backfill (step 5).** It made 152 writes:
+  - 53 `RUN` rows got their index keys or ISO times, and 27 got their retries;
+  - 24 `HUMAN` rows and 18 `Q#` rows were closed;
+  - 30 `ISSUE#…` and `PR` rows were deleted.
+
+  A second `backfill` printed "Nothing to backfill."
+- **The admin (step 6).** `console-user add … --role admin` found the console user already there and set only its group. With the roles on, an admin reads Platform > Audit trail, a viewer gets 403 ("this needs the admin role; your role is viewer"), and Memory lists `glossary.md` and `project.md`.
+- **The checks (step 7).** Both alarms were `OK`, no lost event was waiting, the reconciler had run, `MERGE_QUEUE` and `STAGING_LEASE` were free, and every target of both gateways was `READY`. The session snapshot was `0e6393b`, the new `main`.
+- **The merges (step 8).** Pull request 60 was merged by fast-forward. Pull request 61 (line 18's fixture) was squashed onto it, so `main` is `0e6393b`. Staging then ran `aipf-poc-staging:22` with that image.
+- **The go-ahead items (step 9).**
+  - Round 3's staging data: 31 tickets (`T-3` to `T-34`; there was no `T-15`) and their 4 notes were deleted. `T-1` and `T-2` were kept, and no test-made device existed.
+  - `pm-opus on` was set; the audit trail has its row.
+  - `branches prune` waits until round 4 is over, because D4 needs `agent/SCRUM-75`. The dry run listed 19 branches, that one included.
+
+**Where the deploy differed from the steps above**
+- **Step 1.** `main` was `f07134c`, one commit past `e3da207`. That commit fixes a 500 on the console's overview: the query sent the index sort key's name when it did not use it. It went live with the first `up`'s last stack pass. The tests then numbered 333, all passing.
+- **Line 18's fixture against `main`'s schema.** The read-only schema check of line 18's step 4 found that `main` has `ticket_notes`, whose foreign key to `tickets` made the fixture's `delete` fail (`23503`).
+  - The fixture now first deletes the rows of other tables that point at the prefixed tickets or devices, which it finds through `pg_constraint`. So a table added later needs no change in the fixture.
+  - An integration test covers it.
+  - `main`'s `.aipf/environment.yaml` had no `environments` block at all, so pull request 61 adds the whole block. Its `release` is the command the default gives.
+- **CI of a branch outside a run.** The workflow starts the CI project only for a run's branch. Pull request 61's CI was started by hand with `aws codebuild start-build --source-version refs/heads/ag-5-test-data`, and so was CI on the new `main`.
+- **Approving the two pull requests.** The owner's role opened both, and CodeCommit refuses an approval by the pull request's author (`PullRequestCannotBeApprovedByAuthorException`). Each pull request therefore got a comment with the owner's decision and had its approval rule set aside, as the console does. The squash names the owner with an `@aipf.invalid` address, not a person's email.
+- **A merge outside a run redeploys nothing.** Step 8 says each merge rebuilds the snapshot and redeploys staging. In fact a merge rebuilds only the snapshot (the rule on `main`). Staging redeploys at a run's deploy step, or with `providers/aws/aipf.sh staging deploy`, which was run after the second merge and also syncs `start.mjs`.
+- **The staging clean-up.** It could not use the staging image's own modes: the image's entry point is `start.mjs`, which runs only `setup`, `release`, `start` and `fixture`, and the fixture takes only `T-<run>-` prefixes. It ran instead as two one-off tasks of a copy of the staging task definition, `aipf-plan08-cleanup` (tags `Project=aipf-poc`, `Purpose=plan-08-verify`), with the entry point `sh -c`:
+  1. a read-only listing of the tables, the foreign keys, every ticket number and the devices outside the seed;
+  2. the delete, in one transaction, of the notes first and then the tickets.
