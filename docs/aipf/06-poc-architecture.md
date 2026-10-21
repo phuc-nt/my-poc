@@ -1161,11 +1161,11 @@ Not checked yet:
 | Milestone | Built | Not built |
 |---|---|---|
 | M1: one start per item, no lost events, stops that tell, decisions that travel, pushes confined, rules ranked, records right | P0-1 to P0-7, REC-1 to REC-5, CT-3a | – |
-| M2: named outcomes, a fair failure budget, the merge queue, the staging lease, a faster pipeline | P1-1 to P1-6, CT-1, CT-2, CT-3b items 1 and 2, CT-4 | CT-3b items 3 and 4 (section 22.6) |
+| M2: named outcomes, a fair failure budget, the merge queue, the staging lease, a faster pipeline | P1-1 to P1-6, CT-1, CT-2, CT-3b items 1 and 2, CT-4 | CT-3b items 3 and 4 in the round (section 22.6); after it, item 3 built and item 4 found not needed (22.7) |
 | M3: the console's run page, inbox, runs list, Insights, roles and audit | UX-1 to UX-17, UX-20 to UX-24 | – |
 | M4: the agents' instructions, memory, follow-ups and fixtures | AG-1 to AG-12, UX-18, UX-19 | – |
 
-- **The code.** `main` holds the 19 lines in 21 commits, then one fix the deploy found (a 500 on the console's overview), at `f07134c`. 333 unit tests pass.
+- **The code.** `main` holds the 19 lines in 21 commits, then one fix the deploy found (a 500 on the console's overview), at `f07134c`. 333 unit tests pass. After the round, two more commits (`a1b2a15`, `ec202a3`; 336 tests) were deployed (22.7).
 - **The deploy** ran from 23:15 UTC on 2026-10-20 to 00:29 UTC on 2026-10-21, with the platform paused and no run running:
   - the first `up`: 41 min 24 s, of which 28 min for the three new table indexes;
   - `build` (the harness image, then the session snapshot): 68 s;
@@ -1191,20 +1191,20 @@ Not checked yet:
 
 | Criterion (plan section 13) | Met? | Detail |
 |---|---|---|
-| Every P0 scenario passes: B1, B2, B5, B7, B12, C3, D4, D5, F1 | Partly | Seven pass. F1 passes once Jira sends the event, but Jira did not send 4 of the 8 label additions recorded. D5 fails its first part: no agent asked before adding a dependency |
+| Every P0 scenario passes: B1, B2, B5, B7, B12, C3, D4, D5, F1 | Partly | Seven pass. F1 passes once Jira sends the event, but Jira did not send 4 of the 8 label additions recorded. D5 failed its first part in the round (no agent asked before adding a dependency); its third run, after the fix, passes (22.7) |
 | Outcomes named, none counted as a failure | Yes | A3 and D3 `declined`; C4, D2 and D5 `closed`; B11 `reverted`; failures 0 |
 | The four views agree (G1) | Yes, with one gap | Sessions, attempts, outcomes, verdicts, tokens and costs agree. The console's step list leaves out the merge queue's waits |
 | Success on round 3's set: at least 20 of 25 runs `done` | Not measured | Round 3's set was not rerun. Of round 4's 12 counted runs, 11 ended `done` and one `reverted`, as its scenario meant |
-| Overhead per agent step under 35 s | Partly | Median 33.0 s, mean 31.7 s. The developer and the reviewer stay at about 40 s |
+| Overhead per agent step under 35 s | Partly; yes after the round | Median 33.0 s, mean 31.7 s. The developer and the reviewer stay at about 40 s. With SOCI after the round: median 21.1 s over 7 steps, all under 35 s (22.7) |
 | A deploy under 140 s | Yes, at the median | Median 123 s; 2 of 14 over |
-| CI under 40 s | No | Median 55 s, down from 91 s |
+| CI under 40 s | No; yes on pull request 82's branch | Median 55 s, down from 91 s. Pull request 82 runs CI in 28.8 s, once a person merges it (22.7) |
 | A Done run on Sonnet under 20 minutes of run time | Yes | Median 17 min 44 s; runs without rework take 10 to 11 minutes |
-| The console: G3 and G4 findings closed, G5 recorded, D8 passes | Partly | G3, G4 and D8's API pass. G5 and C7 passed on a local mock; the deployed browser pass is the owner's step and did not run |
+| The console: G3 and G4 findings closed, G5 recorded, D8 passes | Yes, after the round | G3, G4 and D8's API pass. G5 and C7 passed on a local mock in the round, and on the deployed console after it, with D8's page; seven findings, none blocking (22.7) |
 
 The control plane that failed in round 3 now holds. No run started twice, no event was lost inside the platform (the four dropped during a throttle were kept and replayed with no duplicate effect), every person's decision reached the later agents, and the new endings work. What still fails is rule precedence when the work item, `AGENTS.md` and a handoff agree against a role's rule (D5), Jira's own delivery of label events (F1), and the CI target.
 
 Not checked in round 4:
-- the deployed browser pass (G5, C7 and D8's page);
+- the deployed browser pass (G5, C7 and D8's page), run after the round (22.7);
 - AIPF MCP through the user gateway, and its audit line (G2 called the tools directly);
 - round 3's set of 25 runs;
 - E1's edit-and-accept step and E4, which had no item;
@@ -1239,7 +1239,7 @@ The platform's overhead per agent step halved. Model sessions are now a third of
 | A Done run on Sonnet, median wall time | 23 min 22 s | 30 min 11 s (any model) |
 | The same, without the person's waits | 17 min 44 s | 20 min 22 s (any model) |
 
-- **Where the overhead went.** Waiting for a token instead of the task's stop (CT-3b item 1) removed most of it. What is left, per step, is provisioning (about 11 s), the image pull (about 15 s) and the start. The developer's and the reviewer's start part takes 8 to 10 s more, for the workspace's clone and branch. Over 110 steps the median is 33.0 s.
+- **Where the overhead went.** Waiting for a token instead of the task's stop (CT-3b item 1) removed most of it. What is left, per step, is provisioning (about 11 s), the image pull (about 15 s) and the start. The developer's and the reviewer's start part takes 8 to 10 s more: the wait for the `db` sidecar's health check, not the workspace's clone as first read (22.7). Over 110 steps the median is 33.0 s.
 - **The tester got slower,** from 32 s to 95 s per session, because its sessions now create and delete their own test data on staging (AG-5).
 - **CI** is 55 s on 24 of 27 runs (50 to 58 s). CT-4 removed the runtime install; the install phase still takes about 26 s of a build.
 - **Deploy** is 123 s at the median. Over 140 s: one deploy at 149 s, and one at 179 s after a wait for the staging lease.
@@ -1283,8 +1283,8 @@ These go to the next plan, not to plan 08. The full list, with each finding's sc
 
 | Item | Why it was not built | Round 4's numbers | Next |
 |---|---|---|---|
-| CT-3b item 3: a SOCI index for the session image | The plan built it only if the image pull stayed above 10 s | The pull is about 15 s in every step | Build it |
-| CT-3b item 4: fetch only the run's branch and `main` | The plan built it only if `workspaceSec` stayed above 5 s | 0 to 2 s | Not needed. The developer's and the reviewer's 8 to 10 s is the clone and branch, which a prebuilt workspace would cut |
+| CT-3b item 3: a SOCI index for the session image | The plan built it only if the image pull stayed above 10 s | The pull is about 15 s in every step | Built after the round (`ec202a3`): pulls of 3.4 to 6.6 s (22.7). Watch it over a full round |
+| CT-3b item 4: fetch only the run's branch and `main` | The plan built it only if `workspaceSec` stayed above 5 s | 1 to 4 s | Not needed. The developer's and the reviewer's 8 to 10 s is the `db` sidecar's health wait: start the harness when `db` has started, and have the runner wait for `pg_isready` |
 | The two gaps of line 6 | Outside the line | – | Limit the agent roles' `PutItem` to their own run's items. Stop trusting git's configuration in the snapshot, or check it before the runner's session prepares the workspace |
 
 **Out of plan 08 by its section 8.3, to decide again:**
@@ -1298,7 +1298,7 @@ These go to the next plan, not to plan 08. The full list, with each finding's sc
 
 | Priority | Finding | Scenario |
 |---|---|---|
-| P0 | A handoff outranked a role's rule: the PM's "nothing blocks it" let the developer add a dependency without asking. Give the dependency rule to every role, say in the preamble that a handoff does not settle a conflict with a role's rule, and have the platform ask a person when a dependency changes without an amendment that allows it | D5 |
+| P0 | A handoff outranked a role's rule: the PM's "nothing blocks it" let the developer add a dependency without asking. Built after the round (`a1b2a15`), and D5's third run passes (22.7). Still to do: the sample's `AGENTS.md` line that invites the reading, and `afterDeveloper`'s question seen on the platform | D5 |
 | P0 | Jira did not send 4 of 8 label additions. Register the webhook without its JQL filter and filter in the orchestrator, or have the reconciler look for `aipf` labels with no run | F1 |
 | P0 | A killed session ends the attempt as finished. Count it as a failure and start a new attempt | B6 |
 | P0 | The revert path: take the merge queue for the revert, delete the run's branch, and say that a migration stays applied | B11 |
@@ -1310,8 +1310,9 @@ These go to the next plan, not to plan 08. The full list, with each finding's sc
 | P2 | The run page: the merge queue's wait as its own step, and the earlier runs the record already keeps | G1, line 18 |
 | P2 | Saving only an agent's model turns an optional agent back on | G3 |
 | P2 | The work item is not corrected after a person's decision; MCP tools disagree on the Jira link; the tester posts staging's internal address in Jira | E3, G2 |
-| P3 | Memory proposals pile up; Confluence tools are listed but missing for three roles; the vault redaction misses fields named after the credential; the developer's first `no_pr` instead of a question | E6, line 18, D2 |
-| Time | CI under 40 s: cache the dependencies in the CI image and run lint and unit tests in parallel. A prebuilt workspace for the developer and the reviewer | CI, overhead |
+| P2 | The deployed console: a refresh drops the keyboard focus (mission control and the runs list have no `ETag`); the stepper scrolls on a run that ended early; a question shows raw markdown; agents name people from the item's history; "Sign in again" asks for nothing while the hosted UI's session is open; "New run" opens late | G5 deployed (22.7) |
+| P3 | Memory proposals pile up; Confluence tools are listed but missing for three roles; the vault redaction misses fields named after the credential; the developer's first `no_pr` instead of a question; the browser pass sets up MFA through the harness CLI client | E6, line 18, D2, G5 |
+| Time | CI under 40 s: pull request 82 (28.8 s) waits for a person's merge. The developer's and the reviewer's `db` health wait | CI, overhead |
 | Cost | Keep Sonnet as the default and Opus for the PM on items with history | Cost |
 
 **Found during the deploy:**
@@ -1320,6 +1321,20 @@ These go to the next plan, not to plan 08. The full list, with each finding's sc
 - CodeCommit refuses an approval from a pull request's author, so the owner's own pull requests need the console's override.
 
 **After round 4, still to do:**
-- the deployed browser pass (G5, C7, D8's page), by the owner;
+- merge pull request 82 in `aipf-poc-sample`, by a person;
 - AIPF MCP through the user gateway, once the runner's Claude Code is connected to it;
 - `aipf.sh cost` again once Cost Explorer has 2026-10-21, with the `Project` tag activated in Billing.
+
+### 22.7 After round 4
+
+On 2026-10-21, from 04:30 to 05:50 UTC, three of the open criteria were worked on and checked again on the deployed platform. Every agent session ran on Claude Code. The details are in `test-set/round-4-results.md`, "Re-checks after round 4", and [08-upgrade-notes.md](08-upgrade-notes.md), "After round 4".
+
+| What | Change | Result |
+|---|---|---|
+| D5's rule precedence (P0-5) | `a1b2a15`: the preamble says a lower source never settles a conflict with a higher one; the PM and the reviewer get the dependency rule; `afterDeveloper` asks a person when a pull request adds a package no amendment names | PASS. The PM asked, got "no", and declined; no dependency was added. 2 min 50 s, $0.546 on Opus |
+| CI under 40 s (CT-4) | Pull request 82: npm fetched with a sha512 check instead of the image's own, slow on a cold disk; the database's container started during the install | 28.8 s on the branch. It applies once a person merges it |
+| The image pull (CT-3b item 3) | `ec202a3`: the session image's SOCI index, and the snapshotter on each session row | Pulls of 3.4 to 6.6 s, from about 14 s. Overhead per step 21.1 s at the median over 7 steps, all under 35 s |
+| The workspace fetch (CT-3b item 4) | None: `workspaceSec` was 1 to 4 s over 134 sessions | Not needed. The developer's and the reviewer's 8 to 10 s is the `db` health wait |
+| The deployed browser pass (G5, C7, D8's page) | `live.sh`: two console users with an authenticator app, made for the pass and removed after it | PASS for all three, through the managed sign-in page and API Gateway. Seven findings, none blocking (22.6, P2 and P3) |
+
+With these, section 13's criteria stand as follows: P0 partly (F1, Jira's own event delivery, still fails); overhead met on a small sample; CI met on a branch that waits for a person's merge; the console met. The 7 SOCI steps and CI's builds on one branch are small samples, to check again over the next round.

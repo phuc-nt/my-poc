@@ -372,6 +372,8 @@ Item: P0-4.
 - The agent roles can still write any `RUN#*` item (`PutItem`), with the scoped session as with the old one.
 - Git's own configuration in the snapshot (`/workspace/.git/config`, written by the clone and the repository's setup from `main`) is trusted: a filter driver set there would run with the runner's session while it prepares the workspace. Only a person's merge to `main` can put one there.
 
+Both go to the next plan (see "After round 4" below).
+
 Round 4 D4 waits for the deploy.
 
 **Tests** (158 in all, all passing; 145 before)
@@ -810,7 +812,7 @@ Items: CT-1, CT-2, CT-3b, CT-4.
 - **The runner fails its own step (`SessionFailed`)** when it cannot write the record, so the step does not wait for ECS's `STOPPED` event.
 - **The runner reads the task metadata when it starts, not at the end.** The live check found that a read left pending while the runner blocks meets its own 3 s timeout before its answer, so the facts were empty. Fixed and checked again (below).
 - **Provisioning is measured from `StepEnteredAt`.** The metadata endpoint has no task `CreatedAt`. The endpoint gives times in nanoseconds; `ecsFacts` keeps milliseconds.
-- **Items 3 (SOCI) and 4 (the workspace fetch) are not built.** The plan makes each depend on CT-3a's numbers in round 4: the pull above 10 s, `workspaceSec` above 5 s.
+- **Items 3 (SOCI) and 4 (the workspace fetch) are not built.** The plan makes each depend on CT-3a's numbers in round 4: the pull above 10 s, `workspaceSec` above 5 s. After round 4, item 3 was built (the pull was about 15 s) and item 4 was found not needed (`workspaceSec` 1 to 4 s); see "After round 4" below.
 
 **Tests** (228 in all, all passing; 198 before)
 - `orchestrator.test.mjs` (69):
@@ -1453,7 +1455,7 @@ Items: UX-22, UX-23, UX-24.
 
 To roll back, revert the line and run `up`.
 
-In round 4, after the deploy, the owner repeats C7 and G5 on the deployed console:
+In round 4, after the deploy, the owner repeats C7 and G5 on the deployed console (they ran after round 4, with two console users made for the pass; see "After round 4" below):
 1. **C7.** Sign in to the console and open a run that waits for an answer. Type an answer, and leave the tab open past the token's hour (or remove `id_token` from the tab's session storage in the browser's developer tools). The top bar warns five minutes before, then says the session ended. Send: the form says to sign in again, and the focus is on "Sign in again". Sign in: the page is the same run, with the text in its box. Send: the answer lands, and the run goes on.
 2. **G5.** Open each view by the keyboard (g and a letter, / and a run's key) at desktop width and at 400 px (the browser's device toolbar), in both themes. Check that nothing scrolls sideways, every Tab stop shows a ring, and the dialogs (?, n, Stop run) keep the focus and close on Esc. Take a screenshot of each view, and add any finding to `round-4-results.md`.
 3. **UX-23.** In the browser's network panel, a run's page answers 304 every 15 seconds while nothing changes.
@@ -1703,3 +1705,56 @@ The window ran from 23:15 UTC on 2026-10-20 to 00:29 UTC on 2026-10-21, with the
 - **The staging clean-up.** It could not use the staging image's own modes: the image's entry point is `start.mjs`, which runs only `setup`, `release`, `start` and `fixture`, and the fixture takes only `T-<run>-` prefixes. It ran instead as two one-off tasks of a copy of the staging task definition, `aipf-plan08-cleanup` (tags `Project=aipf-poc`, `Purpose=plan-08-verify`), with the entry point `sh -c`:
   1. a read-only listing of the tables, the foreign keys, every ticket number and the devices outside the seed;
   2. the delete, in one transaction, of the notes first and then the tickets.
+
+## After round 4
+
+Round 4 left three of section 13's criteria open: D5's rule precedence, CI under 40 s and the deployed browser pass. Two product commits on top of `f07134c` took up D5 and CT-3b item 3, and a pull request to the sample repository took up CI. The checks are in `environments/poc/test-set/round-4-results.md`, "Re-checks after round 4".
+
+**The deploy.** On 2026-10-21, with the pause on and no run running: `providers/aws/aipf.sh up` at 04:31 UTC (about 15 minutes), then `build` at 04:50 (about a minute, the snapshot build with the SOCI index), then `resume` at 04:53. `main` is `ec202a3`; the tests number 336, all passing.
+
+**P0-5 again (`a1b2a15`), after D5.** In round 4's D5 the PM settled the dependency conflict in its handoff ("nothing blocks it"), and the developer and the reviewer took that over their own rule.
+- The shared preamble (`registry/roles/_common.md`) says a lower source never settles a conflict with a higher one: a work item or a handoff that says nothing blocks it does not make a forbidden thing allowed. Only a person's answer or amendment in this run does.
+- The PM and the reviewer get the dependency rule too (`registry/roles/pm.md`, `reviewer.md`).
+- `afterDeveloper` asks a person, as the developer agent, when the pull request adds a package that no amendment of the run names. The answer is an amendment, so the next attempt goes on to CI.
+- Checked with D5's third run (SCRUM-101-1792558511): the PM asked a person, got "no, keep plain validation, no new dependency", and declined. No developer ran and no dependency was added. The run's sessions cost $0.546 on Opus. That run did not reach `afterDeveloper`'s question, which `test/orchestrator.test.mjs` covers.
+
+**CT-3b item 3: the session image's SOCI index (`ec202a3`).**
+- The snapshot build converts the session image with soci v0.16.0, index manifest v2 (the only one Fargate reads), and pushes it as `:latest`. This is best effort: when a step fails, `:latest` stays the plain image. The build role may now read the session repository's layers, which the conversion pulls.
+- The runner sends the harness container's snapshotter with its token, the session row keeps it (`ecs.snapshotter`), and the trace names it on the pull.
+- Checked: the 7 sessions after the deploy report `soci`. Their pulls took 3.37 to 6.62 s (median 3.63 s), against about 14 s before. The overhead per agent step over those 7 steps was 21.1 s at the median, all under 35 s; the developer's and the reviewer's 32.1 s each.
+
+**CT-3b item 4 is not needed.** Its condition is `workspaceSec` above 5 s, and it was 1 to 4 s in all 134 sessions of 2026-10-21. The developer's and the reviewer's extra 8 to 10 s at the start is the wait for the `db` sidecar's health check: the harness container `DependsOn` `db` `HEALTHY`, and `pg_isready` runs every 5 s. From the end of the image pull to the container's start took 10.0 s and 8.1 s for those two, against 1.3 s for the roles without `db`. Round 4's first reading put it on the workspace's clone.
+
+**CI (CT-4 again, pull request 82).** In round 4 the install phase took about 26 s of CI's 55 s. The CodeBuild image's disk loads its blocks on first read, so the image's own npm (about 2,000 files) took 15 to 20 s to start.
+- Pull request 82 to `aipf-poc-sample` (branch `ct-4b-ci-cold-disk`) fetches the same npm 11.7.0 from the registry, checks it against its sha512, and starts it in about 1 s. It also starts the database's container during the install.
+- CI on the branch: 28.8 s, with the lint, unit (74) and integration (120) tests passing.
+- It is open. The repository's approval rule needs a person to merge it, and nothing here bypasses that rule.
+
+**The deployed browser pass (line 17's step, G5, C7 and D8's page).** `environments/poc/test-set/browser/live.sh` ran it on the deployed console, through the managed sign-in page, the JWT authorizer and API Gateway.
+- Users: two console users at `aipf.invalid` (`aipf-plan08-g5-admin`, `aipf-plan08-d8-viewer`), made by the script with an authenticator app and removed after each run. The pool's MFA is optional, so the script set up the app through the harness CLI client's admin sign-in and made it each user's MFA.
+- G5 at 1280 and 400 px in both themes: PASS, no blocking issue. C7: PASS, with the 304 refresh through API Gateway. D8's page: PASS, no action button on 8 views, and a viewer's stop got 403.
+- Findings, for the next plan:
+  - the stepper scrolls at 1280 px on a run that ended early;
+  - a refresh of mission control or the runs list drops the keyboard focus to `body`, because only a run's page has an `ETag`;
+  - the PM's question shows raw markdown;
+  - agents name people taken from the item's history;
+  - "Sign in again" asks for nothing while the hosted UI's session is open;
+  - "New run" opens only after the agents' list loads, with no busy sign;
+  - the pass's MFA setup uses the harness CLI client's admin sign-in.
+
+**Where this differs from plan 08.** CT-3b item 3 and the CI change were built after the round, not before it, so round 4's own figures (overhead median 33.0 s, CI median 55 s) predate them. The 7 SOCI steps are a small sample, and CI's 28.8 s comes from one branch's builds; neither holds for the runs until the next round, and CI's change only once pull request 82 is merged.
+
+**For the next plan** (not built here):
+- line 6's two gaps;
+- the harness container's start: wait for `db` to start, not to be healthy, and have the runner wait for `pg_isready` before the repository's setup;
+- the sample's `AGENTS.md` line 55 ("unless the work item needs one"), through a pull request;
+- `afterDeveloper`'s question, seen on the platform;
+- the browser pass's findings above.
+
+**Still the owner's:**
+- merge pull request 82;
+- set the console pool's MFA to `ON` again;
+- rotate the Slack bot token;
+- run `harness login` and `harness connect` again;
+- run `cost` on 2026-10-22, with the `Project` tag activated in Billing;
+- revoke the Claude subscription token at the end of the POC.
