@@ -1802,3 +1802,5 @@ On 2026-10-21 the knowledge base was benchmarked against reading the same docume
 
 **Paused at the current architecture (2026-10-22).** The proposals of `docs/kb-benchmark.md` (the Markdown mirror, the knowledge base indexed from it, the business-rules catalog) are not built, and nothing else of "For the next plan" above is either. The architecture is the one of 06 22.7.
 
+**The AWS resources removed (2026-10-22).** `providers/aws/aipf.sh down` removed the POC, plan 08's leftovers were removed by hand, and nothing named `aipf` is left in the selected Region or us-east-1. The knowledge base and its gateway were kept. The stack's first delete failed on a DynamoDB 500, and `down` cannot resume after it, as it fails on emptying the data bucket that is already gone; the details are in [06](06-poc-architecture.md) 22.9. The architecture design for engineers is in the product repository, `docs/architecture/` (commit `3f894ee`), and on its GitHub Pages site, built from the `gh-pages` branch.
+

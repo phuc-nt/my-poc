@@ -12,6 +12,7 @@ Status:
 - The dev and staging environments and the UAT agent were added on 2026-10-19 (section 17).
 - The six agents and the web console (section 18), AIPF MCP, the user gateway (section 19), and the person's review in the console (section 20) were added on 2026-10-19. A full six-agent run went from the work item to a healthy staging release, with the person's decisions made in the console (section 20.6).
 - Plan 08 ([08](08-upgrade-plan.md)) was built on 2026-10-20, deployed that night and checked by round 4 on 2026-10-21, on Claude Code only. Its figures, decisions and what moves to the next plan are in section 22.
+- Paused on 2026-10-22 at the architecture of section 22.7. The POC's AWS resources were removed that day; the knowledge base was kept (section 22.9). The architecture design for engineers is in the `aipf-sdlc` repository, `docs/architecture/`, and on that repository's GitHub Pages site.
 
 ## 1. What the POC must show
 
@@ -1386,4 +1387,15 @@ On 2026-10-21 a benchmark asked whether the knowledge base helps an agent with a
 - The proposals: a Markdown mirror of Confluence and SharePoint read with `Grep` and `Read`, the knowledge base indexed from that mirror with `GetDocumentContent` and fewer passages, and later a business-rules catalog over MCP.
 
 **The pause (2026-10-22).** None of these proposals is built. The POC stays at the architecture of 22.7: agents read the knowledge base through `kb___Retrieve`, and AG-1 is unchanged.
+
+### 22.9 The AWS resources removed (2026-10-22)
+
+The POC's AWS resources were removed on 2026-10-22 with `providers/aws/aipf.sh down`, so the paused POC costs nothing to keep. `aipf.sh up` and `aipf.sh build` rebuild them from the `aipf-sdlc` repository.
+
+- **Removed by `down`:** both gateways with their targets, the Cedar policies and the policy engine, the gateway log deliveries, the vault's credential providers and workload identity, the CodeCommit approval rule, the `aipf-poc` stack (the table, the buckets, the sample repository, the cluster, the functions, the workflow, the console and the rest), and the staging task definitions.
+- **The stack's first delete failed** on a DynamoDB 500 for the table, which was in fact deleted. The second `down` then stopped at the stack step, as it asks the failed stack for its data bucket, which was gone, and fails on emptying it. `delete-stack` by hand ended it, and a third `down` finished the steps after the stack. `down` is not changed while the POC is paused.
+- **Removed by hand:** what plan 08's experiments left (the `aipf-plan08-approval` approval rule template and the `aipf-plan08-api` HTTP API), and the inactive task definitions of `aipf-poc` and `aipf-plan08`.
+- **Checked afterwards:** no `aipf` stack, gateway, policy engine, credential provider, workload identity, log group, IAM role or policy, ECR repository, bucket, secret (pending deletion included), task definition, cluster, rule, alarm, user pool, state machine, function, table, repository, build project, queue, topic, API, namespace, security group, VPC, database or parameter is left in the selected Region, and no `aipf` log group or web ACL in us-east-1. The resource tagging API still listed deleted ECS resources for a while.
+- **Kept:** the knowledge base `slack-web-automation-poc-kb` and its gateway, the bucket of its certificate and its two secrets. They belong to [docs/08](../08-knowledge-base-chatbot.md) and [docs/09](../09-bedrock-managed-knowledge-base.md), and the benchmark of 22.8 used them. The knowledge base's storage still costs a little.
+- **Not on AWS:** the Claude subscription token used by the sessions is still valid until it is revoked at claude.ai, and the Jira SCRUM items of the test rounds stay in Jira.
 
