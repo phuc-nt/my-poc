@@ -8,7 +8,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "redeploy": "node infra/redeploy.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-agent": "^3.1156.0",

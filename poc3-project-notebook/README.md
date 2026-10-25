@@ -12,6 +12,7 @@ Documents: [docs/01-executive-overview.md](docs/01-executive-overview.md) for le
 | `infra/kb.mjs` | Creates the knowledge bases, their managed connectors (daily sync), the service role, the bucket, the secrets and the log delivery |
 | `infra/stack.yaml` | The app: DynamoDB table, Cognito user pool, API and monitor Lambda functions, CloudFront in front of the web bucket and the API, alarms, dashboard |
 | `infra/deploy.mjs` | Builds, uploads and deploys the stack, publishes the web UI, creates the test accounts |
+| `infra/redeploy.mjs` | Recreates everything after a teardown in one command (`npm run redeploy`), with the knowledge bases and the app made side by side |
 | `src/api/handler.mjs` | The API (`/api/*`) and the MCP endpoint (`/mcp`), one Lambda function behind a function URL with response streaming |
 | `src/monitor/handler.mjs` | Every 15 minutes: sync jobs into DynamoDB, CloudWatch metrics per source, document lists; once a day the permission import |
 | `src/lib/` | `kb` (search, agentic search, documents, syncs), `answer` (chat), `studio`, `mcp`, `auth`, `permissions`, `connectors`, `graph`, `store`, `usage`, `llm`, `config` |
@@ -73,7 +74,7 @@ node scripts/eval.mjs fast    # benchmark (deep for deep mode, score to summaris
 
 Settings passed at deploy time: `POC3_CHAT_MODEL`, `POC3_STUDIO_MODEL` (Bedrock model ids in the Region), `POC3_ADMIN_EMAILS` (comma-separated), `POC3_ALERT_EMAIL`. A person who signed up can be made admin with `node infra/deploy.mjs make-admin <email>`.
 
-Remove everything with `node infra/deploy.mjs down` then `node infra/kb.mjs down`.
+Remove everything with `node infra/deploy.mjs down` then `node infra/kb.mjs down`. Bring it all back with `npm run redeploy` ([infra/redeploy.mjs](infra/redeploy.mjs)): it makes the knowledge bases and the app side by side, runs the first sync while CloudFront is created, then creates the test accounts, runs the monitor and the end-to-end test. A teardown loses the accounts, grants and notebooks in the table; `infra/deploy.local.json` is kept.
 
 ## Models
 

@@ -284,12 +284,14 @@ All commands run from the `poc3-project-notebook/` folder, in this order:
 | 1 | `npm install` | Dependencies for the build | 1 min |
 | 2 | `node infra/kb.mjs up` | Data bucket, service role, three secrets, certificate upload, knowledge bases, data sources (waits until each is `AVAILABLE`), log delivery. It is safe to re-run: existing resources are updated, and a source moved to another knowledge base is removed from the old one | A few minutes |
 | 3 | `node infra/kb.mjs sync` | Starts the first ingestion of every source. Later syncs run daily on the connector's schedule | Depends on the volume; follow it with step 4 |
-| 4 | `node infra/kb.mjs status` | Each source's last job, with documents scanned, indexed, failed and deleted | seconds |
+| 4 | `node infra/kb.mjs status` | Each source's last job, with documents scanned, indexed, failed and deleted. `node infra/kb.mjs wait` waits until no sync is running, then prints the same | seconds |
 | 5 | `node infra/deploy.mjs up` | Bundles the two functions ([scripts/build.mjs](../scripts/build.mjs)), uploads the zips by content hash, creates the origin secret once, deploys the stack, publishes the web UI with its `config.json`, and invalidates CloudFront. The site address is written to `infra/deploy.local.json` | 5 to 15 min the first time (CloudFront) |
 | 6 | `node infra/deploy.mjs users` | Optional: five test accounts under `.invalid` emails (no email is sent). Their passwords go to `infra/deploy.local.json` | seconds |
 | 7 | `node infra/deploy.mjs monitor` | Runs the monitor once, so the sync page and the metrics fill at once | 1 min |
 | 8 | `node scripts/e2e.mjs` | The 46-check end-to-end test as the test accounts ([scripts/e2e.mjs](../scripts/e2e.mjs)) | A few minutes |
 | 9 | `node scripts/eval.mjs fast` | Optional: the 48-question benchmark ([scripts/eval.mjs](../scripts/eval.mjs)) | A few minutes |
+
+**In one command.** `npm run redeploy` ([infra/redeploy.mjs](../infra/redeploy.mjs)) runs steps 2 to 8 after `npm install`. The data bucket is made first, because it holds the function code. Then two lanes run side by side. One makes the knowledge bases, starts the first sync and waits for it. The other deploys the app stack and creates the test accounts. Steps 7 and 8 follow. This works because the app needs the knowledge bases only at run time, when it finds them by name. So the first sync runs while CloudFront is being created, and the whole run takes about as long as the slower of the two. Nearly all of that time is AWS creating resources and indexing documents: the build takes seconds, and a container image would not shorten it. `npm run redeploy -- --no-e2e` skips the test.
 
 A real person signs up on the site. An admin then approves them, or `node infra/deploy.mjs make-admin <email>` promotes someone who has signed in once.
 
@@ -306,6 +308,11 @@ A real person signs up on the site. An admin then approves them, or `node infra/
 ### 7.4 Removal
 
 Run `node infra/deploy.mjs down` first. It empties the web bucket, deletes the stack and waits for CloudFront, then removes the code zips. Then run `node infra/kb.mjs down`. It removes log delivery, data sources (with their indexed data), knowledge bases, the three secrets (without the recovery window), the data bucket and the service role. Afterwards, check that nothing tagged `Project=poc3-kb` remains, using the Resource Groups tag editor in the Region.
+
+What a teardown loses, and what it keeps:
+
+- **Lost:** the table and the user pool. These hold every account, grant, notebook, note, chat history and personal access token. In a pilot with real people, export the table first, for example with DynamoDB's export to S3 into a bucket outside the stack.
+- **Kept:** everything needed to rebuild, on the deployer's machine. That is the code and `sources.json` in git, the PoC 1 settings and certificate, and `infra/deploy.local.json`. That file holds the origin secret and the test passwords, which a redeploy reuses. The CloudFront address changes on every redeploy and is written to `infra/deploy.local.json` again.
 
 ## 8. Operations
 

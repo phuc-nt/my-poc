@@ -7,6 +7,8 @@
 //   node infra/kb.mjs up [name...]       role, bucket, secrets, certificate, knowledge bases, data sources
 //   node infra/kb.mjs sync [name...]     start a sync of every (or the named) data source
 //   node infra/kb.mjs status             data sources and their last sync
+//   node infra/kb.mjs wait               wait until no sync is running, then print the status
+//   node infra/kb.mjs bucket             the data bucket only (infra/redeploy.mjs makes it before the rest)
 //   node infra/kb.mjs down               delete everything above
 //
 // PoC 3 reuses PoC 1's Confluence and SharePoint test settings. It reads ../poc1-slack-platform/infra/local.env
@@ -306,6 +308,24 @@ function status() {
   }
 }
 
+// Waits until every data source's latest sync has ended (the first sync of a new knowledge base takes a while).
+async function wait() {
+  for (let i = 0; i < 120; i++) {
+    const running = [];
+    for (const kb of knowledgeBases()) {
+      for (const ds of dataSources(kb.id)) {
+        const job = aws(['bedrock-agent', 'list-ingestion-jobs', '--knowledge-base-id', kb.id, '--data-source-id', ds.dataSourceId,
+          '--sort-by', 'attribute=STARTED_AT,order=DESCENDING', '--max-results', '1']).ingestionJobSummaries?.[0];
+        if (['STARTING', 'IN_PROGRESS', 'STOPPING'].includes(job?.status)) running.push(ds.name);
+      }
+    }
+    if (!running.length) return status();
+    console.log(`syncing: ${running.join(', ')}`);
+    await sleep(30000);
+  }
+  throw new Error('syncs still running after an hour');
+}
+
 async function down() {
   removeLogDelivery();
   for (const { id: kb, name } of knowledgeBases()) {
@@ -325,9 +345,9 @@ async function down() {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [command, ...rest] = process.argv.slice(2);
-  const run = { up: () => up(rest), sync: () => sync(rest), status, down, logs: () => putLogDelivery(account()) }[command];
+  const run = { up: () => up(rest), sync: () => sync(rest), status, wait, bucket: putBucket, down, logs: () => putLogDelivery(account()) }[command];
   if (!run) {
-    console.error('usage: node infra/kb.mjs up|sync|status|down [data source name...]');
+    console.error('usage: node infra/kb.mjs up|sync|status|wait|bucket|down [data source name...]');
     process.exit(2);
   }
   Promise.resolve(run()).catch((error) => {
