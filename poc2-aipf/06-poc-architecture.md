@@ -1399,3 +1399,20 @@ The POC's AWS resources were removed on 2026-10-22 with `providers/aws/aipf.sh d
 - **Kept:** the knowledge base `slack-web-automation-poc-kb` and its gateway, the bucket of its certificate and its two secrets. They belong to [PoC 1 docs/08](../poc1-slack-platform/docs/08-knowledge-base-chatbot.md) and [PoC 1 docs/09](../poc1-slack-platform/docs/09-bedrock-managed-knowledge-base.md), and the benchmark of 22.8 used them. The knowledge base's storage still costs a little.
 - **Not on AWS:** the Claude subscription token used by the sessions is still valid until it is revoked at claude.ai, and the Jira SCRUM items of the test rounds stay in Jira.
 
+
+### 22.10 The Cloudflare knowledge base, settled (2026-10-26)
+
+After the pause, the knowledge base moved to the Cloudflare pack, and its search was tuned and then settled on 2026-10-26. The architecture and its results are in the `aipf-sdlc` repository, `docs/kb-architecture.md`; the experiments are in `docs/kb-backlog.md` and `docs/kb-cloudflare-optimization.md`.
+
+- **The constraint:** the documents stay in their sources (Confluence, SharePoint) and in Cloudflare. No embedding, reranker or LLM is called through an outside API; every model runs on Workers AI.
+- **The search:** bge-m3 vectors on Vectorize (top 50) and FTS5 BM25 on D1 over text without Vietnamese diacritics (top 50), fused by reciprocal rank fusion (k = 60), then one `bge-reranker-base` call on the fused top 25. At most 3 passages a document; `kb___Retrieve` returns 6, the console 8 and answers with Llama 3.3 70B. The agents also have `kb___read` and `kb___grep` on the Markdown mirror in R2. The KbSync workflow keeps the mirror, D1 and Vectorize in step with the sources.
+- **Removed:** the Qwen3 grader of phase 1. It raised the MRR but not the right answers, and cost about 0.8 s and one LLM call a search.
+- **Measured on E3** (200 new questions, 188 with an answer, through the console's handler, judged by Qwen3-30B-A3B against the reference answers):
+
+| | Doc hit | Facts | Right answers | Retrieve p50 |
+|---|---|---|---|---|
+| AWS managed knowledge base (GLM-4.7-flash) | 95% | 85% | 78.2% | 1.6 s |
+| Cloudflare, with the grader | | | 84.0% | 2.7 s |
+| Cloudflare, settled (Llama 3.3 70B) | 94% | 84% | 85.6% | 1.5 s |
+
+- The settled search beats the AWS knowledge base by 7.4 points (95% CI +0.5 to +14.4, p 0.044), and the grader version by 1.6 points (CI −2.1 to +5.3, not significant). What is still wrong lies in recall (about 90% of the questions have the right passage in the top 8) and in the answering model (15 wrong answers with every fact in the passages), not in the order of the passages. No more search tuning is planned; it is measured again when a Workers AI model changes or the corpus grows a lot.
