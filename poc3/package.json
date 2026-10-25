@@ -1,0 +1,27 @@
+{
+  "name": "poc3-project-notebook",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "PoC 3: a NotebookLM-like project knowledge assistant on Amazon Bedrock Managed Knowledge Base (Confluence, SharePoint), with a web UI, an MCP server and sync monitoring.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-agent": "^3.1156.0",
+    "@aws-sdk/client-bedrock-agent-runtime": "^3.1156.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.1156.0",
+    "@aws-sdk/client-cloudwatch": "^3.1156.0",
+    "@aws-sdk/client-cloudwatch-logs": "^3.1156.0",
+    "@aws-sdk/client-dynamodb": "^3.1156.0",
+    "@aws-sdk/client-secrets-manager": "^3.1156.0",
+    "@aws-sdk/lib-dynamodb": "^3.1156.0",
+    "aws-jwt-verify": "^5.2.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

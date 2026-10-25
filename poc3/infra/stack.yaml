@@ -1,0 +1,464 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  PoC 3 Project Notebook: the app around the poc3-kb knowledge bases. A web UI (S3 and CloudFront), an API and MCP
+  server (Lambda function URL with response streaming, behind CloudFront), sign-in (Cognito), app data (DynamoDB),
+  and the sync monitor (Lambda every 15 minutes, CloudWatch metrics, dashboard and alarms). infra/deploy.mjs
+  builds the code, fills the parameters and deploys this stack; infra/kb.mjs owns the knowledge bases.
+
+Parameters:
+  CodeBucket:
+    Type: String
+    Description: The poc3-kb data bucket that holds the function zips under code/
+  ApiCodeKey:
+    Type: String
+  MonitorCodeKey:
+    Type: String
+  OriginSecret:
+    Type: String
+    NoEcho: true
+    MinLength: 32
+    Description: CloudFront sends it to the function URL; the API refuses requests without it
+  AdminEmails:
+    Type: String
+    Default: ''
+    Description: Comma-separated emails that become admins when they first sign in
+  AlertEmail:
+    Type: String
+    Default: ''
+    Description: Optional email subscribed to the sync alarms
+  KbLogGroup:
+    Type: String
+    Default: /aws/vendedlogs/bedrock/poc3-kb
+  ChatModel:
+    Type: String
+    Default: zai.glm-5
+  StudioModel:
+    Type: String
+    Default: zai.glm-5
+  StaleHours:
+    Type: Number
+    Default: 30
+  CachingDisabledPolicyId:
+    Type: String
+    Description: The id of the managed cache policy Managed-CachingDisabled
+  CachingOptimizedPolicyId:
+    Type: String
+    Description: The id of the managed cache policy Managed-CachingOptimized
+  AllViewerExceptHostPolicyId:
+    Type: String
+    Description: The id of the managed origin request policy Managed-AllViewerExceptHostHeader
+  SecurityHeadersPolicyId:
+    Type: String
+    Description: The id of the managed response headers policy Managed-SecurityHeadersPolicy
+
+Conditions:
+  HasAlertEmail: !Not [!Equals [!Ref AlertEmail, '']]
+
+Resources:
+  # ---------- App data ----------
+  Table:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: poc3-kb-app
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+        - { AttributeName: gsi1pk, AttributeType: S }
+        - { AttributeName: gsi1sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+      GlobalSecondaryIndexes:
+        - IndexName: gsi1
+          KeySchema:
+            - { AttributeName: gsi1pk, KeyType: HASH }
+            - { AttributeName: gsi1sk, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+      TimeToLiveSpecification: { AttributeName: ttl, Enabled: true }
+      SSESpecification: { SSEEnabled: true }
+      Tags: [{ Key: Project, Value: poc3-kb }]
+
+  # ---------- Sign-in ----------
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: poc3-kb-users
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      AccountRecoverySetting:
+        RecoveryMechanisms: [{ Name: verified_email, Priority: 1 }]
+      Policies:
+        PasswordPolicy: { MinimumLength: 10, RequireLowercase: true, RequireUppercase: true, RequireNumbers: true, RequireSymbols: false }
+      AdminCreateUserConfig: { AllowAdminCreateUserOnly: false }
+      UserPoolTags: { Project: poc3-kb }
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientName: poc3-kb-web
+      GenerateSecret: false
+      ExplicitAuthFlows: [ALLOW_USER_PASSWORD_AUTH, ALLOW_USER_SRP_AUTH, ALLOW_REFRESH_TOKEN_AUTH]
+      PreventUserExistenceErrors: ENABLED
+      IdTokenValidity: 60
+      AccessTokenValidity: 60
+      RefreshTokenValidity: 30
+      TokenValidityUnits: { IdToken: minutes, AccessToken: minutes, RefreshToken: days }
+
+  # ---------- API and MCP server ----------
+  ApiLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/poc3-kb-api
+      RetentionInDays: 30
+      Tags: [{ Key: Project, Value: poc3-kb }]
+
+  ApiRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: poc3-kb-api
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement: [{ Effect: Allow, Principal: { Service: lambda.amazonaws.com }, Action: sts:AssumeRole }]
+      Policies:
+        - PolicyName: app
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub '${ApiLogs.Arn}:*'
+              - Effect: Allow
+                Action: bedrock:ListKnowledgeBases
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - bedrock:Retrieve
+                  - bedrock:GetDocumentContent
+                  - bedrock:ListDataSources
+                  - bedrock:GetDataSource
+                  - bedrock:ListIngestionJobs
+                  - bedrock:GetIngestionJob
+                  - bedrock:StartIngestionJob
+                  - bedrock:ListKnowledgeBaseDocuments
+                Resource: !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:knowledge-base/*'
+              # Agentic retrieval is not authorized against a knowledge base ARN.
+              - Effect: Allow
+                Action: bedrock:AgenticRetrieveStream
+                Resource: '*'
+              # In-Region models, and the au. inference profiles that keep requests inside Australia (ap-southeast-2 and ap-southeast-4).
+              - Effect: Allow
+                Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream]
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/au.anthropic.*'
+                  - !Sub 'arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.*'
+                  - !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/*'
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Sub 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:poc3-kb/graph*'
+              - Effect: Allow
+                Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem, dynamodb:DeleteItem, dynamodb:Query, dynamodb:BatchWriteItem]
+                Resource: [!GetAtt Table.Arn, !Sub '${Table.Arn}/index/*']
+      Tags: [{ Key: Project, Value: poc3-kb }]
+
+  ApiFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: ApiLogs
+    Properties:
+      FunctionName: poc3-kb-api
+      Runtime: nodejs22.x
+      Architectures: [arm64]
+      Handler: index.handler
+      MemorySize: 1024
+      Timeout: 300
+      Role: !GetAtt ApiRole.Arn
+      Code: { S3Bucket: !Ref CodeBucket, S3Key: !Ref ApiCodeKey }
+      LoggingConfig: { LogGroup: !Ref ApiLogs, LogFormat: Text }
+      Environment:
+        Variables:
+          TABLE: !Ref Table
+          USER_POOL_ID: !Ref UserPool
+          USER_POOL_CLIENT_ID: !Ref UserPoolClient
+          ORIGIN_SECRET: !Ref OriginSecret
+          ADMIN_EMAILS: !Ref AdminEmails
+          CHAT_MODEL: !Ref ChatModel
+          STUDIO_MODEL: !Ref StudioModel
+          STALE_HOURS: !Ref StaleHours
+          KB_LOG_GROUP: !Ref KbLogGroup
+      Tags: [{ Key: Project, Value: poc3-kb }]
+
+  ApiUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      TargetFunctionArn: !GetAtt ApiFunction.Arn
+      AuthType: NONE
+      InvokeMode: RESPONSE_STREAM
+
+  # The function URL is public on paper; the API refuses any request without CloudFront's origin secret.
+  ApiUrlPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ApiFunction
+      Action: lambda:InvokeFunctionUrl
+      Principal: '*'
+      FunctionUrlAuthType: NONE
+
+  ApiUrlInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ApiFunction
+      Action: lambda:InvokeFunction
+      Principal: '*'
+      InvokedViaFunctionUrl: true
+
+  # ---------- Sync monitor ----------
+  MonitorLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/poc3-kb-monitor
+      RetentionInDays: 30
+      Tags: [{ Key: Project, Value: poc3-kb }]
+
+  MonitorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: poc3-kb-monitor
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement: [{ Effect: Allow, Principal: { Service: lambda.amazonaws.com }, Action: sts:AssumeRole }]
+      Policies:
+        - PolicyName: monitor
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub '${MonitorLogs.Arn}:*'
+              - Effect: Allow
+                Action: logs:FilterLogEvents
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${KbLogGroup}:*'
+              - Effect: Allow
+                Action: bedrock:ListKnowledgeBases
+                Resource: '*'
+              - Effect: Allow
+                Action: [bedrock:ListDataSources, bedrock:GetDataSource, bedrock:ListIngestionJobs, bedrock:GetIngestionJob, bedrock:ListKnowledgeBaseDocuments]
+                Resource: !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:knowledge-base/*'
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Sub 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:poc3-kb/graph*'
+              - Effect: Allow
+                Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem, dynamodb:DeleteItem, dynamodb:Query]
+                Resource: [!GetAtt Table.Arn, !Sub '${Table.Arn}/index/*']
+              - Effect: Allow
+                Action: cloudwatch:PutMetricData
+                Resource: '*'
+                Condition: { StringEquals: { 'cloudwatch:namespace': Poc3Kb } }
+      Tags: [{ Key: Project, Value: poc3-kb }]
+
+  MonitorFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: MonitorLogs
+    Properties:
+      FunctionName: poc3-kb-monitor
+      Runtime: nodejs22.x
+      Architectures: [arm64]
+      Handler: index.handler
+      MemorySize: 512
+      Timeout: 600
+      Role: !GetAtt MonitorRole.Arn
+      Code: { S3Bucket: !Ref CodeBucket, S3Key: !Ref MonitorCodeKey }
+      LoggingConfig: { LogGroup: !Ref MonitorLogs, LogFormat: Text }
+      Environment:
+        Variables:
+          TABLE: !Ref Table
+          STALE_HOURS: !Ref StaleHours
+          KB_LOG_GROUP: !Ref KbLogGroup
+      Tags: [{ Key: Project, Value: poc3-kb }]
+
+  MonitorSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: poc3-kb-monitor
+      ScheduleExpression: rate(15 minutes)
+      Targets: [{ Id: monitor, Arn: !GetAtt MonitorFunction.Arn }]
+
+  MonitorSchedulePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref MonitorFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt MonitorSchedule.Arn
+
+  # ---------- Web ----------
+  WebBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'poc3-kb-web-${AWS::AccountId}-${AWS::Region}'
+      PublicAccessBlockConfiguration: { BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true }
+      OwnershipControls: { Rules: [{ ObjectOwnership: BucketOwnerEnforced }] }
+      BucketEncryption: { ServerSideEncryptionConfiguration: [{ ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 } }] }
+      Tags: [{ Key: Project, Value: poc3-kb }]
+
+  WebOac:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: poc3-kb-web
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: poc3-kb project notebook
+        Enabled: true
+        HttpVersion: http2and3
+        PriceClass: PriceClass_200
+        DefaultRootObject: index.html
+        Origins:
+          - Id: web
+            DomainName: !GetAtt WebBucket.RegionalDomainName
+            OriginAccessControlId: !Ref WebOac
+            S3OriginConfig: { OriginAccessIdentity: '' }
+          - Id: api
+            DomainName: !Select [2, !Split ['/', !GetAtt ApiUrl.FunctionUrl]]
+            CustomOriginConfig: { OriginProtocolPolicy: https-only, OriginSSLProtocols: [TLSv1.2], OriginReadTimeout: 60, OriginKeepaliveTimeout: 60 }
+            OriginCustomHeaders: [{ HeaderName: x-origin-verify, HeaderValue: !Ref OriginSecret }]
+        DefaultCacheBehavior:
+          TargetOriginId: web
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          CachePolicyId: !Ref CachingOptimizedPolicyId
+          ResponseHeadersPolicyId: !Ref SecurityHeadersPolicyId
+        CacheBehaviors:
+          - PathPattern: /api/*
+            TargetOriginId: api
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+            CachePolicyId: !Ref CachingDisabledPolicyId
+            OriginRequestPolicyId: !Ref AllViewerExceptHostPolicyId
+            Compress: false
+          - PathPattern: /mcp
+            TargetOriginId: api
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+            CachePolicyId: !Ref CachingDisabledPolicyId
+            OriginRequestPolicyId: !Ref AllViewerExceptHostPolicyId
+            Compress: false
+      Tags: [{ Key: Project, Value: poc3-kb }]
+
+  WebBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: cloudfront.amazonaws.com }
+            Action: s3:GetObject
+            Resource: !Sub '${WebBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}'
+
+  # ---------- Sync monitoring: alarms and dashboard ----------
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: poc3-kb-alerts
+      Tags: [{ Key: Project, Value: poc3-kb }]
+
+  AlertSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlertEmail
+    Properties:
+      TopicArn: !Ref AlertTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+  StaleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: poc3-kb-sync-stale
+      AlarmDescription: A source has not synced successfully for longer than StaleHours
+      Namespace: Poc3Kb
+      MetricName: SyncAgeHoursMax
+      Statistic: Maximum
+      Period: 900
+      EvaluationPeriods: 2
+      Threshold: !Ref StaleHours
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
+  JobFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: poc3-kb-sync-failed
+      AlarmDescription: The latest sync job of a source failed
+      Namespace: Poc3Kb
+      MetricName: JobFailedTotal
+      Statistic: Maximum
+      Period: 900
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
+  MonitorErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: poc3-kb-monitor-errors
+      AlarmDescription: The sync monitor itself fails
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: [{ Name: FunctionName, Value: !Ref MonitorFunction }]
+      Statistic: Sum
+      Period: 900
+      EvaluationPeriods: 2
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+
+  Dashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: poc3-kb
+      DashboardBody: !Sub |
+        {"widgets":[
+          {"type":"metric","x":0,"y":0,"width":8,"height":6,"properties":{"title":"Hours since the last good sync","region":"${AWS::Region}","view":"timeSeries","stat":"Maximum","period":900,
+            "metrics":[[{"expression":"SEARCH('{Poc3Kb,Source} MetricName=\"SyncAgeHours\"', 'Maximum', 900)","id":"e1"}]],
+            "annotations":{"horizontal":[{"label":"stale","value":${StaleHours}}]}}},
+          {"type":"metric","x":8,"y":0,"width":8,"height":6,"properties":{"title":"Documents indexed per source","region":"${AWS::Region}","view":"timeSeries","stat":"Maximum","period":900,
+            "metrics":[[{"expression":"SEARCH('{Poc3Kb,Source} MetricName=\"DocumentsIndexed\"', 'Maximum', 900)","id":"e2"}]]}},
+          {"type":"metric","x":16,"y":0,"width":8,"height":6,"properties":{"title":"Failed documents and jobs","region":"${AWS::Region}","view":"timeSeries","stat":"Maximum","period":900,
+            "metrics":[["Poc3Kb","DocumentsFailedTotal"],["Poc3Kb","JobFailedTotal"]]}},
+          {"type":"alarm","x":0,"y":6,"width":8,"height":4,"properties":{"title":"Sync alarms","alarms":["${StaleAlarm.Arn}","${JobFailedAlarm.Arn}","${MonitorErrorAlarm.Arn}"]}},
+          {"type":"metric","x":8,"y":6,"width":8,"height":4,"properties":{"title":"API calls and errors","region":"${AWS::Region}","view":"timeSeries","stat":"Sum","period":300,
+            "metrics":[["AWS/Lambda","Invocations","FunctionName","${ApiFunction}"],[".","Errors",".","."],[".","Throttles",".","."]]}},
+          {"type":"metric","x":16,"y":6,"width":8,"height":4,"properties":{"title":"API duration p90 (ms)","region":"${AWS::Region}","view":"timeSeries","stat":"p90","period":300,
+            "metrics":[["AWS/Lambda","Duration","FunctionName","${ApiFunction}"]]}}
+        ]}
+
+Outputs:
+  SiteDomain:
+    Value: !GetAtt Distribution.DomainName
+  DistributionId:
+    Value: !Ref Distribution
+  WebBucket:
+    Value: !Ref WebBucket
+  UserPoolId:
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Value: !Ref UserPoolClient
+  Table:
+    Value: !Ref Table

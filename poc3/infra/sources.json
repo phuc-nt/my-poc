@@ -1,0 +1,64 @@
+{
+  "_comment": "One knowledge base data source per Confluence space and per SharePoint folder: a user's grants are a list of these, and every search is filtered to them. A knowledge base holds at most 5 data sources (a fixed quota), so each source names its knowledge base; the app searches every poc3-kb* knowledge base the user has a grant in. A $NAME value is read from infra/local.env.",
+  "confluence": [
+    {
+      "name": "confluence-engdocs",
+      "kb": "poc3-kb",
+      "title": "Confluence · Engineering — Tài liệu dự án",
+      "spaces": [
+        "ENGDOCS"
+      ]
+    },
+    {
+      "name": "confluence-company",
+      "kb": "poc3-kb-company",
+      "title": "Confluence · Wiki công ty Mộc Lan",
+      "spaces": [
+        "$CONFLUENCE_SPACE_KEYS"
+      ]
+    }
+  ],
+  "sharepoint": [
+    {
+      "name": "sp-my-db-mate",
+      "kb": "poc3-kb",
+      "title": "SharePoint · Tai-lieu-du-an/my-db-mate",
+      "folders": [
+        "Tai-lieu-du-an/my-db-mate"
+      ]
+    },
+    {
+      "name": "sp-my-translator",
+      "kb": "poc3-kb",
+      "title": "SharePoint · Tai-lieu-du-an/my-translator",
+      "folders": [
+        "Tai-lieu-du-an/my-translator"
+      ]
+    },
+    {
+      "name": "sp-my-translator-mobile",
+      "kb": "poc3-kb",
+      "title": "SharePoint · Tai-lieu-du-an/my-translator-mobile",
+      "folders": [
+        "Tai-lieu-du-an/my-translator-mobile"
+      ]
+    },
+    {
+      "name": "sp-company",
+      "kb": "poc3-kb-company",
+      "title": "SharePoint · Tài liệu công ty Mộc Lan",
+      "folders": [
+        "bang-gia",
+        "bao-cao",
+        "chinh-sach",
+        "dich-vu",
+        "huong-dan",
+        "khac",
+        "khuyen-mai",
+        "ky-thuat",
+        "noi-bo",
+        "san-pham"
+      ]
+    }
+  ]
+}

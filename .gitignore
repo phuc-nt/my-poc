@@ -32,3 +32,8 @@ coverage/
 .idea/
 __pycache__/
 *.pyc
+
+# PoC 3 build output and local deploy state (test passwords, origin secret)
+poc3/dist/
+poc3/infra/deploy.local.json
+poc3/eval/out/

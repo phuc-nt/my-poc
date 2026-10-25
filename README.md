@@ -5,6 +5,7 @@ A small platform that connects Slack to other systems (a web app without an API,
 - **Web form automation:** a request sent from Slack makes the system sign in to a web app and fill in its form with Playwright. It stops at the confirmation screen and submits only after the requester approves. The sample is a building visitor form on a mock portal included in this repository.
 - **Daily report:** reads the day's messages in project channels and the issues in Jira, and has an LLM write a daily report that also checks the chat against Jira.
 - **Knowledge base chatbot:** answers questions in Slack from Confluence and SharePoint content indexed by Amazon Bedrock Managed Knowledge Base, with links to the sources. The same knowledge base is published as an MCP server for AI assistants in code editors.
+- **Project notebook:** a web app in the style of NotebookLM where a project team asks questions about Confluence and SharePoint documents, writes study material from them and reads each source's sync state, with access per space and folder and an MCP server for code editors. It is self-contained in `poc3/` and has its own AWS resources.
 
 ## Documents
 
@@ -19,7 +20,7 @@ A small platform that connects Slack to other systems (a web app without an API,
 | [08 Knowledge base chatbot](docs/08-knowledge-base-chatbot.md): setting up the chatbot, its sources and the MCP server | Engineers |
 | [09 Amazon Bedrock Managed Knowledge Base](docs/09-bedrock-managed-knowledge-base.md): the service from the beginning, its limits as tested, parsing quality, which parts of the chatbot are code, strengths and limits | Anyone new to the service |
 
-Each POC also has a concept document for decision makers, without code: [web form automation](docs/poc/01-web-form-automation.md), [daily report](docs/poc/02-daily-report.md), [knowledge base chatbot](docs/poc/03-knowledge-base-chatbot.md).
+Each POC also has a concept document for decision makers, without code: [web form automation](docs/poc/01-web-form-automation.md), [daily report](docs/poc/02-daily-report.md), [knowledge base chatbot](docs/poc/03-knowledge-base-chatbot.md), [project notebook](docs/poc/04-project-knowledge-notebook.md).
 
 Settings that differ per environment (tokens, channels, Jira site, AWS profile, Region) go in `.env` and `infra/local.env`. Neither is committed.
 
