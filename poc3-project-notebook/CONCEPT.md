@@ -1,8 +1,8 @@
-# POC 4: Project Knowledge Notebook
+# PoC 3: Project Knowledge Notebook
 
 This document describes a concept that has been built and run end to end. It is written for decision makers: what the concept does for a project team, how it works, what was proven and what was not, how it compares with Atlassian Rovo, what it costs, and what the team must be granted before a pilot with real content.
 
-It contains no code and needs none to be read. The implementation and its engineering notes are in the repository's `poc3/` folder (section 11). The folder name comes from the order of the work; this is the fourth concept document.
+It contains no code and needs none to be read. The implementation and its engineering notes are in this folder's [README.md](README.md) (section 11).
 
 ## 1. Summary
 
@@ -258,4 +258,4 @@ For 30 Standard users asking 6,000 quick questions a month: 60,000 credits, less
 
 ## 11. Where the detail is
 
-The implementation, how to deploy and test it, and what was learned building it are in the repository: [poc3/README.md](../../poc3/README.md). The managed knowledge base service itself is introduced in [09 Amazon Bedrock Managed Knowledge Base](../09-bedrock-managed-knowledge-base.md), and the earlier Slack chatbot on the same service in [POC 3](03-knowledge-base-chatbot.md).
+The implementation, how to deploy and test it, and what was learned building it are in the repository: [README.md](README.md). The managed knowledge base service itself is introduced in [PoC 1 doc 09, Amazon Bedrock Managed Knowledge Base](../poc1-slack-platform/docs/09-bedrock-managed-knowledge-base.md), and the earlier Slack chatbot on the same service in [PoC 1, use case 3](../poc1-slack-platform/docs/concepts/03-knowledge-base-chatbot.md).

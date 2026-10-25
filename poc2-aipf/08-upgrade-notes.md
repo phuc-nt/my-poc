@@ -1795,7 +1795,7 @@ Round 4 left four of section 13's criteria open: D5's rule precedence, CI under 
 
 ## The knowledge base benchmark and the pause
 
-On 2026-10-21 the knowledge base was benchmarked against reading the same documents as files, a ten-times corpus, the whole corpus in context, and no documents, on Claude Code with Sonnet 5.5. The summary is in [06](06-poc-architecture.md) 22.8 and in [docs/09](../09-bedrock-managed-knowledge-base.md); the runner, the results and the options for the knowledge base are in the product repository (`bench/kb/`, `docs/kb-benchmark.md`, commit `ff0d4fd`).
+On 2026-10-21 the knowledge base was benchmarked against reading the same documents as files, a ten-times corpus, the whole corpus in context, and no documents, on Claude Code with Sonnet 5.5. The summary is in [06](06-poc-architecture.md) 22.8 and in [PoC 1 docs/09](../poc1-slack-platform/docs/09-bedrock-managed-knowledge-base.md); the runner, the results and the options for the knowledge base are in the product repository (`bench/kb/`, `docs/kb-benchmark.md`, commit `ff0d4fd`).
 
 - The knowledge base is needed (4 of 56 answers right without documents) and accurate (56 of 56, 64 of 64), but reading files was as accurate and cheaper at today's corpus size.
 - `infra/kb.sh mcp-config` prints the proxy with `--read-only`, which hid both gateway tools. Not changed.

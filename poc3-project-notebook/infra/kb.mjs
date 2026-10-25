@@ -9,8 +9,9 @@
 //   node infra/kb.mjs status             data sources and their last sync
 //   node infra/kb.mjs down               delete everything above
 //
-// Reads ../infra/local.env (Region, SharePoint tenant, client and site, Confluence space keys) and ../.env
-// (Confluence site, account and API token), and the SharePoint certificate in ../infra/kb-cert/.
+// PoC 3 reuses PoC 1's Confluence and SharePoint test settings. It reads ../poc1-slack-platform/infra/local.env
+// (Region, SharePoint tenant, client and site, Confluence space keys) and ../poc1-slack-platform/.env
+// (Confluence site, account and API token), and the SharePoint certificate in ../poc1-slack-platform/infra/kb-cert/.
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
@@ -19,7 +20,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO = join(HERE, '..', '..');
+const POC1 = join(HERE, '..', '..', 'poc1-slack-platform');
 export const PREFIX = 'poc3-kb';
 export const TAG = [{ Key: 'Project', Value: PREFIX }];
 
@@ -32,7 +33,7 @@ function loadEnv(file) {
   }
   return out;
 }
-export const env = { ...loadEnv(join(REPO, '.env')), ...loadEnv(join(REPO, 'infra', 'local.env')), ...process.env };
+export const env = { ...loadEnv(join(POC1, '.env')), ...loadEnv(join(POC1, 'infra', 'local.env')), ...process.env };
 process.env.AWS_REGION = env.AWS_REGION;
 if (env.AWS_PROFILE) process.env.AWS_PROFILE = env.AWS_PROFILE;
 process.env.AWS_PAGER = '';
@@ -126,7 +127,7 @@ export function putSecret(name, value) {
   return aws(['secretsmanager', 'describe-secret', '--secret-id', name]).ARN;
 }
 
-const certDir = join(REPO, 'infra', 'kb-cert');
+const certDir = join(POC1, 'infra', 'kb-cert');
 
 function secrets(bucket) {
   const host = String(env.CONFLUENCE_BASE_URL || env.JIRA_BASE_URL || '').replace(/\/+$/, '').replace(/\/wiki$/, '');
@@ -134,7 +135,7 @@ function secrets(bucket) {
   const password = env.CONFLUENCE_API_TOKEN || env.JIRA_API_TOKEN;
   if (!host || !username || !password) throw new Error('The Confluence site, account or API token is missing from .env');
   const confluence = putSecret(`${PREFIX}/confluence`, { username, password, hostUrl: host });
-  if (!existsSync(join(certDir, 'certificate.p12'))) throw new Error('infra/kb-cert/certificate.p12 is missing');
+  if (!existsSync(join(certDir, 'certificate.p12'))) throw new Error('poc1-slack-platform/infra/kb-cert/certificate.p12 is missing');
   const certificatePassword = readFileSync(join(certDir, 'p12-password'), 'utf8').trim();
   const sharepoint = putSecret(`${PREFIX}/sharepoint`, { clientId: env.SHAREPOINT_CLIENT_ID, certificatePassword });
   // The app's own copy for Microsoft Graph (folder permissions, the converted mirror): the PEM key and certificate.

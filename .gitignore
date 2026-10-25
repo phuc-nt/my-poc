@@ -10,11 +10,11 @@ node_modules/
 *.p12
 *.pfx
 *.cer
-infra/kb-cert/
+**/infra/kb-cert/
 poc-secrets.json
 
 # The operator's own environment and assistant instructions: not for readers of the repo
-infra/local.env
+**/infra/local.env
 CLAUDE.md
 CLAUDE.local.md
 .claude/
@@ -34,6 +34,6 @@ __pycache__/
 *.pyc
 
 # PoC 3 build output and local deploy state (test passwords, origin secret)
-poc3/dist/
-poc3/infra/deploy.local.json
-poc3/eval/out/
+poc3-project-notebook/dist/
+poc3-project-notebook/infra/deploy.local.json
+poc3-project-notebook/eval/out/

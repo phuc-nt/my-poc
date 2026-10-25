@@ -4,7 +4,7 @@ This document designs a proof of concept (POC) for the AI platform (AIPF) in [05
 
 Status:
 
-- Designed and built on 2026-10-18; the code is in [aipf-poc/](../../aipf-poc/README.md).
+- Designed and built on 2026-10-18; the code was first written in an `aipf-poc/` folder and now lives in the `aipf-sdlc` repository (its `environments/poc/` folder).
 - The first test round, with OpenCode and GLM-5 on Amazon Bedrock, ran on 2026-10-18 and 19.
 - The second round, with Claude Code on the Claude subscription, ran on 2026-10-19. It used Claude Sonnet 5.5 for 11 work items and Claude Opus 5.5 for the hardest one.
 - The results of both rounds are in sections 12 to 16. P1 to P5 are all shown, P4 and P5 with limits (section 14.3).
@@ -103,7 +103,7 @@ flowchart TB
 |---|---|---|
 | Model access | Claude Code on a Claude subscription. The second CLI calls a Bedrock model directly | Model gateway in front of Bedrock and other providers |
 | Tool gateway | AgentCore Gateway and Policy, as in the full design | Same |
-| Knowledge base | One Bedrock knowledge base (Confluence, SharePoint), as built in [docs/08](../08-knowledge-base-chatbot.md) | One per project account |
+| Knowledge base | One Bedrock knowledge base (Confluence, SharePoint), as built in [PoC 1 docs/08](../poc1-slack-platform/docs/08-knowledge-base-chatbot.md) | One per project account |
 | Orchestration | One Step Functions workflow for the developer role | Workflows for every role and state |
 | Sandbox | ECS Fargate task with sidecars | Same, plus ECS on EC2 where Docker is needed |
 | Accounts | One AWS account, one Region | Platform, project, delivery and production accounts |
@@ -129,7 +129,7 @@ flowchart TB
 
 **Consequences for the POC:**
 
-- **Requests go to Anthropic, outside AWS and the Region.** The POC therefore uses only synthetic data: the sample repository, a test Jira project, and the sample Confluence and SharePoint content from [docs/08](../08-knowledge-base-chatbot.md). No customer or production data.
+- **Requests go to Anthropic, outside AWS and the Region.** The POC therefore uses only synthetic data: the sample repository, a test Jira project, and the sample Confluence and SharePoint content from [PoC 1 docs/08](../poc1-slack-platform/docs/08-knowledge-base-chatbot.md). No customer or production data.
 - **No per-session model budget.** The subscription's usage limits apply, and they are shared with the owner's own use of Claude. The workflow caps session length and runs sessions one or two at a time.
 - **Usage is recorded from Claude Code's own output.** The final message of its JSON output reports tokens and an estimated cost, so the POC can still estimate what the same work would cost on Bedrock.
 - **Only for the POC.** Running agent roles for the organisation moves Claude Code to Bedrock or an API key behind the model gateway (section 10).
@@ -152,7 +152,7 @@ flowchart TB
 
 ### 4.2 Connecting any CLI to the gateway
 
-- **The gateway uses IAM sign-in,** as the knowledge base gateway in [docs/08](../08-knowledge-base-chatbot.md) does. Only identities allowed to call `bedrock-agentcore:InvokeGateway` get in.
+- **The gateway uses IAM sign-in,** as the knowledge base gateway in [PoC 1 docs/08](../poc1-slack-platform/docs/08-knowledge-base-chatbot.md) does. Only identities allowed to call `bedrock-agentcore:InvokeGateway` get in.
 - **The harness container runs the [MCP proxy for AWS](https://github.com/aws/mcp-proxy-for-aws) as a local MCP server.** The adapter registers it with the CLI as a stdio server. The proxy signs each request with the task role's temporary credentials. No token is written into the CLI's configuration, and every CLI that supports stdio MCP servers can use it.
 - **Every gateway call carries the session's identity.** The session runner starts each task with its own task role session, tagged with work item, role and harness. The gateway sees which role is calling, and CloudTrail records it.
 
@@ -301,7 +301,7 @@ The tool gateway, policy, adapters, sandbox, environment specification and workf
 
 Each check is followed by what the build found.
 
-- **Plan.** The selected Region and the project's plan allow AgentCore Gateway, AgentCore Policy, Bedrock Knowledge Bases, ECS, CodeBuild and CodeCommit. The knowledge base and gateway already ran in this project ([docs/09](../09-bedrock-managed-knowledge-base.md)); Policy has not.
+- **Plan.** The selected Region and the project's plan allow AgentCore Gateway, AgentCore Policy, Bedrock Knowledge Bases, ECS, CodeBuild and CodeCommit. The knowledge base and gateway already ran in this project ([PoC 1 docs/09](../poc1-slack-platform/docs/09-bedrock-managed-knowledge-base.md)); Policy has not.
   - *Found:* all of them ran in the selected Region, Policy included.
 - **Policy with IAM sign-in.** AgentCore Policy can tell roles apart on a gateway with IAM sign-in, using the calling role or its session tags. If it cannot, use one gateway per role, each exposing only that role's tools.
   - *Found:* it tells roles apart by the calling role only. An ECS task role session carries no session tags and no session name, so the principal is `assumed-role/aipf-poc-developer`. Each agent role therefore needs its own IAM role, and the work item is not visible to the policy.
@@ -1381,7 +1381,7 @@ With these, section 13's criteria stood as follows: P0 partly (F1, Jira's own ev
 
 ### 22.8 The knowledge base benchmark, and the pause
 
-On 2026-10-21 a benchmark asked whether the knowledge base helps an agent with a work item, and whether reading the documents as files would do better. The details are in [docs/09](../09-bedrock-managed-knowledge-base.md), "The knowledge base in an agent's work", and in the `aipf-sdlc` repository, `docs/kb-benchmark.md`.
+On 2026-10-21 a benchmark asked whether the knowledge base helps an agent with a work item, and whether reading the documents as files would do better. The details are in [PoC 1 docs/09](../poc1-slack-platform/docs/09-bedrock-managed-knowledge-base.md), "The knowledge base in an agent's work", and in the `aipf-sdlc` repository, `docs/kb-benchmark.md`.
 
 - With the knowledge base the agent got 56 of 56 questions and 64 of 64 work item values right; without documents, 4 of 56 and 2 of 64. Reading the same documents as Markdown files with `Grep` and `Read` was as accurate and cheaper at this size ($0.103 against $0.132 per work item at list price). At ten times the corpus, reading files cost more than the knowledge base ($0.144).
 - The proposals: a Markdown mirror of Confluence and SharePoint read with `Grep` and `Read`, the knowledge base indexed from that mirror with `GetDocumentContent` and fewer passages, and later a business-rules catalog over MCP.
@@ -1396,6 +1396,6 @@ The POC's AWS resources were removed on 2026-10-22 with `providers/aws/aipf.sh d
 - **The stack's first delete failed** on a DynamoDB 500 for the table, which was in fact deleted. The second `down` then stopped at the stack step, as it asks the failed stack for its data bucket, which was gone, and fails on emptying it. `delete-stack` by hand ended it, and a third `down` finished the steps after the stack. `down` is not changed while the POC is paused.
 - **Removed by hand:** what plan 08's experiments left (the `aipf-plan08-approval` approval rule template and the `aipf-plan08-api` HTTP API), and the inactive task definitions of `aipf-poc` and `aipf-plan08`.
 - **Checked afterwards:** no `aipf` stack, gateway, policy engine, credential provider, workload identity, log group, IAM role or policy, ECR repository, bucket, secret (pending deletion included), task definition, cluster, rule, alarm, user pool, state machine, function, table, repository, build project, queue, topic, API, namespace, security group, VPC, database or parameter is left in the selected Region, and no `aipf` log group or web ACL in us-east-1. The resource tagging API still listed deleted ECS resources for a while.
-- **Kept:** the knowledge base `slack-web-automation-poc-kb` and its gateway, the bucket of its certificate and its two secrets. They belong to [docs/08](../08-knowledge-base-chatbot.md) and [docs/09](../09-bedrock-managed-knowledge-base.md), and the benchmark of 22.8 used them. The knowledge base's storage still costs a little.
+- **Kept:** the knowledge base `slack-web-automation-poc-kb` and its gateway, the bucket of its certificate and its two secrets. They belong to [PoC 1 docs/08](../poc1-slack-platform/docs/08-knowledge-base-chatbot.md) and [PoC 1 docs/09](../poc1-slack-platform/docs/09-bedrock-managed-knowledge-base.md), and the benchmark of 22.8 used them. The knowledge base's storage still costs a little.
 - **Not on AWS:** the Claude subscription token used by the sessions is still valid until it is revoked at claude.ai, and the Jira SCRUM items of the test rounds stay in Jira.
 

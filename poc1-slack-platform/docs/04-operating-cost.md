@@ -21,7 +21,7 @@ The figures are an example, not a quote. They use AWS list prices of one Region 
 
 The profiles and the commands are described in [03-aws-deployment.md](03-aws-deployment.md).
 
-This document covers the platform as a whole, item by item. Each POC's document carries a short estimate of what that POC costs by itself and what it adds to a platform that already runs: [web form automation](poc/01-web-form-automation.md), section 8, and [daily report](poc/02-daily-report.md), section 8.
+This document covers the platform as a whole, item by item. Each use case's document carries a short estimate of what that use case costs by itself and what it adds to a platform that already runs: [web form automation](concepts/01-web-form-automation.md), section 8, and [daily report](concepts/02-daily-report.md), section 8.
 
 ## 2. AWS, item by item
 

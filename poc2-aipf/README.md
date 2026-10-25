@@ -1,4 +1,4 @@
-# AIPF: an AI Platform for an Agent-Run Development Team
+# PoC 2, AIPF: an AI Platform for an Agent-Run Development Team
 
 Notes from internal discussion on the organisation's own AI platform (AIPF): a platform on which agents carry the roles of a whole development team (PM, BA, developer, QA, DevOps) across the software lifecycle, its management and its operations. These are position and requirement documents. A POC of 05 to 08 was built and tested from 2026-10-18 to 2026-10-21 and paused on 2026-10-22, with its AWS resources removed (06, section 22.9). Its architecture design for engineers is in the `aipf-sdlc` repository, `docs/architecture/`, and on that repository's GitHub Pages site.
 

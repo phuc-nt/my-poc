@@ -1,4 +1,4 @@
-# POC 2: Daily Report
+# PoC 1, use case 2: Daily Report
 
 This document describes a concept that has been built and run end to end. It is written for decision makers: what the concept automates, how it works, what was proven and what was not, what it costs, and what the team must be granted before it can be piloted on a real project.
 
@@ -139,10 +139,10 @@ flowchart LR
 | Issue reader | The Jira Cloud REST API, version 3: one JQL search over HTTPS | Signs in with an Atlassian account's email and API token |
 | Report service, report writer | Plain JavaScript in the same application | |
 | LLM | Amazon Bedrock, model GLM 4.7 Flash | Called with the system's own access role, without an API key, so the chat stays inside AWS. Also run with DeepSeek V4.1 Flash through OpenRouter, an outside provider |
-| Container runtime | Amazon ECS on AWS Fargate | One task, always on. In the POC it is the task of POC 1 (1 vCPU, 2 GB of memory, ARM64), which is larger than the report needs |
+| Container runtime | Amazon ECS on AWS Fargate | One task, always on. In the POC it is the task of use case 1 (1 vCPU, 2 GB of memory, ARM64), which is larger than the report needs |
 | Image registry | Amazon ECR | One Docker image |
 | Secret store | AWS Secrets Manager | One secret: the Slack tokens, and the Atlassian email and API token |
-| Private network | Amazon VPC | A security group with no inbound rule, and outbound HTTPS only. In the POC the task ran in the private subnet behind the NAT Gateway of POC 1. By itself, a public subnet without a NAT Gateway is enough; that layout was not run |
+| Private network | Amazon VPC | A security group with no inbound rule, and outbound HTTPS only. In the POC the task ran in the private subnet behind the NAT Gateway of use case 1. By itself, a public subnet without a NAT Gateway is enough; that layout was not run |
 | Log store | Amazon CloudWatch Logs | Kept for 7 days |
 | Access roles | AWS IAM, two roles | One lets ECS start the container: pull the image, read the secret, write the log. The other lets the application call the one Bedrock model |
 | Infrastructure templates | AWS CloudFormation, two stacks | One for the image registry and the secret, one for everything else |
@@ -182,7 +182,7 @@ On AWS, on 2026-10-11, with the LLM on Amazon Bedrock (GLM 4.7 Flash): the repor
 
 - A real project's chat and issues.
 - The schedule over several days.
-- A deployment with this POC alone. It always ran beside POC 1.
+- A deployment with this POC alone. It always ran beside use case 1.
 
 **What the report cannot see:**
 
@@ -216,12 +216,12 @@ Example figures from AWS list prices in one Region (Asia Pacific, Sydney) in Oct
 
 | Situation | USD per month |
 |---|---|
-| Added to a deployment that already runs, such as POC 1 | about 0.01 |
+| Added to a deployment that already runs, such as use case 1 | about 0.01 |
 | By itself, running all month | about 39 |
 | By itself, behind a fixed IP address | about 82 |
 | By itself, in a container sized for it | about 13, estimated and not built |
 
-- By itself, the cost is the container that is always on, not the reports. The POC ran in a container sized for the browser of POC 1, which the report does not use.
+- By itself, the cost is the container that is always on, not the reports. The POC ran in a container sized for the browser of use case 1, which the report does not use.
 - The LLM is negligible: about 0.01 USD for 22 reports a month, about 0.2 USD for 20 projects.
 - A fixed IP address is needed only if the Jira site restricts access by address.
 - People are not in these figures: the project lead's review during the pilot, and upkeep of the prompt.

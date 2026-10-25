@@ -2,7 +2,7 @@
 
 This document is for whoever prepares to reproduce the POCs in their own organisation. It lists every tool, service and feature the platform uses, and for each one what has to be installed, registered or granted, and by whom. Most of the waiting time in a reproduction is in these requests, so send them first.
 
-This document covers the platform as a whole, with the full detail of each item. Each POC's document has the short list for that POC, written for whoever approves the requests: [web form automation](poc/01-web-form-automation.md), section 7, and [daily report](poc/02-daily-report.md), section 7.
+This document covers the platform as a whole, with the full detail of each item. Each use case's document has the short list for that use case, written for whoever approves the requests: [web form automation](concepts/01-web-form-automation.md), section 7, and [daily report](concepts/02-daily-report.md), section 7.
 
 How to deploy once everything is in place is in [03-aws-deployment.md](03-aws-deployment.md). The local run is in the [README](../README.md).
 

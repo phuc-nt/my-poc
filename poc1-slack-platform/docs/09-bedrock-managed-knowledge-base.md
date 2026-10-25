@@ -2,7 +2,7 @@
 
 This document explains Amazon Bedrock Managed Knowledge Base from the beginning: what it is, which sources it connects to, what it can do, how it indexes documents and answers a search, what can and cannot be configured, what it costs, what this repository observed when using it, and where it fits. It is for readers who have not used the service: decision makers can read sections 1 to 4 and 9 to 11; engineers will want all of it.
 
-The service is new (announced in June 2026) and changes often. Facts about the service come from the AWS documentation as read on 2026-10-13 (section 12); check that documentation before relying on a list or a number. Limits that this repository confirmed by trying them, on 2026-10-14 in Asia Pacific (Sydney), and everything it observed, are marked as such. The setup steps used here are in [08-knowledge-base-chatbot.md](08-knowledge-base-chatbot.md), and the concept built on it is in [poc/03-knowledge-base-chatbot.md](poc/03-knowledge-base-chatbot.md).
+The service is new (announced in June 2026) and changes often. Facts about the service come from the AWS documentation as read on 2026-10-13 (section 12); check that documentation before relying on a list or a number. Limits that this repository confirmed by trying them, on 2026-10-14 in Asia Pacific (Sydney), and everything it observed, are marked as such. The setup steps used here are in [08-knowledge-base-chatbot.md](08-knowledge-base-chatbot.md), and the concept built on it is in [poc/03-knowledge-base-chatbot.md](concepts/03-knowledge-base-chatbot.md).
 
 ## 1. The problem it solves
 
@@ -329,7 +329,7 @@ flowchart LR
 - **Slack bot.** The only code the team wrote: a small Node.js application, drawn here as one always-on container on Amazon ECS on AWS Fargate inside the same AWS account (in this repository's run it was started from a laptop instead). It receives a question from Slack, calls Retrieve through the gateway for eight passages (section 6), has an LLM on Amazon Bedrock write the answer from them, and replies with links to the cited pages and files.
 - **Engineers.** The AI assistants in their code editors reach the same gateway through a local proxy that signs requests with each engineer's AWS identity.
 
-The concept, its safeguards and its results are described in [poc/03-knowledge-base-chatbot.md](poc/03-knowledge-base-chatbot.md); the setup steps are in [08-knowledge-base-chatbot.md](08-knowledge-base-chatbot.md).
+The concept, its safeguards and its results are described in [poc/03-knowledge-base-chatbot.md](concepts/03-knowledge-base-chatbot.md); the setup steps are in [08-knowledge-base-chatbot.md](08-knowledge-base-chatbot.md).
 
 ### What was written and what was not
 

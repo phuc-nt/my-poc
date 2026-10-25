@@ -2,7 +2,7 @@
 
 A project knowledge assistant in the spirit of NotebookLM, for a project team (business analysts, bridge system engineers, solution architects) who must learn a project's business from a large set of documents. The documents stay in Confluence Cloud and SharePoint Online; Amazon Bedrock Managed Knowledge Bases index them. On top of the knowledge bases sit a web app, an MCP server for local agents (Claude Code, Kiro), a sync monitor, and per-user access by Confluence space and SharePoint folder.
 
-The decision-maker view (what was proven, the cost, the comparison with Rovo) is [docs/poc/04-project-knowledge-notebook.md](../docs/poc/04-project-knowledge-notebook.md). This file is for engineers.
+Documents: [docs/01-executive-overview.md](docs/01-executive-overview.md) for leadership (problem, solution, architecture, running cost), [docs/02-engineering-guide.md](docs/02-engineering-guide.md) for engineers (detailed architecture, deployment, AWS resources and permissions), and [CONCEPT.md](CONCEPT.md) for the full concept with every test result and the comparison with Rovo. This file is the engineers' quick reference.
 
 ## Layout
 
@@ -18,6 +18,7 @@ The decision-maker view (what was proven, the cost, the comparison with Rovo) is
 | `web/` | The single-page web UI, no build step |
 | `scripts/e2e.mjs` | End-to-end test of the deployed app as the five test accounts |
 | `scripts/eval.mjs` | The AIPF knowledge-base benchmark's 48 questions through the chat API |
+| `docs/` | Executive overview and engineering guide |
 
 ## How it fits together
 
@@ -58,7 +59,7 @@ flowchart LR
 
 ## Run it
 
-Needs Node 22, the AWS CLI with a profile for the project's Region, `../infra/local.env` and `../.env` (Region, SharePoint tenant, client and site, Confluence site, account, token and space keys) and the SharePoint certificate in `../infra/kb-cert/`. None of these are in git.
+Needs Node 22, the AWS CLI with a profile for the project's Region, `../poc1-slack-platform/infra/local.env` and `../poc1-slack-platform/.env` (Region, SharePoint tenant, client and site, Confluence site, account, token and space keys) and the SharePoint certificate in `../poc1-slack-platform/infra/kb-cert/`. PoC 3 reuses PoC 1's Confluence and SharePoint test settings. None of these are in git.
 
 ```bash
 npm install

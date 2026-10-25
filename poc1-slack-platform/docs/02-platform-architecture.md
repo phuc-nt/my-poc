@@ -2,7 +2,7 @@
 
 This document continues from [01-platform-overview.md](01-platform-overview.md) and assumes you have read it. It is for the engineer who maintains the platform or adds a POC to it: what is shared, how each outside system is connected, the rules every POC keeps, and where a new POC plugs in.
 
-Each POC is described as a concept, without code, in its own document: [web form automation](poc/01-web-form-automation.md) and [daily report](poc/02-daily-report.md). This document holds the engineering detail of both. The AWS setup is in [03-aws-deployment.md](03-aws-deployment.md). What to request before reproducing any of it is in [05-prerequisites-and-access.md](05-prerequisites-and-access.md), and the running cost in [04-operating-cost.md](04-operating-cost.md). How to run the repository locally is in the [README](../README.md).
+Each POC is described as a concept, without code, in its own document: [web form automation](concepts/01-web-form-automation.md) and [daily report](concepts/02-daily-report.md). This document holds the engineering detail of both. The AWS setup is in [03-aws-deployment.md](03-aws-deployment.md). What to request before reproducing any of it is in [05-prerequisites-and-access.md](05-prerequisites-and-access.md), and the running cost in [04-operating-cost.md](04-operating-cost.md). How to run the repository locally is in the [README](../README.md).
 
 ## 1. What exists and what does not
 
@@ -407,7 +407,7 @@ The steps, with the daily report as the worked example:
 | 7. Wiring | `src/slack/start-slack-app.js` | Builds the reporter, passes it to the handlers, starts the schedule |
 | 8. A way to run it without Slack | `scripts/` | `scripts/run-daily-report.js` |
 | 9. Tests and sample data | `test/`, `test/fixtures/` | `test/daily-report.test.js` and three fixtures |
-| 10. Documentation | `docs/poc/NN-name.md`; one row in the tables of the overview and of this document | [poc/02-daily-report.md](poc/02-daily-report.md) |
+| 10. Documentation | `docs/concepts/NN-name.md`; one row in the tables of the overview and of this document | [poc/02-daily-report.md](concepts/02-daily-report.md) |
 
 What is not yet modular, and will need attention as POCs are added:
 

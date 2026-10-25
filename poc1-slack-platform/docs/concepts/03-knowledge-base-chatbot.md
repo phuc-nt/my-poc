@@ -1,4 +1,4 @@
-# POC 3: Knowledge Base Chatbot for Customer Support
+# PoC 1, use case 3: Knowledge Base Chatbot for Customer Support
 
 This document describes a concept that has been built and run end to end. It is written for decision makers: what the concept automates, how it works, what was proven and what was not, what it costs, and what the team must be granted before it can be piloted with real content.
 
@@ -117,7 +117,7 @@ sequenceDiagram
 
 ## 4. What it is made of
 
-The POC built each component of section 3 with the services and technologies below. Everything except the sources and Slack sits in one AWS account and one Region. The diagram and the table show the chat app where a pilot runs it, in a container on AWS, as POC 1 and POC 2 do. In the POC's own run that one part was started from a laptop; the rest is as built.
+The POC built each component of section 3 with the services and technologies below. Everything except the sources and Slack sits in one AWS account and one Region. The diagram and the table show the chat app where a pilot runs it, in a container on AWS, as use cases 1 and 2 do. In the POC's own run that one part was started from a laptop; the rest is as built.
 
 ```mermaid
 flowchart LR
@@ -166,9 +166,9 @@ flowchart LR
 | Secret store | AWS Secrets Manager | Two secrets: the Confluence credentials, and the certificate's password with the application's ID |
 | Certificate store | Amazon S3 | One private, encrypted bucket holding one file |
 | Access roles | AWS IAM | One role for the knowledge base, one for the gateway, and the task's role, which may call the gateway and the one Bedrock model |
-| Runtime for the chat app | Amazon ECS on AWS Fargate | One task, always on, with a security group that has no inbound rule. It can be the task that POC 1 and POC 2 already run in. In the POC's own run: a laptop |
-| Log | Amazon CloudWatch Logs | As in POC 1 and POC 2. In the POC's own run: a file beside the application |
-| Setup script | A shell script that calls the AWS command line | Not AWS CloudFormation, unlike POC 1 and POC 2 |
+| Runtime for the chat app | Amazon ECS on AWS Fargate | One task, always on, with a security group that has no inbound rule. It can be the task that use cases 1 and 2 already run in. In the POC's own run: a laptop |
+| Log | Amazon CloudWatch Logs | As in use cases 1 and 2. In the POC's own run: a file beside the application |
+| Setup script | A shell script that calls the AWS command line | Not AWS CloudFormation, unlike use cases 1 and 2 |
 
 ## 5. Safeguards
 
@@ -251,7 +251,7 @@ Example figures from AWS list prices in October 2026, in USD, before tax and dis
 | Secrets | 0.40 USD per secret per month | 0.8 | 0.8 |
 | Certificate file, gateway requests | cents | under 0.1 | under 1 |
 | **Total, cloud side** | | **about 2** | **about 75** |
-| Runtime for the chat app | | 0 on a laptop; about 13 by itself in a container sized for it (estimated, not built); almost nothing when added to the container of POC 1 or POC 2 | the same |
+| Runtime for the chat app | | 0 on a laptop; about 13 by itself in a container sized for it (estimated, not built); almost nothing when added to the container of use case 1 or 2 | the same |
 
 - Reading the documents, extracting the text, indexing and ranking the results are included in the storage and search prices.
 - Nothing on the cloud side bills by the hour. An unused knowledge base costs its storage and the two secrets.

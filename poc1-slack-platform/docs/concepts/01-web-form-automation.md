@@ -1,4 +1,4 @@
-# POC 1: Web Form Automation
+# PoC 1, use case 1: Web Form Automation
 
 This document describes a concept that has been built and run end to end. It is written for decision makers: what the concept automates, how it works, what was proven and what was not, what it costs, and what the team must be granted before it can be applied to a real web application.
 

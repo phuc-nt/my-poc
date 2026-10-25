@@ -4,7 +4,7 @@ This document is for the engineer who sets up the knowledge base chatbot in thei
 
 Status: the code, the sample documents and the tests in this repository are written and the tests pass on a laptop. The AWS part (`infra/kb.sh up`, `sync`, `ask`) and `npm run kb:check` have been run with both sources: the sample SharePoint library and the sample Confluence space synced without failures, and the gateway returned the expected passage for all 28 test questions. The Slack bot answered live questions by command, mention and direct message. The IDE proxy has not been run yet, so treat that part as a procedure to verify.
 
-For the concept and its results, see [poc/03-knowledge-base-chatbot.md](poc/03-knowledge-base-chatbot.md). For an introduction to the service, see [09-bedrock-managed-knowledge-base.md](09-bedrock-managed-knowledge-base.md).
+For the concept and its results, see [poc/03-knowledge-base-chatbot.md](concepts/03-knowledge-base-chatbot.md). For an introduction to the service, see [09-bedrock-managed-knowledge-base.md](09-bedrock-managed-knowledge-base.md).
 
 ## 1. What it is
 

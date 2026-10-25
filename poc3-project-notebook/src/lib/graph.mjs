@@ -1,6 +1,6 @@
 // Microsoft Graph with the SharePoint connector's own Entra app (app-only, certificate sign-in).
 // The same app and certificate the knowledge base uses; the private key comes from Secrets Manager on AWS,
-// from infra/kb-cert/ on a laptop. Nothing here logs a token.
+// from ../poc1-slack-platform/infra/kb-cert/ on a laptop. Nothing here logs a token.
 
 import { createHash, createPrivateKey, createSign, X509Certificate } from 'node:crypto';
 

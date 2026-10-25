@@ -1,6 +1,6 @@
 # Slack Automation Platform: Overview
 
-This document is for decision makers. It describes one platform and the proofs of concept (POCs) built on it. The engineering detail is in [02-platform-architecture.md](02-platform-architecture.md) and [03-aws-deployment.md](03-aws-deployment.md); the cost estimate is in [04-operating-cost.md](04-operating-cost.md) and the access to request beforehand in [05-prerequisites-and-access.md](05-prerequisites-and-access.md); each POC has its own document under [poc/](poc/).
+This document is for decision makers. It describes one platform and the proofs of concept (POCs) built on it. The engineering detail is in [02-platform-architecture.md](02-platform-architecture.md) and [03-aws-deployment.md](03-aws-deployment.md); the cost estimate is in [04-operating-cost.md](04-operating-cost.md) and the access to request beforehand in [05-prerequisites-and-access.md](05-prerequisites-and-access.md); each use case has its own document under [concepts/](concepts/).
 
 ## 1. Summary
 
@@ -12,8 +12,8 @@ Two POCs have been built:
 
 | POC | What it does | Status |
 |---|---|---|
-| [Web form automation](poc/01-web-form-automation.md) | A staff member asks in Slack with one sentence. The system signs in to a web application that has no API, fills in the form, and submits only after that person approves the confirmation screen | Ran on AWS against a simulated website, with the LLM on Amazon Bedrock |
-| [Daily report](poc/02-daily-report.md) | The system reads the day's messages in the project's Slack channels and the project's Jira issues, writes the daily report, and points out where the chat and Jira disagree | Ran from a laptop and on AWS against a real Slack workspace and a real Jira site, both filled with test data |
+| [Web form automation](concepts/01-web-form-automation.md) | A staff member asks in Slack with one sentence. The system signs in to a web application that has no API, fills in the form, and submits only after that person approves the confirmation screen | Ran on AWS against a simulated website, with the LLM on Amazon Bedrock |
+| [Daily report](concepts/02-daily-report.md) | The system reads the day's messages in the project's Slack channels and the project's Jira issues, writes the daily report, and points out where the chat and Jira disagree | Ran from a laptop and on AWS against a real Slack workspace and a real Jira site, both filled with test data |
 
 Infrastructure cost is estimated at about 82 USD a month for both POCs together, of which about 47 USD exists only because the web application in the first POC requires a fixed IP address.
 

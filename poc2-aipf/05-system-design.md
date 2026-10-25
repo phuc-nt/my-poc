@@ -329,7 +329,7 @@ flowchart LR
   - selected Slack channels and Jira history, exported by a scheduled job to S3;
   - architecture decisions and runbooks from the repositories.
 - **Per-customer isolation comes from the account, not from filters.** A shared organisational knowledge base (standards, templates, past project lessons cleared for reuse) lives in the platform account and is read-only.
-- **The connectors and parsing behaviour were tested in this repository's POC.** See [08](../08-knowledge-base-chatbot.md) and [09](../09-bedrock-managed-knowledge-base.md). Documents the parser handles poorly are converted before they are indexed.
+- **The connectors and parsing behaviour were tested in this repository's POC.** See [PoC 1 docs/08](../poc1-slack-platform/docs/08-knowledge-base-chatbot.md) and [PoC 1 docs/09](../poc1-slack-platform/docs/09-bedrock-managed-knowledge-base.md). Documents the parser handles poorly are converted before they are indexed.
 - **Agents reach the knowledge base only through the tool gateway,** as a search tool. The tool returns passages with links to their sources, so specifications and answers can cite them.
 
 ### 7.2 Code
