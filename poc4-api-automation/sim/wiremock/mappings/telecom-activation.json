@@ -1,0 +1,10 @@
+{
+  "priority": 10,
+  "request": { "method": "POST", "urlPathPattern": "/telecom/v1/sims/[0-9]{19,20}/activation" },
+  "response": {
+    "status": 202,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": { "orderId": "ord-{{randomValue length=12 type='NUMERIC'}}", "iccid": "{{request.pathSegments.[3]}}" },
+    "transformers": ["response-template"]
+  }
+}

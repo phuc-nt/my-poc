@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="poc4.sim.a.repository.UserRepository">
+  <sql id="columns">user_id, email, display_name, pin_hash, failed_pin_attempts, locked, created_at</sql>
+
+  <select id="findById" resultType="poc4.sim.a.repository.UserRecord">
+    SELECT <include refid="columns"/> FROM users WHERE user_id = #{userId}
+  </select>
+
+  <select id="search" resultType="poc4.sim.a.repository.UserRecord">
+    SELECT <include refid="columns"/> FROM users
+    <where><if test="email != null">email LIKE '%' || #{email} || '%'</if></where>
+    ORDER BY user_id LIMIT #{size} OFFSET #{offset}
+  </select>
+
+  <select id="count" resultType="long">
+    SELECT count(*) FROM users
+    <where><if test="email != null">email LIKE '%' || #{email} || '%'</if></where>
+  </select>
+
+  <select id="findCreatedBetween" resultType="poc4.sim.a.repository.UserRecord">
+    SELECT <include refid="columns"/> FROM users
+    WHERE created_at &gt;= #{from} AND created_at &lt; #{to} + 1
+    ORDER BY created_at, user_id
+  </select>
+
+  <update id="recordPinFailure">
+    UPDATE users SET failed_pin_attempts = #{attempts}, locked = #{locked} WHERE user_id = #{userId}
+  </update>
+
+  <update id="updatePin">
+    UPDATE users SET pin_hash = #{pinHash}, failed_pin_attempts = 0 WHERE user_id = #{userId}
+  </update>
+
+  <update id="unlock">
+    UPDATE users SET locked = false, failed_pin_attempts = 0 WHERE user_id = #{userId}
+  </update>
+</mapper>

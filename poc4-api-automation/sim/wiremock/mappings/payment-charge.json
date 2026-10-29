@@ -1,0 +1,10 @@
+{
+  "priority": 10,
+  "request": { "method": "POST", "urlPathPattern": "/payment/v1/charges" },
+  "response": {
+    "status": 201,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": { "chargeId": "ch_{{randomValue length=20 type='ALPHANUMERIC'}}", "status": "CAPTURED", "amount": "{{jsonPath request.body '$.amount'}}" },
+    "transformers": ["response-template"]
+  }
+}

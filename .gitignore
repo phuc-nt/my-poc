@@ -37,3 +37,7 @@ __pycache__/
 poc3-project-notebook/dist/
 poc3-project-notebook/infra/deploy.local.json
 poc3-project-notebook/eval/out/
+
+# PoC 4 build output and test results (reports hold request data)
+poc4-api-automation/sim/**/target/
+poc4-api-automation/tests/results/

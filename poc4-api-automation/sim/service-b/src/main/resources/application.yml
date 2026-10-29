@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: service-b
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/service_b}
+    username: ${DB_USER:sim}
+    password: ${DB_PASSWORD:local-only-db-password}
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+  mvc:
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      add-mappings: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${JWKS_URI:http://localhost:8090/.well-known/jwks.json}
+
+server:
+  port: ${PORT:8080}
+  tomcat:
+    # User ids contain "|" (auth0|...), which Tomcat refuses in a raw path or query unless it is allowed here.
+    relaxed-path-chars: ${RELAXED_CHARS:|}
+    relaxed-query-chars: ${RELAXED_CHARS:|}
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+springdoc:
+  api-docs:
+    enabled: ${API_DOCS_ENABLED:false}
+
+sim:
+  internal-api-key: ${INTERNAL_API_KEY:}
+  partner-api-key: ${PARTNER_API_KEY:}
+  third-party-url: ${THIRD_PARTY_URL:http://localhost:8089}
+  events-url: ${EVENTS_URL:http://localhost:8089}
+  downstream-timeout-ms: ${DOWNSTREAM_TIMEOUT_MS:2000}
+
+service-b:
+  service-a-url: ${SERVICE_A_URL:http://localhost:8081}
+  service-a-api-key: ${INTERNAL_API_KEY:}
+
+logging:
+  pattern:
+    level: "%5p [%X{oneTimeUuid:-}]"

@@ -1,0 +1,10 @@
+{
+  "priority": 10,
+  "request": { "method": "POST", "urlPathPattern": "/workflow/v1/executions" },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": { "executionId": "exec-{{randomValue type='UUID'}}", "startDate": "{{now}}" },
+    "transformers": ["response-template"]
+  }
+}

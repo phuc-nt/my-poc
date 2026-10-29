@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="poc4.sim.a.repository.ConsentRepository">
+  <select id="findByUser" resultType="poc4.sim.a.repository.ConsentRecord">
+    SELECT user_id, consent_type, version, agreed, updated_at FROM consents
+    WHERE user_id = #{userId} ORDER BY consent_type
+  </select>
+
+  <select id="findUpdatedBetween" resultType="poc4.sim.a.repository.ConsentRecord">
+    SELECT user_id, consent_type, version, agreed, updated_at FROM consents
+    WHERE updated_at &gt;= #{from} AND updated_at &lt; #{to} + 1
+    ORDER BY updated_at, user_id, consent_type
+  </select>
+
+  <insert id="upsert">
+    INSERT INTO consents (user_id, consent_type, version, agreed, updated_at)
+    VALUES (#{userId}, #{consentType}, #{version}, #{agreed}, #{updatedAt})
+    ON CONFLICT (user_id, consent_type)
+    DO UPDATE SET version = EXCLUDED.version, agreed = EXCLUDED.agreed, updated_at = EXCLUDED.updated_at
+  </insert>
+</mapper>

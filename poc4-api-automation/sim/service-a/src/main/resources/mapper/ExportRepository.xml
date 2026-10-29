@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="poc4.sim.a.repository.ExportRepository">
+  <sql id="columns">
+    request_id, kind, date_from, date_to, notify_email, status, row_count, file_name, base_url, one_time_uuid,
+    requested_at, completed_at
+  </sql>
+
+  <insert id="insert">
+    INSERT INTO export_requests (request_id, kind, date_from, date_to, notify_email, status, base_url, one_time_uuid, requested_at)
+    VALUES (#{requestId}, #{kind}, #{dateFrom}, #{dateTo}, #{notifyEmail}, #{status}, #{baseUrl}, #{oneTimeUuid}, #{requestedAt})
+  </insert>
+
+  <select id="findById" resultType="poc4.sim.a.repository.ExportRecord">
+    SELECT <include refid="columns"/> FROM export_requests WHERE request_id = #{requestId}
+  </select>
+
+  <select id="claimNext" resultType="poc4.sim.a.repository.ExportRecord" flushCache="true" useCache="false">
+    UPDATE export_requests SET status = 'PROCESSING'
+    WHERE request_id = (
+      SELECT request_id FROM export_requests
+      WHERE status = 'QUEUED' AND requested_at &lt; #{notBefore}
+      ORDER BY requested_at LIMIT 1 FOR UPDATE SKIP LOCKED)
+    RETURNING <include refid="columns"/>
+  </select>
+
+  <update id="complete">
+    UPDATE export_requests SET status = #{status}, row_count = #{rowCount}, file_name = #{fileName}, completed_at = now()
+    WHERE request_id = #{requestId}
+  </update>
+</mapper>

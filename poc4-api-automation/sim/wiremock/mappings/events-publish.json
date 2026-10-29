@@ -1,0 +1,10 @@
+{
+  "priority": 10,
+  "request": { "method": "POST", "urlPathPattern": "/events/v1/publish" },
+  "response": {
+    "status": 202,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": { "messageId": "{{randomValue type='UUID'}}" },
+    "transformers": ["response-template"]
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "production": false,
+  "allowWrite": true,
+  "stubs": true,
+  "envFile": "local.env",
+  "auth": {
+    "kind": "oauth-mock",
+    "tokenUrl": "http://localhost:8090/oauth/token",
+    "userPasswordEnv": "PW_USER_PASSWORD",
+    "backofficeClientId": "pw-backoffice",
+    "backofficeSecretEnv": "PW_BO_CLIENT_SECRET"
+  },
+  "keys": {
+    "internalEnv": "PW_INTERNAL_API_KEY",
+    "partnerEnv": "PW_PARTNER_API_KEY"
+  },
+  "accounts": {
+    "pool": [
+      "auth0|pw-user-01",
+      "auth0|pw-user-02",
+      "auth0|pw-user-03",
+      "auth0|pw-user-04",
+      "auth0|pw-user-05",
+      "auth0|pw-user-06",
+      "auth0|pw-user-07",
+      "auth0|pw-user-08"
+    ],
+    "locked": "auth0|pw-locked-01"
+  },
+  "tcuPool": [
+    "TCU-0001",
+    "TCU-0002",
+    "TCU-0003",
+    "TCU-0004",
+    "TCU-0005",
+    "TCU-0006",
+    "TCU-0007",
+    "TCU-0008"
+  ],
+  "apiDocs": true,
+  "name": "local",
+  "services": {
+    "a": "http://localhost:8081",
+    "b": "http://localhost:8082"
+  },
+  "wiremockUrl": "http://localhost:8089"
+}

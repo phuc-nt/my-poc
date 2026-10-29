@@ -1,0 +1,26 @@
+{
+  "name": "integration",
+  "production": false,
+  "allowWrite": false,
+  "stubs": false,
+  "services": {
+    "a": "${PW_BASE_URL_A}",
+    "b": "${PW_BASE_URL_B}"
+  },
+  "auth": {
+    "kind": "env-token",
+    "userTokenEnvPrefix": "PW_USER_TOKEN_",
+    "backofficeTokenEnv": "PW_BO_TOKEN"
+  },
+  "keys": {
+    "internalEnv": "PW_INTERNAL_API_KEY",
+    "partnerEnv": "PW_PARTNER_API_KEY"
+  },
+  "accounts": {
+    "pool": [
+      "${PW_TEST_USER_1}",
+      "${PW_TEST_USER_2}"
+    ]
+  },
+  "apiDocs": false
+}

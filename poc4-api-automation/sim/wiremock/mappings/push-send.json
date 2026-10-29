@@ -1,0 +1,10 @@
+{
+  "priority": 10,
+  "request": { "method": "POST", "urlPathPattern": "/push/v1/send" },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": { "messageId": "{{randomValue type='UUID'}}" },
+    "transformers": ["response-template"]
+  }
+}

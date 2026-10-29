@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="poc4.sim.b.repository.SubscriptionRepository">
+  <select id="findByOwnership" resultType="poc4.sim.b.repository.SubscriptionRecord">
+    SELECT subscription_id, ownership_id, plan, status, payment_ref, started_at FROM subscriptions
+    WHERE ownership_id = #{ownershipId} ORDER BY started_at
+  </select>
+
+  <select id="countActive" resultType="int">
+    SELECT count(*) FROM subscriptions WHERE ownership_id = #{ownershipId} AND status = 'ACTIVE'
+  </select>
+
+  <insert id="insert">
+    INSERT INTO subscriptions (subscription_id, ownership_id, plan, status, payment_ref, started_at)
+    VALUES (#{subscriptionId}, #{ownershipId}, #{plan}, #{status}, #{paymentRef}, #{startedAt})
+  </insert>
+</mapper>

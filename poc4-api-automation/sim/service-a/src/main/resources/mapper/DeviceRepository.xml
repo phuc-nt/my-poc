@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="poc4.sim.a.repository.DeviceRepository">
+  <select id="findByUser" resultType="poc4.sim.a.repository.DeviceRecord">
+    SELECT device_id, user_id, platform, push_token, registered_at FROM devices
+    WHERE user_id = #{userId} ORDER BY registered_at, device_id
+  </select>
+
+  <select id="countByUser" resultType="int">
+    SELECT count(*) FROM devices WHERE user_id = #{userId}
+  </select>
+
+  <insert id="insert">
+    INSERT INTO devices (device_id, user_id, platform, push_token, registered_at)
+    VALUES (#{deviceId}, #{userId}, #{platform}, #{pushToken}, #{registeredAt})
+  </insert>
+
+  <delete id="delete">
+    DELETE FROM devices WHERE user_id = #{userId} AND device_id = #{deviceId}
+  </delete>
+</mapper>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="poc4.sim.b.repository.VinRegistrationRepository">
+  <select id="findByVin" resultType="poc4.sim.b.repository.VinRegistrationRecord">
+    SELECT vin, model_code, status, execution_id, reason, requested_at, updated_at FROM vin_registrations WHERE vin = #{vin}
+  </select>
+
+  <insert id="insert">
+    INSERT INTO vin_registrations (vin, model_code, status, execution_id, requested_at, updated_at)
+    VALUES (#{vin}, #{modelCode}, #{status}, #{executionId}, #{requestedAt}, #{updatedAt})
+  </insert>
+
+  <update id="updateResult">
+    UPDATE vin_registrations SET status = #{status}, reason = #{reason}, updated_at = now() WHERE vin = #{vin}
+  </update>
+</mapper>

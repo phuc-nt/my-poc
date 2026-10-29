@@ -1,0 +1,5 @@
+node_modules/
+results/
+# Secrets for shared environments come from the pipeline or a local file that is never committed.
+envs/*.env
+!envs/local.env

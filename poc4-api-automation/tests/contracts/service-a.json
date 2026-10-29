@@ -1,0 +1,1171 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "service-a",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/app/v1/users/{userId}/pin": {
+      "put": {
+        "tags": [
+          "app-user-controller"
+        ],
+        "operationId": "changePin",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePinRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponsePinChangeResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/app/v1/users/{userId}/consents/{consentType}": {
+      "put": {
+        "tags": [
+          "app-user-controller"
+        ],
+        "operationId": "putConsent",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "consentType",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "TERMS",
+                "PRIVACY",
+                "MARKETING"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseConsent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/users/{userId}/notifications": {
+      "post": {
+        "tags": [
+          "internal-controller"
+        ],
+        "operationId": "push",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponsePushResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bo/v1/users/{userId}/unlock": {
+      "post": {
+        "tags": [
+          "back-office-controller"
+        ],
+        "operationId": "unlock",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseUserSummary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bo/v1/exports": {
+      "post": {
+        "tags": [
+          "back-office-controller"
+        ],
+        "operationId": "requestExport",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseExportStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/app/v1/users/{userId}/devices": {
+      "get": {
+        "tags": [
+          "app-user-controller"
+        ],
+        "operationId": "devices",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseListDevice"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "app-user-controller"
+        ],
+        "operationId": "registerDevice",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDeviceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseDevice"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/web/v1/users/{userId}": {
+      "get": {
+        "tags": [
+          "web-user-controller"
+        ],
+        "operationId": "profile",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseUserProfile"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/web/v1/users/{userId}/consents": {
+      "get": {
+        "tags": [
+          "web-user-controller"
+        ],
+        "operationId": "consents",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseListConsent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/users/{userId}": {
+      "get": {
+        "tags": [
+          "internal-controller"
+        ],
+        "operationId": "status",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseInternalUserStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "health-controller"
+        ],
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/files/{fileName}": {
+      "get": {
+        "tags": [
+          "file-controller"
+        ],
+        "operationId": "download",
+        "parameters": [
+          {
+            "name": "fileName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "expires",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "signature",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "byte"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bo/v1/users": {
+      "get": {
+        "tags": [
+          "back-office-controller"
+        ],
+        "operationId": "search",
+        "parameters": [
+          {
+            "name": "email",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "maxLength": 254,
+              "minLength": 3,
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "minimum": 0,
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseUserPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bo/v1/exports/{requestId}": {
+      "get": {
+        "tags": [
+          "back-office-controller"
+        ],
+        "operationId": "exportStatus",
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f-]{36}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseExportStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/app/v1/users/{userId}": {
+      "get": {
+        "tags": [
+          "app-user-controller"
+        ],
+        "operationId": "profile_1",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseUserProfile"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/app/v1/users/{userId}/consents": {
+      "get": {
+        "tags": [
+          "app-user-controller"
+        ],
+        "operationId": "consents_1",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseListConsent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/app/v1/users/{userId}/devices/{deviceId}": {
+      "delete": {
+        "tags": [
+          "app-user-controller"
+        ],
+        "operationId": "removeDevice",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f-]{36}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ChangePinRequest": {
+        "required": [
+          "currentPin",
+          "newPin"
+        ],
+        "type": "object",
+        "properties": {
+          "currentPin": {
+            "type": "string"
+          },
+          "newPin": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiError": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "messageId": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          }
+        }
+      },
+      "PinChangeResult": {
+        "type": "object",
+        "properties": {
+          "changedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RestApiResponsePinChangeResult": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "NG"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/PinChangeResult"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "ConsentRequest": {
+        "required": [
+          "agreed",
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "version": {
+            "pattern": "^\\d{1,3}\\.\\d{1,3}$",
+            "type": "string"
+          },
+          "agreed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Consent": {
+        "type": "object",
+        "properties": {
+          "consentType": {
+            "type": "string",
+            "enum": [
+              "TERMS",
+              "PRIVACY",
+              "MARKETING"
+            ]
+          },
+          "version": {
+            "type": "string"
+          },
+          "agreed": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RestApiResponseConsent": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "NG"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/Consent"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "PushRequest": {
+        "required": [
+          "body",
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "maxLength": 64,
+            "minLength": 0,
+            "type": "string"
+          },
+          "body": {
+            "maxLength": 256,
+            "minLength": 0,
+            "type": "string"
+          }
+        }
+      },
+      "PushResult": {
+        "type": "object",
+        "properties": {
+          "sent": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "RestApiResponsePushResult": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "NG"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/PushResult"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "RestApiResponseUserSummary": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "NG"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/UserSummary"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "UserSummary": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "locked": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ExportRequest": {
+        "required": [
+          "from",
+          "kind",
+          "to"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "USERS",
+              "CONSENTS"
+            ]
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "notifyEmail": {
+            "maxLength": 254,
+            "minLength": 0,
+            "type": "string"
+          }
+        }
+      },
+      "ExportStatus": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "USERS",
+              "CONSENTS"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "requestedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "rowCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "downloadUrl": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RestApiResponseExportStatus": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "NG"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/ExportStatus"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "RegisterDeviceRequest": {
+        "required": [
+          "platform",
+          "pushToken"
+        ],
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string",
+            "enum": [
+              "IOS",
+              "ANDROID"
+            ]
+          },
+          "pushToken": {
+            "maxLength": 256,
+            "minLength": 0,
+            "type": "string"
+          }
+        }
+      },
+      "Device": {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "IOS",
+              "ANDROID"
+            ]
+          },
+          "pushToken": {
+            "type": "string"
+          },
+          "registeredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RestApiResponseDevice": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "NG"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/Device"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "RestApiResponseUserProfile": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "NG"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/UserProfile"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "UserProfile": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "locked": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RestApiResponseListConsent": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "NG"
+            ]
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Consent"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "InternalUserStatus": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "locked": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RestApiResponseInternalUserStatus": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "NG"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/InternalUserStatus"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "RestApiResponseUserPage": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "NG"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/UserPage"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "UserPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserSummary"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "RestApiResponseListDevice": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "NG"
+            ]
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Device"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "RestApiResponseVoid": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "NG"
+            ]
+          },
+          "data": {
+            "type": "object"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      }
+    }
+  }
+}

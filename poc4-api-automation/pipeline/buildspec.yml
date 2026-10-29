@@ -1,0 +1,48 @@
+# Reference AWS CodeBuild spec for the real project: the API test stage after a deploy to an environment.
+# Not run by this PoC. Values in <angle brackets> are decided with the platform team (docs/02-adoption-guide.md).
+#
+# The project runs inside the VPC (the ALB is internal), with these environment variables on the project or the
+# pipeline action:
+#   TEST_ENV         integration | staging   (envs/<TEST_ENV>.json, copied from envs/integration.example.json)
+#   PW_ALLOW_WRITE   false on an environment the test data must not change
+#   PW_STUBS         false: the third parties are real there, @stub tests are skipped
+version: 0.2
+
+env:
+  variables:
+    CI: "true"
+    PW_SKIP_HEALTH: "false"
+  secrets-manager:
+    # One secret per environment, JSON keys as below. Read only by this CodeBuild role.
+    PW_BASE_URL_A: <secret-name>:base_url_a
+    PW_BASE_URL_B: <secret-name>:base_url_b
+    PW_INTERNAL_API_KEY: <secret-name>:internal_api_key
+    PW_PARTNER_API_KEY: <secret-name>:partner_api_key
+    PW_TEST_USER_1: <secret-name>:test_user_1
+    PW_TEST_USER_2: <secret-name>:test_user_2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 22
+  pre_build:
+    commands:
+      - cd tests
+      # Tokens for the test users (PW_USER_TOKEN_<n>) and the back-office client (PW_BO_TOKEN), from the real IdP.
+      # How depends on the answer to the auth question (adoption guide, Q1): a client-credentials call, or tokens
+      # minted by a test-only IdP client. Replace this line with that step.
+      - echo "<fetch test tokens>" 
+  build:
+    commands:
+      - bash scripts/pipeline.sh
+
+reports:
+  api-tests:
+    files: ["results/*/junit.xml"]
+    base-directory: tests
+    file-format: JUNITXML
+
+artifacts:
+  files: ["results/**/*"]
+  base-directory: tests
+  name: api-test-results

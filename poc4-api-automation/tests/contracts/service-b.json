@@ -1,0 +1,828 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "service-b",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/partner/v1/callbacks/vin-registration": {
+      "post": {
+        "tags": [
+          "partner-callback-controller"
+        ],
+        "operationId": "vinRegistration",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VinCallback"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseVinRegistration"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/partner/v1/callbacks/sim-status": {
+      "post": {
+        "tags": [
+          "partner-callback-controller"
+        ],
+        "operationId": "simStatus",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimStatusCallback"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseTcu"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bo/v1/vin-registrations": {
+      "post": {
+        "tags": [
+          "back-office-controller"
+        ],
+        "operationId": "register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VinRegistrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseVinRegistration"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bo/v1/tcus/{tcuId}/sim/activate": {
+      "post": {
+        "tags": [
+          "back-office-controller"
+        ],
+        "operationId": "activateSim",
+        "parameters": [
+          {
+            "name": "tcuId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^TCU-\\d{4}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseTcu"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/app/v1/users/{userId}/ownerships": {
+      "get": {
+        "tags": [
+          "app-ownership-controller"
+        ],
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseListOwnership"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "app-ownership-controller"
+        ],
+        "operationId": "create",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOwnershipRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseOwnership"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/app/v1/users/{userId}/ownerships/{ownershipId}/subscriptions": {
+      "get": {
+        "tags": [
+          "app-ownership-controller"
+        ],
+        "operationId": "subscriptions",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ownershipId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f-]{36}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseListSubscription"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "app-ownership-controller"
+        ],
+        "operationId": "subscribe",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ownershipId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f-]{36}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseSubscription"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/vins/{vin}/owner": {
+      "get": {
+        "tags": [
+          "internal-controller"
+        ],
+        "operationId": "owner",
+        "parameters": [
+          {
+            "name": "vin",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseVinOwner"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "health-controller"
+        ],
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bo/v1/vin-registrations/{vin}": {
+      "get": {
+        "tags": [
+          "back-office-controller"
+        ],
+        "operationId": "registration",
+        "parameters": [
+          {
+            "name": "vin",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseVinRegistration"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bo/v1/tcus/{tcuId}": {
+      "get": {
+        "tags": [
+          "back-office-controller"
+        ],
+        "operationId": "tcu",
+        "parameters": [
+          {
+            "name": "tcuId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^TCU-\\d{4}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseTcu"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/app/v1/users/{userId}/ownerships/{ownershipId}": {
+      "delete": {
+        "tags": [
+          "app-ownership-controller"
+        ],
+        "operationId": "end",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ownershipId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f-]{36}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestApiResponseOwnership"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "VinCallback": {
+        "required": [
+          "executionId",
+          "result",
+          "vin"
+        ],
+        "type": "object",
+        "properties": {
+          "executionId": {
+            "maxLength": 80,
+            "minLength": 0,
+            "type": "string"
+          },
+          "vin": {
+            "type": "string"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "SUCCEEDED",
+              "FAILED"
+            ]
+          },
+          "reason": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": "string"
+          }
+        }
+      },
+      "ApiError": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "messageId": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          }
+        }
+      },
+      "RestApiResponseVinRegistration": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "NG"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/VinRegistration"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "VinRegistration": {
+        "type": "object",
+        "properties": {
+          "vin": {
+            "type": "string"
+          },
+          "modelCode": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "executionId": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "requestedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SimStatusCallback": {
+        "required": [
+          "iccid",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "iccid": {
+            "pattern": "^\\d{19,20}$",
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "FAILED",
+              "INACTIVE"
+            ]
+          }
+        }
+      },
+      "RestApiResponseTcu": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "NG"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/Tcu"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "Tcu": {
+        "type": "object",
+        "properties": {
+          "tcuId": {
+            "type": "string"
+          },
+          "vin": {
+            "type": "string"
+          },
+          "iccid": {
+            "type": "string"
+          },
+          "simStatus": {
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "VinRegistrationRequest": {
+        "required": [
+          "modelCode",
+          "vin"
+        ],
+        "type": "object",
+        "properties": {
+          "vin": {
+            "type": "string"
+          },
+          "modelCode": {
+            "pattern": "^[A-Z0-9]{3,10}$",
+            "type": "string"
+          }
+        }
+      },
+      "CreateOwnershipRequest": {
+        "required": [
+          "vin"
+        ],
+        "type": "object",
+        "properties": {
+          "vin": {
+            "type": "string"
+          },
+          "nickname": {
+            "maxLength": 32,
+            "minLength": 0,
+            "type": "string"
+          }
+        }
+      },
+      "Ownership": {
+        "type": "object",
+        "properties": {
+          "ownershipId": {
+            "type": "string"
+          },
+          "vin": {
+            "type": "string"
+          },
+          "nickname": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RestApiResponseOwnership": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "NG"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/Ownership"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "SubscriptionRequest": {
+        "required": [
+          "plan"
+        ],
+        "type": "object",
+        "properties": {
+          "plan": {
+            "type": "string",
+            "enum": [
+              "BASIC",
+              "PREMIUM"
+            ]
+          }
+        }
+      },
+      "RestApiResponseSubscription": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "NG"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/Subscription"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "Subscription": {
+        "type": "object",
+        "properties": {
+          "subscriptionId": {
+            "type": "string"
+          },
+          "ownershipId": {
+            "type": "string"
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "BASIC",
+              "PREMIUM"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "paymentRef": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RestApiResponseVinOwner": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "NG"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/VinOwner"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "VinOwner": {
+        "type": "object",
+        "properties": {
+          "vin": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "ownershipId": {
+            "type": "string"
+          }
+        }
+      },
+      "RestApiResponseListOwnership": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "NG"
+            ]
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Ownership"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "RestApiResponseListSubscription": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "NG"
+            ]
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Subscription"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      }
+    }
+  }
+}
