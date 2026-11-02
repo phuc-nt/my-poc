@@ -2,7 +2,7 @@
 
 This document is a first, high-level system design for the AI platform (AIPF) described in [01](01-why-an-internal-aipf.md) to [04](04-reference-platforms.md). It is for the engineers and architects who will build it. It turns the components in [02-platform-components.md](02-platform-components.md) into AWS services and the platform's own parts, for one specific context.
 
-Status: a draft design from internal discussion on 2026-10-18, updated on 2026-10-19 with the results of both POC rounds, OpenCode with GLM-5 and Claude Code with Claude Sonnet 5.5 and Opus 5.5 ([06](06-poc-architecture.md), sections 12 to 16). Only the POC has been built, and nothing has been load-tested. Service limits and Region availability named here must be checked before building (section 13).
+Status: a draft design from internal discussion on 2026-10-18, updated on 2026-10-19 with the results of both POC rounds, OpenCode with GLM-5 and Claude Code with Claude Sonnet 5.5 and Opus 5.5 ([06](06-poc-architecture.md), sections 12 to 16), and on 2026-11-02 with OpenCode 2 against Claude Code on the same model (section 5.2, [06](06-poc-architecture.md) section 22.11). Only the POC has been built, and nothing has been load-tested. Service limits and Region availability named here must be checked before building (section 13).
 
 ## 1. Context and design goals
 
@@ -230,6 +230,9 @@ Every agent CLI is wrapped by a **harness adapter** that implements the same con
 3. **Translates the CLI's output** (JSON event streams where the CLI offers them, otherwise logs) into the platform's event format. It also collects OpenTelemetry data where the CLI exports it.
 4. **Detects the end state** and reports it: finished, asked a question (sent to the channel as an escalation), failed, or hit a limit.
 5. **Passes environment failures to the agent.** If preparing the environment fails on the agent's branch, the adapter still runs the CLI and gives it the error. In the POC, failing the session instead used up all three attempts on one item without the agent seeing why.
+6. **Records every tool call the platform serves, however the CLI makes it.** OpenCode 2 calls MCP tools from JavaScript, through one `execute` tool, often several in one call. In the 2026-11-02 comparison the session record counted the `execute` calls only, so OpenCode's reviewers saw no knowledge base or memory call and asked for changes three times on code they called correct. Counting the calls at the tool gateway, not in the CLI's event stream, gives the same record for every CLI.
+7. **Starts the agent only when its tools are ready.** OpenCode's remote MCP server connected after the first turn; one designer never got its tools and still returned `ready`. The adapter waits for the MCP server, and a session that could not read its work item cannot return a success verdict.
+8. **Prices the tokens itself.** A CLI's reported cost comes from its own price list: OpenCode priced a cache read at half Anthropic's list price, about 11% below the bill. A budget limit uses the registry's prices.
 
 ### 5.3 Harness profiles and routing
 
