@@ -1416,3 +1416,25 @@ After the pause, the knowledge base moved to the Cloudflare pack, and its search
 | Cloudflare, settled (Llama 3.3 70B) | 94% | 84% | 85.6% | 1.5 s |
 
 - The settled search beats the AWS knowledge base by 7.4 points (95% CI +0.5 to +14.4, p 0.044), and the grader version by 1.6 points (CI −2.1 to +5.3, not significant). What is still wrong lies in recall (about 90% of the questions have the right passage in the top 8) and in the answering model (15 wrong answers with every fact in the passages), not in the order of the passages. No more search tuning is planned; it is measured again when a Workers AI model changes or the corpus grows a lot.
+
+### 22.11 OpenCode against Claude Code on the same work (2026-11-02)
+
+The Cloudflare image has OpenCode 2.2.5 as a second engine. It runs Claude models on the Anthropic API key, billed per token, and the runner stops it at a turn and a cost limit. Running it on the Claude subscription is on hold. Round `engine-1` ran three work items (close a ticket, search products by name, limit a ticket list) on each engine. Both engines used Sonnet 5.5, the same sample `main`, the same knowledge base, memory and agent prompts, and the agents pm, designer, developer and reviewer. Each run was stopped at "waits for review", and nothing was merged. The details are in the POC environment, `test-set/engine-1-results.md`.
+
+| | Claude Code | OpenCode |
+|---|---|---|
+| Reached review, CI passed | 3 of 3 | 3 of 3 |
+| CI on the first push | 3 of 3 | 2 of 3 (an image build failure of the platform) |
+| Sessions | 13 | 14 |
+| Agent time | 521 s | 671 s |
+| Turns / tool calls / tool errors | 126 / 113 / 2 | 89 / 117 / 3 |
+| Output tokens | 36,267 | 56,822 |
+| Cost at Sonnet 5.5 list prices | $1.40 | $1.95 |
+| Real spend | $0 (subscription) | about $1.95 (API) |
+| Usable reviewer verdicts | 3 of 3 | 0 of 3 |
+
+- **The same delivery:** the source changes have the same size and shape. Both engines wrote the same product search, so both return a 500 on `q=%00`. Claude Code's reviewer found it; OpenCode's run of that item had no reviewer (the session ended in error and left no log). OpenCode wrote more tests (28 against 19).
+- **OpenCode calls the platform's tools through code.** Its `execute` tool runs JavaScript that calls the MCP tools, often several at once. The session record counts only the `execute`, so OpenCode's reviewers concluded that the developers had not searched the knowledge base or read memory. The transcripts show that they had. Each reviewer also said the code was correct, so all three "changes" verdicts came from this gap.
+- **OpenCode's tools are sometimes not ready at the start.** Its remote MCP connection completes after the first turn. One designer never got the tools: it posted no design and still returned `ready`.
+- **OpenCode's reported cost is low.** Its catalog prices a cache read at $0.10 a MTok instead of $0.20.
+- **Decision:** Claude Code stays the default engine. OpenCode needs two fixes before another comparison can judge review quality: count the calls inside `execute`, and wait for the MCP server before the agent starts. Pricing its tokens from the registry is also needed before its cost limit can be trusted.
