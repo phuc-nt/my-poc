@@ -1,0 +1,15 @@
+{
+  "name": "api-test-agent-kit",
+  "version": "1.0.0",
+  "title": "API test agent kit",
+  "summary": "A Playwright Test API suite with the rules, skills, test-case catalogue and tooling that let a coding agent set up, write, maintain and sync API tests against a product's source.",
+  "include": [
+    { "from": "kits/api-test-agent-kit/KIT.md", "to": "KIT.md" },
+    { "from": "kits/api-test-agent-kit/CHANGELOG.md", "to": "CHANGELOG.md" },
+    { "from": "poc4-api-automation/tests", "to": "tests" },
+    { "from": "poc4-api-automation/docs/01-strategy-and-findings.md", "to": "docs/01-strategy-and-findings.md" },
+    { "from": "poc4-api-automation/docs/02-adoption-guide.md", "to": "docs/02-adoption-guide.md" },
+    { "from": "poc4-api-automation/docs/03-agent-kit.md", "to": "docs/03-agent-kit.md" }
+  ],
+  "versionFiles": ["VERSION", "tests/KIT_VERSION"]
+}

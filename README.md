@@ -9,6 +9,14 @@ Four proofs of concept (PoCs), one folder each. Each folder has its own README, 
 | **PoC 3: Project Notebook** | [poc3-project-notebook/](poc3-project-notebook/README.md) | A web app in the style of NotebookLM: a project team asks questions about Confluence and SharePoint documents, writes study material from them and reads each source's sync state, with access per space and folder and an MCP server for code editors | Code, AWS deployment, an [executive overview](poc3-project-notebook/docs/01-executive-overview.md), an [engineering guide](poc3-project-notebook/docs/02-engineering-guide.md), and the full concept in [CONCEPT.md](poc3-project-notebook/CONCEPT.md) |
 | **PoC 4: API Automation** | [poc4-api-automation/](poc4-api-automation/README.md) | API test automation with Playwright Test for two Spring Boot REST services, built and measured on a local simulation of the real project (two services, database, identity provider, stubbed third parties on Docker), so the framework, the pipeline stage and the contract check can move to the real project | Code (simulation in `sim/`, test suite in `tests/`), a reference CodeBuild spec, the [strategy and findings](poc4-api-automation/docs/01-strategy-and-findings.md) and the [adoption guide](poc4-api-automation/docs/02-adoption-guide.md) |
 
+## Kits
+
+Reusable packages built from the PoCs, released as versioned zip files on the repository's GitHub releases (tag `<kit>-v<version>`). The list, the naming rules and the release steps are in [kits/README.md](kits/README.md).
+
+| Kit | From | What it is |
+|---|---|---|
+| [api-test-agent-kit](kits/api-test-agent-kit/KIT.md) | PoC 4 | The Playwright API test suite with the rules, skills, plain-language test-case catalogue and tooling that let a coding agent set up, write, maintain and sync API tests |
+
 ## How the PoCs relate
 
 - PoC 3 reuses the Confluence and SharePoint test settings and the SharePoint certificate of PoC 1 (`poc1-slack-platform/.env`, `infra/local.env`, `infra/kb-cert/`). Its AWS resources are its own (prefix and tag `poc3-kb`).
