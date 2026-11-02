@@ -7,6 +7,7 @@ The simulation runs on Docker on one laptop. Everything built here (the test fra
 Documents:
 - [docs/01-strategy-and-findings.md](docs/01-strategy-and-findings.md): the test strategy, the first smoke suite step by step, what the experiments showed, and the risks.
 - [docs/02-adoption-guide.md](docs/02-adoption-guide.md): how to apply this to the real project, with the questions and permissions to ask for.
+- [docs/03-agent-kit.md](docs/03-agent-kit.md): the kit that lets a coding agent set up, write, maintain and sync the tests, with every test tied to a plain-language test case and to the product source.
 
 This file is the quick reference.
 
@@ -27,7 +28,10 @@ This file is the quick reference.
 | `tests/specs/` | 64 tests in 11 files: smoke, security, framework, contract drift, then service A and service B by feature |
 | `tests/envs/` | One JSON file per target environment. `integration.example.json` is the template for a real one |
 | `tests/contracts/` | The reviewed OpenAPI contracts the responses are held to |
-| `tests/scripts/pipeline.sh` | The pipeline's test stage: typecheck, framework, smoke, contract, full |
+| `tests/cases/` | The test-case catalogue: one plain-language file per feature, the traceability matrix, the review lock |
+| `tests/AGENTS.md`, `tests/.claude/` | The agent kit: rules, four skills (env, write, maintain, sync) and a Stop hook |
+| `tests/kit.config.json`, `tests/scripts/cases.mjs` | Where the product source and its contracts are; the catalogue tooling |
+| `tests/scripts/pipeline.sh` | The pipeline's test stage: typecheck, the catalogue check, framework, smoke, contract, full |
 | `pipeline/buildspec.yml` | A reference AWS CodeBuild spec for the real project (not run here) |
 
 ## Run it
@@ -53,11 +57,18 @@ Other commands, from `tests/`:
 | `npm run contract` | The services' published OpenAPI against `contracts/` (`CONTRACT_SOURCE=file` reads the build output instead) |
 | `npm run contracts:update` | Refresh `contracts/` after an intended API change, from the build output (`-- --live` from the running services) |
 | `npm run typecheck` | TypeScript check |
+| `npm run cases:check` | Every test has a documented case and every case a test; the matrix is current (`-- --strict`: also stale features, unmapped source, uncovered operations) |
+| `npm run cases:impact` | Which features, cases and specs a source or contract change touches, and how to run just those (`-- --base origin/main` for a branch) |
+| `npm run cases:stamp -- <FEATURE>` | Record that a feature was reviewed against its current source |
+| `npm run cases:matrix` | Rewrite `cases/TRACEABILITY.md` |
+| `npm run cases:next-id -- <FEATURE>` | The next free case id |
 | `npm run report` | Open the last HTML report |
 | `PW_ALLOW_WRITE=false PW_STUBS=false npm test` | The run a shared environment would get: read-only, no fault injection (30 tests) |
 | `TEST_ENV=<name> npm test` | Another target, from `envs/<name>.json` |
 
 ## How the tests are built
+
+- **A case before every test.** Each test automates one case of the catalogue in `tests/cases/`, written in plain language (rule, given, when, then). Each feature file lists the product files it depends on, so `npm run cases:impact` can say which tests a source change concerns.
 
 - **One client per caller.** Fixtures give each test `userA`/`userB` (the worker's own test user), `boA`/`boB` (back office), `internalA`/`internalB` (API key), `partnerB` (partner key), `anonA`/`anonB` and `as(service, caller)` for anything else. Every call adds a fresh `X-One-Time-Uuid` and is recorded, masked, and attached to the report when the test fails.
 - **Two matchers check the whole protocol.** `toBeOk(status)` and `toBeNg(status, code, field?)` check the status, the envelope, `X_RESULT_STATUS`, the uuid echo, `X_EVENT_TIME`, `X_ERROR_CODE` (it must equal the first error's code) and the response schema from the contract, with unknown fields refused.
@@ -74,6 +85,8 @@ Other commands, from `tests/`:
 | `@stub` | Needs fault injection on a third party | `stubs` is false |
 | `@contract` | Compares the published OpenAPI with `contracts/` | live mode and `apiDocs` is false |
 | `@framework` | Tests of the framework itself, no service | never (own stage) |
+
+Every test also carries exactly one case tag, such as `@A-PIN-01`. It names the test's case in `tests/cases/`, and `--grep @A-PIN-` runs a whole feature. [cases/README.md](tests/cases/README.md) has the format and the rules.
 
 ## Secrets
 

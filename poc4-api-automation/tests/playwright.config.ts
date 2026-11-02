@@ -5,7 +5,8 @@ import { loadEnv } from './src/env';
 const env = loadEnv();
 // Each pipeline stage keeps its own reports (scripts/pipeline.sh sets PW_STAGE).
 const results = process.env.PW_STAGE ? `results/${process.env.PW_STAGE}` : 'results';
-const skip = [!env.allowWrite && '@write', !env.stubs && '@stub', !env.apiDocs && '@apidocs'].filter(Boolean) as string[];
+// PW_LIST_ALL: scripts/cases.mjs lists every test, whatever the environment would skip.
+const skip = process.env.PW_LIST_ALL ? [] : [!env.allowWrite && '@write', !env.stubs && '@stub', !env.apiDocs && '@apidocs'].filter(Boolean) as string[];
 
 export default defineConfig({
   testDir: './specs',

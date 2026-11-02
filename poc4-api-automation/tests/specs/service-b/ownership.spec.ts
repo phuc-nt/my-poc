@@ -23,7 +23,7 @@ test.describe('ownership @write', () => {
     }
   });
 
-  test('own a registered vehicle, look the owner up internally, then end it', async ({ userB, boB, partnerB, internalB, account }) => {
+  test('own a registered vehicle, look the owner up internally, then end it', { tag: '@B-OWN-01' }, async ({ userB, boB, partnerB, internalB, account }) => {
     const vin = await registeredVin(boB, partnerB);
     const params = { userId: account.userId };
     const created = await userB.post(OWNERSHIPS, { params, body: { vin, nickname: 'pw car' } });
@@ -42,18 +42,18 @@ test.describe('ownership @write', () => {
     await expect(await internalB.get('/internal/v1/vins/{vin}/owner', { params: { vin } })).toBeNg(404, 'E243');
   });
 
-  test('an unregistered VIN is E243 on vin', async ({ userB, account }) => {
+  test('an unregistered VIN is E243 on vin', { tag: '@B-OWN-02' }, async ({ userB, account }) => {
     await expect(await userB.post(OWNERSHIPS, { params: { userId: account.userId }, body: { vin: testVin() } })).toBeNg(404, 'E243', 'vin');
   });
 
-  test('a locked user is E206, checked through service A', async ({ as, env }) => {
+  test('a locked user is E206, checked through service A', { tag: '@B-OWN-03' }, async ({ as, env }) => {
     test.skip(!env.accounts.locked, 'no locked account on this environment');
     const locked = env.accounts.locked!;
     const r = await as('b', { user: locked }).post(OWNERSHIPS, { params: { userId: locked }, body: { vin: testVin() } });
     await expect(r).toBeNg(403, 'E206');
   });
 
-  test('subscribe: the plan price is charged once, a second plan is E250', async ({ userB, boB, partnerB, account, wiremock }) => {
+  test('subscribe: the plan price is charged once, a second plan is E250', { tag: '@B-OWN-04' }, async ({ userB, boB, partnerB, account, wiremock }) => {
     const vin = await registeredVin(boB, partnerB);
     const params = { userId: account.userId };
     const { ownershipId } = (await userB.post(OWNERSHIPS, { params, body: { vin } })).body.data;
@@ -72,7 +72,7 @@ test.describe('ownership @write', () => {
     expect(list.body.data).toHaveLength(1);
   });
 
-  test('a declined card is E610 and no subscription is made @stub', async ({ userB, boB, partnerB, account, wiremock }) => {
+  test('a declined card is E610 and no subscription is made @stub', { tag: '@B-OWN-05' }, async ({ userB, boB, partnerB, account, wiremock }) => {
     const vin = await registeredVin(boB, partnerB);
     const params = { userId: account.userId };
     const { ownershipId } = (await userB.post(OWNERSHIPS, { params, body: { vin } })).body.data;
@@ -82,7 +82,7 @@ test.describe('ownership @write', () => {
     expect((await userB.get(SUBSCRIPTIONS, { params: { ...params, ownershipId } })).body.data).toEqual([]);
   });
 
-  test('a payment provider slower than the timeout is E611 @stub', async ({ userB, boB, partnerB, account, wiremock }) => {
+  test('a payment provider slower than the timeout is E611 @stub', { tag: '@B-OWN-06' }, async ({ userB, boB, partnerB, account, wiremock }) => {
     const vin = await registeredVin(boB, partnerB);
     const params = { userId: account.userId };
     const { ownershipId } = (await userB.post(OWNERSHIPS, { params, body: { vin } })).body.data;
@@ -93,7 +93,7 @@ test.describe('ownership @write', () => {
     expect(r.ms).toBeLessThan(2900);
   });
 
-  test('bad input is E200 on the field', async ({ userB, account }) => {
+  test('bad input is E200 on the field', { tag: '@B-OWN-07' }, async ({ userB, account }) => {
     const params = { userId: account.userId };
     await expect(await userB.post(OWNERSHIPS, { params, body: { vin: testVin(), nickname: 'x'.repeat(33) } })).toBeNg(400, 'E200', 'nickname');
     await expect(await userB.post(SUBSCRIPTIONS, { params: { ...params, ownershipId: '00000000-0000-4000-8000-000000000000' }, body: { plan: 'GOLD' } })).toBeNg(400, 'E200', 'plan');

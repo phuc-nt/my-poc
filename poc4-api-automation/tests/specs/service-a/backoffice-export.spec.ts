@@ -4,7 +4,7 @@ import { SEED } from '../../src/data';
 import type { ApiResult } from '../../src/api-client';
 
 test.describe('back-office search', () => {
-  test('search by email pages through the test users', async ({ boA }) => {
+  test('search by email pages through the test users', { tag: '@A-BOS-01' }, async ({ boA }) => {
     const first = await boA.get('/bo/v1/users', { query: { email: 'pw-user-', size: 3, page: 0 } });
     await expect(first).toBeOk();
     expect(first.body.data.total).toBe(8);
@@ -13,7 +13,7 @@ test.describe('back-office search', () => {
     expect(last.body.data.items).toHaveLength(2);
   });
 
-  test('bad paging and filters are E200 on the parameter', async ({ boA }) => {
+  test('bad paging and filters are E200 on the parameter', { tag: '@A-BOS-02' }, async ({ boA }) => {
     await expect(await boA.get('/bo/v1/users', { query: { size: 0 } })).toBeNg(400, 'E200', 'size');
     await expect(await boA.get('/bo/v1/users', { query: { size: 101 } })).toBeNg(400, 'E200', 'size');
     await expect(await boA.get('/bo/v1/users', { query: { page: -1 } })).toBeNg(400, 'E200', 'page');
@@ -21,13 +21,13 @@ test.describe('back-office search', () => {
     await expect(await boA.get('/bo/v1/users', { query: { email: 'ab' } })).toBeNg(400, 'E200', 'email');
   });
 
-  test('unlocking an unknown user is E243 @write', async ({ boA }) => {
+  test('unlocking an unknown user is E243 @write', { tag: '@A-BOS-03' }, async ({ boA }) => {
     await expect(await boA.post('/bo/v1/users/{userId}/unlock', { params: { userId: 'auth0|pw-nobody' } })).toBeNg(404, 'E243');
   });
 });
 
 test.describe('CSV export @write', () => {
-  test('queued, then done with a signed link to the right rows', async ({ boA, request }) => {
+  test('queued, then done with a signed link to the right rows', { tag: '@A-EXP-01' }, async ({ boA, request }) => {
     const queued = await boA.post('/bo/v1/exports', { body: { kind: 'USERS', from: '2026-03-01', to: '2026-03-30' } });
     await expect(queued).toBeOk(202);
     expect(queued.body.data.status).toBe('QUEUED');
@@ -53,7 +53,7 @@ test.describe('CSV export @write', () => {
     expect(tampered.status()).toBe(403);
   });
 
-  test('the notify address gets a mail once the file is ready', async ({ boA, wiremock }) => {
+  test('the notify address gets a mail once the file is ready', { tag: '@A-EXP-02' }, async ({ boA, wiremock }) => {
     const queued = await boA.post('/bo/v1/exports', { body: { kind: 'CONSENTS', from: '2026-01-01', to: '2026-01-31', notifyEmail: 'pw-export@example.test' } });
     await expect(queued).toBeOk(202);
     // The worker carries the request's uuid into the mail call, so the journal can find it.
@@ -62,7 +62,7 @@ test.describe('CSV export @write', () => {
     expect(mail.body).toMatchObject({ to: 'pw-export@example.test', requestId: queued.body.data.requestId });
   });
 
-  test('a bad range or kind is E200', async ({ boA }) => {
+  test('a bad range or kind is E200', { tag: '@A-EXP-03' }, async ({ boA }) => {
     await expect(await boA.post('/bo/v1/exports', { body: { kind: 'USERS', from: '2026-03-30', to: '2026-03-01' } })).toBeNg(400, 'E200');
     await expect(await boA.post('/bo/v1/exports', { body: { kind: 'USERS', from: '2026-01-01', to: '2026-03-01' } })).toBeNg(400, 'E200');
     await expect(await boA.post('/bo/v1/exports', { body: { kind: 'ORDERS', from: '2026-01-01', to: '2026-01-02' } })).toBeNg(400, 'E200', 'kind');
@@ -70,7 +70,7 @@ test.describe('CSV export @write', () => {
     await expect(await boA.post('/bo/v1/exports', { body: { kind: 'USERS', from: '2026-01-01', to: '2026-01-02', notifyEmail: 'not-an-email' } })).toBeNg(400, 'E200', 'notifyEmail');
   });
 
-  test('an unknown export is E243', async ({ boA }) => {
+  test('an unknown export is E243', { tag: '@A-EXP-04' }, async ({ boA }) => {
     await expect(await boA.get('/bo/v1/exports/{requestId}', { params: { requestId: '00000000-0000-4000-8000-000000000000' } })).toBeNg(404, 'E243');
   });
 });

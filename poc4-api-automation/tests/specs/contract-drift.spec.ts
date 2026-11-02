@@ -10,9 +10,10 @@ import { loadContract, OpenApi } from '../src/contract';
 import { diffContracts } from '../src/contract-diff';
 
 const fromFile = process.env.CONTRACT_SOURCE === 'file';
+const CASE = { a: '@CON-01', b: '@CON-02' };
 
 for (const service of ['a', 'b'] as const) {
-  test(`service-${service} matches its reviewed contract @contract`, async ({ env, workerRequest }) => {
+  test(`service-${service} matches its reviewed contract @contract`, { tag: CASE[service] }, async ({ env, workerRequest }) => {
     let current: OpenApi;
     if (fromFile) {
       current = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'sim', `service-${service}`, 'target', 'openapi', `service-${service}.json`), 'utf8'));

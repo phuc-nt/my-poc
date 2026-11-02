@@ -13,7 +13,7 @@ test.describe('devices @write', () => {
     }
   });
 
-  test('register, list and remove a device', async ({ userA, account }) => {
+  test('register, list and remove a device', { tag: '@A-DEV-01' }, async ({ userA, account }) => {
     const params = { userId: account.userId };
     const created = await userA.post(DEVICES, { params, body: { platform: 'IOS', pushToken: pushToken() } });
     await expect(created).toBeOk(201);
@@ -25,7 +25,7 @@ test.describe('devices @write', () => {
     await expect(await userA.delete(`${DEVICES}/{deviceId}`, { params: { ...params, deviceId: created.body.data.deviceId } })).toBeNg(404, 'E243');
   });
 
-  test('a sixth device is E250', async ({ userA, account }) => {
+  test('a sixth device is E250', { tag: '@A-DEV-02' }, async ({ userA, account }) => {
     const params = { userId: account.userId };
     for (let i = 0; i < 5; i++) {
       await expect(await userA.post(DEVICES, { params, body: { platform: i % 2 ? 'IOS' : 'ANDROID', pushToken: pushToken() } })).toBeOk(201);
@@ -33,7 +33,7 @@ test.describe('devices @write', () => {
     await expect(await userA.post(DEVICES, { params, body: { platform: 'IOS', pushToken: pushToken() } })).toBeNg(409, 'E250');
   });
 
-  test('bad input is E200 on the field', async ({ userA, account }) => {
+  test('bad input is E200 on the field', { tag: '@A-DEV-03' }, async ({ userA, account }) => {
     const params = { userId: account.userId };
     await expect(await userA.post(DEVICES, { params, body: { platform: 'WINDOWS', pushToken: 'x' } })).toBeNg(400, 'E200', 'platform');
     await expect(await userA.post(DEVICES, { params, body: { platform: 'IOS' } })).toBeNg(400, 'E200', 'pushToken');
@@ -43,7 +43,7 @@ test.describe('devices @write', () => {
 });
 
 test.describe('consents @write', () => {
-  test('save a consent, read it on app and web, and publish consent.updated', async ({ userA, as, account, wiremock }) => {
+  test('save a consent, read it on app and web, and publish consent.updated', { tag: '@A-CNS-01' }, async ({ userA, as, account, wiremock }) => {
     const params = { userId: account.userId, consentType: 'MARKETING' };
     const version = `1.${Date.now() % 1000}`;
     const saved = await userA.put('/app/v1/users/{userId}/consents/{consentType}', { params, body: { version, agreed: true } });
@@ -59,7 +59,7 @@ test.describe('consents @write', () => {
     }));
   });
 
-  test('bad input is E200 on the field', async ({ userA, account }) => {
+  test('bad input is E200 on the field', { tag: '@A-CNS-02' }, async ({ userA, account }) => {
     const path = '/app/v1/users/{userId}/consents/{consentType}';
     await expect(await userA.put(path, { params: { userId: account.userId, consentType: 'TERMS' }, body: { version: 'v2', agreed: true } })).toBeNg(400, 'E200', 'version');
     await expect(await userA.put(path, { params: { userId: account.userId, consentType: 'TERMS' }, body: { version: '2.0' } })).toBeNg(400, 'E200', 'agreed');

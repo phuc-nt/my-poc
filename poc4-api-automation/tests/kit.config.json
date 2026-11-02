@@ -1,0 +1,24 @@
+{
+  "casesDir": "cases",
+  "listEnv": "local",
+  "roots": {
+    "tests": ".",
+    "common": "../sim/common",
+    "service-a": "../sim/service-a",
+    "service-b": "../sim/service-b"
+  },
+  "sourceScope": [
+    "common:src/main/**",
+    "service-a:src/main/**",
+    "service-b:src/main/**"
+  ],
+  "sourceIgnore": [
+    "service-a:src/main/java/**/ServiceAApplication.java",
+    "service-b:src/main/java/**/ServiceBApplication.java"
+  ],
+  "contracts": {
+    "a": { "reviewed": "contracts/service-a.json", "build": "../sim/service-a/target/openapi/service-a.json", "baseUrlEnv": "PW_BASE_URL_A", "baseUrl": "http://localhost:8081" },
+    "b": { "reviewed": "contracts/service-b.json", "build": "../sim/service-b/target/openapi/service-b.json", "baseUrlEnv": "PW_BASE_URL_B", "baseUrl": "http://localhost:8082" }
+  },
+  "uncoveredOperations": {}
+}

@@ -18,6 +18,10 @@ poc-secrets.json
 CLAUDE.md
 CLAUDE.local.md
 .claude/
+# The API test kit's agent rules and skills travel with the suite (local settings stay private).
+!poc4-api-automation/tests/CLAUDE.md
+!poc4-api-automation/tests/.claude/
+poc4-api-automation/tests/.claude/settings.local.json
 
 # Run output: screenshots and reports contain request data
 artifacts/

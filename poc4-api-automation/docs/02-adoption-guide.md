@@ -24,6 +24,8 @@ The strategy and the reasons behind it are in [01-strategy-and-findings.md](01-s
 | `tests/scripts/update-contracts.mjs` | The only way the contract snapshot changes (change the build-output path to the real modules) |
 | `tests/specs/framework.spec.ts` | Proof that the guards work, with no service needed |
 | `tests/specs/contract-drift.spec.ts` | The build-time and live contract check |
+| `tests/AGENTS.md`, `tests/CLAUDE.md`, `tests/.claude/`, `tests/scripts/hooks/` | The agent kit: rules, skills and the Stop hook ([03-agent-kit.md](03-agent-kit.md)) |
+| `tests/scripts/cases.mjs`, `tests/cases/README.md`, `tests/cases/_template.md` | The case catalogue's format and tooling. Not the PoC's case files: write the real ones (section 6 of doc 03) |
 
 ### Adapt to the real services
 
@@ -34,6 +36,7 @@ The strategy and the reasons behind it are in [01-strategy-and-findings.md](01-s
 | `src/auth.ts` | The real IdP's token call (Q1). The `env-token` mode works without code changes until then |
 | `Caller` in `src/fixtures.ts` | The real caller groups and their credentials (header names of the two keys) |
 | `envs/<env>.json` | One per environment, from `integration.example.json` |
+| `kit.config.json` | The real modules as source roots, their `src/main/**` as scope, their build-output OpenAPI |
 | `src/data.ts` | The real VIN rules, the seeded data the search and export tests rely on |
 | The specs | Patterns only: same structure, real paths, codes, fields and data |
 

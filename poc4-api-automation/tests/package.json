@@ -9,7 +9,12 @@
     "framework": "PW_ONLY_FRAMEWORK=1 playwright test --grep @framework",
     "typecheck": "tsc --noEmit",
     "contracts:update": "node scripts/update-contracts.mjs",
-    "report": "playwright show-report results/html"
+    "report": "playwright show-report results/html",
+    "cases:check": "node scripts/cases.mjs check",
+    "cases:impact": "node scripts/cases.mjs impact",
+    "cases:stamp": "node scripts/cases.mjs stamp",
+    "cases:matrix": "node scripts/cases.mjs matrix",
+    "cases:next-id": "node scripts/cases.mjs next-id"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",

@@ -23,7 +23,7 @@ function ok(service: 'a' | 'b', template: string, body: unknown, method: ApiResu
 }
 
 test.describe('framework @framework', () => {
-  test('masking hides credentials, PINs and emails', () => {
+  test('masking hides credentials, PINs and emails', { tag: '@FWK-01' }, () => {
     expect(maskHeaders({ Authorization: 'Bearer abc.def.ghi', 'X-Api-Key': 'k', accept: 'application/json' }))
       .toEqual({ Authorization: 'Bearer <redacted>', 'X-Api-Key': '<redacted>', accept: 'application/json' });
     expect(maskBody({ currentPin: '246810', newPin: '975318', email: 'someone@example.test', nested: [{ accessToken: 't' }] }))
@@ -31,14 +31,14 @@ test.describe('framework @framework', () => {
     expect(maskBody('/files/x.csv?expires=1&signature=0a1b2c')).toBe('/files/x.csv?expires=1&signature=<redacted>');
   });
 
-  test('a read-only environment blocks every write before it leaves', async () => {
+  test('a read-only environment blocks every write before it leaves', { tag: '@FWK-02' }, async () => {
     const client = new ApiClient('a', {} as any, { ...ENV, allowWrite: false }, async () => ({}), []);
     for (const method of ['POST', 'PUT', 'DELETE', 'PATCH'] as const) {
       await expect(client.call(method, '/app/v1/x')).rejects.toBeInstanceOf(WriteBlockedError);
     }
   });
 
-  test('production is refused whatever the flags say', () => {
+  test('production is refused whatever the flags say', { tag: '@FWK-03' }, () => {
     expect(() => guard({ ...ENV, production: true })).toThrow(/never targets production/);
     expect(() => guard({ ...ENV, name: 'prod-jp' })).toThrow(/never targets production/);
     expect(() => guard({ ...ENV, stubs: true })).toThrow(/wiremockUrl/);
@@ -46,13 +46,13 @@ test.describe('framework @framework', () => {
     expect(guard(ENV)).toBe(ENV);
   });
 
-  test('generated VINs are valid and marked as test data', () => {
+  test('generated VINs are valid and marked as test data', { tag: '@FWK-04' }, () => {
     const vins = Array.from({ length: 200 }, testVin);
     for (const vin of vins) expect(vin).toMatch(/^PWT[A-HJ-NPR-Z0-9]{14}$/);
     expect(new Set(vins).size).toBe(vins.length);
   });
 
-  test('the contract check catches an unknown field, a missing type and an unknown operation', () => {
+  test('the contract check catches an unknown field, a missing type and an unknown operation', { tag: '@FWK-05' }, () => {
     const contracts = ContractValidator.fromFiles();
     const profile = { result: 'OK', data: { userId: 'auth0|u1', email: 'x@example.test', locked: false } };
     const good = contracts.validate(ok('a', '/app/v1/users/{userId}', profile));
@@ -65,7 +65,7 @@ test.describe('framework @framework', () => {
     expect(contracts.validate(ok('a', '/x', { result: 'NG', errors: [{ code: 'E9', messageId: 'x', message: '' }] }, 'GET', 400)).length).toBeGreaterThan(0);
   });
 
-  test('the contract diff calls a renamed response field and a new required request field breaking', () => {
+  test('the contract diff calls a renamed response field and a new required request field breaking', { tag: '@FWK-06' }, () => {
     const before = loadContract('a');
     const after = structuredClone(before);
     const profile = after.components!.schemas!.UserProfile;

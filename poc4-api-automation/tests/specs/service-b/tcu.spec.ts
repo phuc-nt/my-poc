@@ -11,7 +11,7 @@ test.describe('SIM activation @write', () => {
     }
   });
 
-  test('ordered, then active once the carrier calls back', async ({ boB, partnerB, tcuId, wiremock }) => {
+  test('ordered, then active once the carrier calls back', { tag: '@B-SIM-01' }, async ({ boB, partnerB, tcuId, wiremock }) => {
     const ordered = await boB.post('/bo/v1/tcus/{tcuId}/sim/activate', { params: { tcuId } });
     await expect(ordered).toBeOk(202);
     expect(ordered.body.data.simStatus).toBe('ACTIVATING');
@@ -25,14 +25,14 @@ test.describe('SIM activation @write', () => {
     expect(active.body.data).toMatchObject({ simStatus: 'ACTIVE', orderId });
   });
 
-  test('a carrier failure is E611 and the unit stays INACTIVE @stub', async ({ boB, tcuId, wiremock }) => {
+  test('a carrier failure is E611 and the unit stays INACTIVE @stub', { tag: '@B-SIM-02' }, async ({ boB, tcuId, wiremock }) => {
     const uuid = crypto.randomUUID();
     await wiremock.stubFor(uuid, { urlPathPattern: '/telecom/v1/sims/.*', status: 503 });
     await expect(await boB.post('/bo/v1/tcus/{tcuId}/sim/activate', { params: { tcuId }, uuid })).toBeNg(502, 'E611');
     expect((await boB.get('/bo/v1/tcus/{tcuId}', { params: { tcuId } })).body.data.simStatus).toBe('INACTIVE');
   });
 
-  test('unknown and malformed ids', async ({ boB, partnerB }) => {
+  test('unknown and malformed ids', { tag: '@B-SIM-03' }, async ({ boB, partnerB }) => {
     await expect(await boB.get('/bo/v1/tcus/{tcuId}', { params: { tcuId: 'TCU-9999' } })).toBeNg(404, 'E243', 'tcuId');
     await expect(await boB.get('/bo/v1/tcus/{tcuId}', { params: { tcuId: 'tcu-1' } })).toBeNg(400, 'E200', 'tcuId');
     await expect(await partnerB.post('/partner/v1/callbacks/sim-status', { body: { iccid: '8999999999999999999', status: 'ACTIVE' } })).toBeNg(404, 'E243', 'iccid');

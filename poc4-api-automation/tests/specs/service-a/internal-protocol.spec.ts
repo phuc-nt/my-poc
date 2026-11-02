@@ -3,13 +3,13 @@ import { test, expect } from '../../src/fixtures';
 import { pushToken } from '../../src/data';
 
 test.describe('internal API', () => {
-  test('push to a user with no device sends nothing @write', async ({ internalA, account }) => {
+  test('push to a user with no device sends nothing @write', { tag: '@A-INT-01' }, async ({ internalA, account }) => {
     const r = await internalA.post('/internal/v1/users/{userId}/notifications', { params: { userId: account.userId }, body: { title: 'Hi', body: 'Test' } });
     await expect(r).toBeOk();
     expect(r.body.data.sent).toBe(0);
   });
 
-  test('a push provider failure is E611 @write @stub', async ({ internalA, userA, account, wiremock }) => {
+  test('a push provider failure is E611 @write @stub', { tag: '@A-INT-02' }, async ({ internalA, userA, account, wiremock }) => {
     const params = { userId: account.userId };
     const device = await userA.post('/app/v1/users/{userId}/devices', { params, body: { platform: 'ANDROID', pushToken: pushToken() } });
     try {
@@ -25,13 +25,13 @@ test.describe('internal API', () => {
     }
   });
 
-  test('an unknown user is E243', async ({ internalA }) => {
+  test('an unknown user is E243', { tag: '@A-INT-03' }, async ({ internalA }) => {
     await expect(await internalA.get('/internal/v1/users/{userId}', { params: { userId: 'auth0|pw-nobody' } })).toBeNg(404, 'E243');
   });
 });
 
 test.describe('protocol', () => {
-  test('X-One-Time-Uuid is echoed, or generated when missing', async ({ userA, account }) => {
+  test('X-One-Time-Uuid is echoed, or generated when missing', { tag: '@A-PRO-01' }, async ({ userA, account }) => {
     const params = { userId: account.userId };
     const given = await userA.get('/app/v1/users/{userId}', { params });
     expect(given.headers['x_one_time_uuid']).toBe(given.uuid);
@@ -39,21 +39,21 @@ test.describe('protocol', () => {
     await expect(generated).toBeOk();
   });
 
-  test('a malformed X-One-Time-Uuid is E200 on the header', async ({ userA, account }) => {
+  test('a malformed X-One-Time-Uuid is E200 on the header', { tag: '@A-PRO-02' }, async ({ userA, account }) => {
     const r = await userA.get('/app/v1/users/{userId}', { params: { userId: account.userId }, uuid: 'not-a-uuid' });
     expect(r.status).toBe(400);
     expect(r.body.errors[0]).toMatchObject({ code: 'E200', field: 'X-One-Time-Uuid' });
   });
 
-  test('an unknown route is E243', async ({ boA }) => {
+  test('an unknown route is E243', { tag: '@A-PRO-03' }, async ({ boA }) => {
     await expect(await boA.get('/bo/v1/nothing-here')).toBeNg(404, 'E243');
   });
 
-  test('a wrong method is E201 @write', async ({ boA }) => {
+  test('a wrong method is E201 @write', { tag: '@A-PRO-04' }, async ({ boA }) => {
     await expect(await boA.delete('/bo/v1/users')).toBeNg(405, 'E201');
   });
 
-  test('malformed JSON and a wrong content type are refused with the envelope @write', async ({ userA, account }) => {
+  test('malformed JSON and a wrong content type are refused with the envelope @write', { tag: '@A-PRO-05' }, async ({ userA, account }) => {
     const params = { userId: account.userId };
     await expect(await userA.post('/app/v1/users/{userId}/devices', { params, rawBody: { data: '{"platform":', contentType: 'application/json' } })).toBeNg(400, 'E200');
     const xml = await userA.post('/app/v1/users/{userId}/devices', { params, rawBody: { data: '<device/>', contentType: 'application/xml' } });
@@ -61,7 +61,7 @@ test.describe('protocol', () => {
     expect(xml.status).toBeGreaterThanOrEqual(400);
   });
 
-  test('user ids with "|" work raw and percent-encoded', async ({ userA, account }) => {
+  test('user ids with "|" work raw and percent-encoded', { tag: '@A-PRO-06' }, async ({ userA, account }) => {
     for (const encodePath of [true, false]) {
       const r = await userA.get('/app/v1/users/{userId}', { params: { userId: account.userId }, encodePath });
       await expect(r, `encodePath=${encodePath}`).toBeOk();
@@ -69,7 +69,7 @@ test.describe('protocol', () => {
     }
   });
 
-  test('a malformed user id is E200 on userId', async ({ as }) => {
+  test('a malformed user id is E200 on userId', { tag: '@A-PRO-07' }, async ({ as }) => {
     // The token subject equals the path id, so the owner check passes and validation decides.
     const r = await as('a', { headers: {} }).get('/internal/v1/users/{userId}', { params: { userId: 'no-pipe-here' }, headers: { 'X-Api-Key': process.env.PW_INTERNAL_API_KEY ?? '' } });
     await expect(r).toBeNg(400, 'E200', 'userId');

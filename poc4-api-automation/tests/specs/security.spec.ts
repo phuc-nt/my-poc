@@ -14,13 +14,13 @@ function unsigned(jwt: string): string {
 }
 
 test.describe('security', () => {
-  test('an expired token is E101', async ({ as, env, account }) => {
+  test('an expired token is E101', { tag: '@SEC-01' }, async ({ as, env, account }) => {
     test.skip(env.auth.kind !== 'oauth-mock', 'needs an IdP that issues short-lived tokens');
     const r = await as('a', { user: account.userId, ttlSeconds: -60 }).get(PROFILE, { params: { userId: account.userId } });
     await expect(r).toBeNg(401, 'E101');
   });
 
-  test('a tampered or unsigned token is E101', async ({ as, tokens, account }) => {
+  test('a tampered or unsigned token is E101', { tag: '@SEC-02' }, async ({ as, tokens, account }) => {
     const token = await tokens.user(account.userId);
     for (const bad of [tamper(token), unsigned(token), 'not-a-jwt']) {
       const r = await as('a', { headers: { Authorization: `Bearer ${bad}` } }).get(PROFILE, { params: { userId: account.userId } });
@@ -28,7 +28,7 @@ test.describe('security', () => {
     }
   });
 
-  test("a user cannot read another user's data (E102), on either service", async ({ userA, userB, env, account }) => {
+  test("a user cannot read another user's data (E102), on either service", { tag: '@SEC-03' }, async ({ userA, userB, env, account }) => {
     const other = env.accounts.pool.find((u) => u !== account.userId);
     test.skip(!other, 'needs two pooled users');
     await expect(await userA.get(PROFILE, { params: { userId: other! } })).toBeNg(403, 'E102');
@@ -36,13 +36,13 @@ test.describe('security', () => {
     await expect(await userB.get('/app/v1/users/{userId}/ownerships', { params: { userId: other! } })).toBeNg(403, 'E102');
   });
 
-  test('scopes: a user token on /bo and a back-office token on /app are E102', async ({ userA, boA, account }) => {
+  test('scopes: a user token on /bo and a back-office token on /app are E102', { tag: '@SEC-04' }, async ({ userA, boA, account }) => {
     await expect(await userA.get('/bo/v1/users', { query: { page: 0, size: 1 } })).toBeNg(403, 'E102');
     await expect(await boA.get(PROFILE, { params: { userId: account.userId } })).toBeNg(403, 'E102');
   });
 
   // No key or a wrong key is E101. A valid token without the key is authenticated but not allowed: E102.
-  test('/internal and /partner take only their own key', async ({ userA, userB, boB, as, env, account }) => {
+  test('/internal and /partner take only their own key', { tag: '@SEC-05' }, async ({ userA, userB, boB, as, env, account }) => {
     const internal = '/internal/v1/users/{userId}';
     await expect(await userA.get(internal, { params: { userId: account.userId } })).toBeNg(403, 'E102');
     await expect(await as('a', 'partner').get(internal, { params: { userId: account.userId } })).toBeNg(401, 'E101');
@@ -55,7 +55,7 @@ test.describe('security', () => {
     }
   });
 
-  test('error bodies leak no stack trace or SQL', async ({ anonA, userA, account }) => {
+  test('error bodies leak no stack trace or SQL', { tag: '@SEC-06' }, async ({ anonA, userA, account }) => {
     const responses = [
       await anonA.get(PROFILE, { params: { userId: account.userId } }),
       await userA.get('/app/v1/users/{userId}/nothing-here', { params: { userId: account.userId } }),

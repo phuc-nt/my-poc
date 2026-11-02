@@ -11,13 +11,14 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const live = process.argv.includes('--live');
-const bases = { a: process.env.PW_BASE_URL_A ?? 'http://localhost:8081', b: process.env.PW_BASE_URL_B ?? 'http://localhost:8082' };
+// The paths per service are in kit.config.json "contracts", shared with scripts/cases.mjs.
+const { contracts } = JSON.parse(fs.readFileSync(path.join(root, 'kit.config.json'), 'utf8'));
 
-for (const service of ['a', 'b']) {
+for (const [service, c] of Object.entries(contracts)) {
   const spec = live
-    ? await (await fetch(`${bases[service]}/v3/api-docs`)).json()
-    : JSON.parse(fs.readFileSync(path.join(root, '..', 'sim', `service-${service}`, 'target', 'openapi', `service-${service}.json`), 'utf8'));
+    ? await (await fetch(`${process.env[c.baseUrlEnv] ?? c.baseUrl}/v3/api-docs`)).json()
+    : JSON.parse(fs.readFileSync(path.resolve(root, c.build), 'utf8'));
   delete spec.servers; // the host differs between MockMvc and every environment
-  fs.writeFileSync(path.join(root, 'contracts', `service-${service}.json`), JSON.stringify(spec, null, 2) + '\n');
-  console.log(`contracts/service-${service}.json: ${Object.keys(spec.paths).length} paths`);
+  fs.writeFileSync(path.join(root, c.reviewed), JSON.stringify(spec, null, 2) + '\n');
+  console.log(`${c.reviewed}: ${Object.keys(spec.paths).length} paths`);
 }

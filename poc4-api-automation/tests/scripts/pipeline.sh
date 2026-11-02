@@ -3,7 +3,8 @@
 #
 #   TEST_ENV=<env> bash scripts/pipeline.sh
 #
-# Stages, each with its own JUnit file under results/<stage>/:
+# Before the stages: the TypeScript check, and the case catalogue check (every test has a documented case;
+# see cases/README.md). Stages, each with its own JUnit file under results/<stage>/:
 #   1. framework  the suite's own guards, no service needed
 #   2. smoke      read-only health of every caller group; when it fails nothing else runs
 #   3. contract   the published OpenAPI against the reviewed contract (skipped where /v3/api-docs is closed)
@@ -21,6 +22,7 @@ stage() {
 
 [ -d node_modules ] && [ package-lock.json -ot node_modules/.package-lock.json ] || npm ci --no-audit --no-fund
 npx tsc --noEmit
+node scripts/cases.mjs check
 PW_ONLY_FRAMEWORK=1 stage framework --grep @framework
 stage smoke --grep @smoke
 stage contract --grep @contract
