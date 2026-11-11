@@ -1,0 +1,194 @@
+{
+  "spec_hash": "6c8bc1761475a3e7",
+  "model": "claude-haiku-5-5",
+  "effort": "low",
+  "cost_usd": 0.01633,
+  "spec_chars": 9922,
+  "notes": {
+    "OVR": {
+      "chars": 978,
+      "lost_first": [
+        "OVR-2",
+        "OVR-4",
+        "OVR-5"
+      ],
+      "lost_after_retry": [
+        "OVR-2",
+        "OVR-4",
+        "OVR-5"
+      ],
+      "appended_lines": 3,
+      "output_tokens": 1676,
+      "cost_usd": 0.00121
+    },
+    "CMN": {
+      "chars": 1385,
+      "lost_first": [
+        "CMN-1",
+        "CMN-2",
+        "CMN-3",
+        "CMN-4",
+        "1"
+      ],
+      "lost_after_retry": [
+        "1"
+      ],
+      "appended_lines": 1,
+      "output_tokens": 2296,
+      "cost_usd": 0.00158
+    },
+    "SC-01": {
+      "chars": 532,
+      "lost_first": [
+        "SC-01-2",
+        "SC-01-3"
+      ],
+      "lost_after_retry": [],
+      "appended_lines": 0,
+      "output_tokens": 1117,
+      "cost_usd": 0.00077
+    },
+    "SC-02": {
+      "chars": 446,
+      "lost_first": [
+        "SC-02-2",
+        "SC-02-3"
+      ],
+      "lost_after_retry": [],
+      "appended_lines": 0,
+      "output_tokens": 712,
+      "cost_usd": 0.00056
+    },
+    "SC-03": {
+      "chars": 515,
+      "lost_first": [
+        "SC-03-2",
+        "SC-03-3"
+      ],
+      "lost_after_retry": [],
+      "appended_lines": 0,
+      "output_tokens": 1104,
+      "cost_usd": 0.00079
+    },
+    "SC-04": {
+      "chars": 414,
+      "lost_first": [
+        "SC-04-2",
+        "SC-04-3"
+      ],
+      "lost_after_retry": [],
+      "appended_lines": 0,
+      "output_tokens": 701,
+      "cost_usd": 0.00055
+    },
+    "SC-05": {
+      "chars": 522,
+      "lost_first": [
+        "SC-05-2",
+        "SC-05-3"
+      ],
+      "lost_after_retry": [],
+      "appended_lines": 0,
+      "output_tokens": 1273,
+      "cost_usd": 0.00087
+    },
+    "SC-06": {
+      "chars": 367,
+      "lost_first": [
+        "SC-06-1",
+        "SC-06-2",
+        "SC-06-3"
+      ],
+      "lost_after_retry": [],
+      "appended_lines": 0,
+      "output_tokens": 731,
+      "cost_usd": 0.00055
+    },
+    "SC-07": {
+      "chars": 417,
+      "lost_first": [
+        "SC-07-1",
+        "SC-07-2",
+        "SC-07-3"
+      ],
+      "lost_after_retry": [],
+      "appended_lines": 0,
+      "output_tokens": 1200,
+      "cost_usd": 0.00081
+    },
+    "SC-08": {
+      "chars": 542,
+      "lost_first": [
+        "SC-08-2",
+        "SC-08-3"
+      ],
+      "lost_after_retry": [],
+      "appended_lines": 0,
+      "output_tokens": 975,
+      "cost_usd": 0.00073
+    },
+    "SC-09": {
+      "chars": 391,
+      "lost_first": [
+        "SC-09-1",
+        "SC-09-2",
+        "SC-09-3"
+      ],
+      "lost_after_retry": [],
+      "appended_lines": 0,
+      "output_tokens": 895,
+      "cost_usd": 0.00065
+    },
+    "SC-10": {
+      "chars": 585,
+      "lost_first": [
+        "SC-10-1",
+        "SC-10-2",
+        "SC-10-3"
+      ],
+      "lost_after_retry": [],
+      "appended_lines": 0,
+      "output_tokens": 1289,
+      "cost_usd": 0.00089
+    },
+    "SC-11": {
+      "chars": 477,
+      "lost_first": [
+        "SC-11-2",
+        "SC-11-3"
+      ],
+      "lost_after_retry": [],
+      "appended_lines": 0,
+      "output_tokens": 1093,
+      "cost_usd": 0.00077
+    },
+    "SC-12": {
+      "chars": 408,
+      "lost_first": [
+        "SC-12-1",
+        "SC-12-2",
+        "SC-12-3"
+      ],
+      "lost_after_retry": [],
+      "appended_lines": 0,
+      "output_tokens": 972,
+      "cost_usd": 0.0007
+    },
+    "glossary": {
+      "chars": 1532,
+      "lost_first": [
+        "CMN-A01",
+        "CMN-A02",
+        "CMN-A03",
+        "CMN-A04",
+        "CMN-A05",
+        "CMN-A06",
+        "CMN-A07"
+      ],
+      "lost_after_retry": [],
+      "appended_lines": 0,
+      "output_tokens": 6272,
+      "cost_usd": 0.00491
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "spec": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["run", "--quiet", "spec-review-mcp"],
+      "env": {
+        "SPEC_SERVER_TOKEN": "${SPEC_SERVER_TOKEN}",
+        "SPEC_DIR": "${SPEC_DIR:-spec}"
+      }
+    }
+  }
+}

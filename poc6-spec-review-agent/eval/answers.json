@@ -1,0 +1,356 @@
+{
+  "spec_version": "0.9",
+  "notes": "Answer list for the synthetic specification in spec/. A planted problem counts as found when a question cites at least one of its anchors (location.item_ids). It counts as found with the right kind when the question's kind is also in 'kinds' (the first one is the intended kind; the others are accepted readings). Non-issues are traps: a question that cites only non-issue anchors and matches no planted problem is a false positive.",
+  "problems": [
+    {
+      "id": "P01",
+      "kinds": [
+        "contradiction"
+      ],
+      "severity": "major",
+      "anchors": [
+        "CMN-R01",
+        "SC-01-R04"
+      ],
+      "description": "Session timeout is 30 minutes in the common rules but 60 minutes on the login screen."
+    },
+    {
+      "id": "P02",
+      "kinds": [
+        "contradiction"
+      ],
+      "severity": "minor",
+      "anchors": [
+        "SC-05-F02"
+      ],
+      "description": "The start date on SC-05 is entered as YYYY-MM-DD; CMN-R02 says YYYY/MM/DD everywhere."
+    },
+    {
+      "id": "P03",
+      "kinds": [
+        "contradiction"
+      ],
+      "severity": "critical",
+      "anchors": [
+        "SC-11-R01"
+      ],
+      "description": "SC-11 says the equipment manager also uses user management; the role matrix CMN-A06 allows only the system administrator. A wrong reading gives a non-admin the power to grant roles."
+    },
+    {
+      "id": "P04",
+      "kinds": [
+        "ambiguous",
+        "missing"
+      ],
+      "severity": "major",
+      "anchors": [
+        "SC-01-R02"
+      ],
+      "description": "The account locks after 'a certain number' of failures; the number, the counting window and the unlock procedure (who, how, automatic or not) are not given."
+    },
+    {
+      "id": "P05",
+      "kinds": [
+        "ambiguous"
+      ],
+      "severity": "minor",
+      "anchors": [
+        "SC-03-R03"
+      ],
+      "description": "The page size of the search result is 'as appropriate'."
+    },
+    {
+      "id": "P06",
+      "kinds": [
+        "contradiction"
+      ],
+      "severity": "major",
+      "anchors": [
+        "SC-10-F04"
+      ],
+      "description": "SC-10 lists an equipment state 予約済 that is not one of the four states of OVR-T02, and no screen or rule sets or clears it."
+    },
+    {
+      "id": "P07",
+      "kinds": [
+        "contradiction"
+      ],
+      "severity": "critical",
+      "anchors": [
+        "SC-05-R01",
+        "SC-08-R02"
+      ],
+      "description": "The maximum loan period is 14 days on SC-05 but one month on SC-08, where the desk can also extend it without a new approval."
+    },
+    {
+      "id": "P08",
+      "kinds": [
+        "missing"
+      ],
+      "severity": "minor",
+      "anchors": [
+        "SC-05-F04"
+      ],
+      "description": "The length of the purpose field is not given."
+    },
+    {
+      "id": "P09",
+      "kinds": [
+        "missing"
+      ],
+      "severity": "major",
+      "anchors": [
+        "SC-05-R03",
+        "OVR-R02"
+      ],
+      "description": "The approver is the head of the applicant's department; who approves when the applicant is the department head, or when the head is absent, is not defined."
+    },
+    {
+      "id": "P10",
+      "kinds": [
+        "missing"
+      ],
+      "severity": "major",
+      "anchors": [
+        "SC-05-R01",
+        "SC-05-R02",
+        "SC-04-F05",
+        "SC-04-F06"
+      ],
+      "description": "Nothing prevents two requests for the same item over overlapping periods: the item stays 貸出可 after approval, and no rule checks the schedule shown on SC-04."
+    },
+    {
+      "id": "P11",
+      "kinds": [
+        "ambiguous"
+      ],
+      "severity": "critical",
+      "anchors": [
+        "SC-07-R03"
+      ],
+      "description": "Requests left untouched for 'a certain period' are 'processed automatically': the period, and whether they are approved or rejected, are not given."
+    },
+    {
+      "id": "P12",
+      "kinds": [
+        "contradiction",
+        "missing"
+      ],
+      "severity": "major",
+      "anchors": [
+        "SC-07-F05",
+        "OVR-T03"
+      ],
+      "description": "SC-07 has a send-back (差戻し) button, but the request states of OVR-T03 have no such state, SC-06 offers no way to edit a request, and no mail is defined for it."
+    },
+    {
+      "id": "P13",
+      "kinds": [
+        "ambiguous",
+        "missing"
+      ],
+      "severity": "major",
+      "anchors": [
+        "SC-08-R04"
+      ],
+      "description": "A damaged return is to be 'handled appropriately': the state to set, who is told and what the user must do are not given. SC-08-R03 meanwhile sets the item back to 貸出可."
+    },
+    {
+      "id": "P14",
+      "kinds": [
+        "ambiguous"
+      ],
+      "severity": "major",
+      "anchors": [
+        "SC-09-R02"
+      ],
+      "description": "Reminders go to the applicant 'and related persons'; who the related persons are is not defined."
+    },
+    {
+      "id": "P15",
+      "kinds": [
+        "ambiguous",
+        "contradiction"
+      ],
+      "severity": "minor",
+      "anchors": [
+        "SC-09-R01",
+        "OVR-N01"
+      ],
+      "description": "The reminder batch runs 'at night' with no time, while OVR-N01 says the system is unavailable during the batch; the outage window cannot be known."
+    },
+    {
+      "id": "P16",
+      "kinds": [
+        "missing"
+      ],
+      "severity": "major",
+      "anchors": [
+        "MAIL-02",
+        "SC-09-F02",
+        "SC-09-R02"
+      ],
+      "description": "MAIL-02 (the reminder mail) is used on SC-09 but not defined in CMN-4."
+    },
+    {
+      "id": "P17",
+      "kinds": [
+        "contradiction"
+      ],
+      "severity": "minor",
+      "anchors": [
+        "SC-12-R01",
+        "SC-10-F01",
+        "SC-08-F01"
+      ],
+      "description": "The asset number has 10 characters on SC-08 and SC-10 but 8 in the CSV output of SC-12."
+    },
+    {
+      "id": "P18",
+      "kinds": [
+        "missing"
+      ],
+      "severity": "major",
+      "anchors": [
+        "SC-10-R02",
+        "SC-10-R03"
+      ],
+      "description": "An item can be set to 廃棄 (or any state) by hand while it is on loan or has approved requests; what happens to those loans and requests is not defined."
+    },
+    {
+      "id": "P19",
+      "kinds": [
+        "missing"
+      ],
+      "severity": "major",
+      "anchors": [
+        "SC-11-R02"
+      ],
+      "description": "A user who leaves while holding items, or with open requests or pending approvals, is simply disabled; what happens to the loans, the requests and the reminders is not defined."
+    },
+    {
+      "id": "P20",
+      "kinds": [
+        "missing"
+      ],
+      "severity": "minor",
+      "anchors": [
+        "SC-12-R03"
+      ],
+      "description": "The CSV character encoding, line ending and quoting are not given (Shift_JIS or UTF-8 matters for Excel)."
+    },
+    {
+      "id": "P21",
+      "kinds": [
+        "ambiguous"
+      ],
+      "severity": "minor",
+      "anchors": [
+        "OVR-N02"
+      ],
+      "description": "'Responses must be fast' has no measurable target."
+    },
+    {
+      "id": "P22",
+      "kinds": [
+        "missing"
+      ],
+      "severity": "major",
+      "anchors": [
+        "SC-02-F01",
+        "OVR-R04"
+      ],
+      "description": "The system administrator manages announcements (OVR-R04) shown on SC-02, but no screen to register them exists and the role matrix has no row for it."
+    },
+    {
+      "id": "P23",
+      "kinds": [
+        "missing"
+      ],
+      "severity": "minor",
+      "anchors": [
+        "SC-11-R03"
+      ],
+      "description": "SC-11-R03 refers to a 登録 button that is not in the item list of SC-11, and the screen has no way to search users or open one for editing."
+    }
+  ],
+  "non_issues": [
+    {
+      "id": "N01",
+      "anchors": [
+        "SC-05-F03"
+      ],
+      "description": "The return date has no format note; CMN-R02 covers it (and the screen spec says the common spec applies when a screen is silent)."
+    },
+    {
+      "id": "N02",
+      "anchors": [
+        "SC-10-F03"
+      ],
+      "description": "The category options are given by reference to SC-03-F02."
+    },
+    {
+      "id": "N03",
+      "anchors": [
+        "SC-09-R03"
+      ],
+      "description": "Whether weekends and holidays count as overdue days is stated explicitly."
+    },
+    {
+      "id": "N04",
+      "anchors": [
+        "SC-06-R02"
+      ],
+      "description": "The request number format and its example agree (R + 4-digit year + 5-digit sequence = 10 characters)."
+    },
+    {
+      "id": "N05",
+      "anchors": [
+        "SC-07-F02"
+      ],
+      "description": "The comment field is marked not required, with a note that it is required for reject and send-back: a conditional rule, not a contradiction."
+    }
+  ],
+  "accepted_unplanned": [
+    {
+      "id": "X01",
+      "anchors": [
+        "SC-06-R01"
+      ],
+      "added": "2026-11-11, after run 1",
+      "description": "Cancelling deletes the request, but no 取消 state exists; whether it is a physical or logical delete, and what happens to the request number and the history CSV, is not given. A real gap that was not planted on purpose."
+    },
+    {
+      "id": "X02",
+      "anchors": [
+        "SC-08-F02"
+      ],
+      "added": "2026-11-11, after runs 1 to 3",
+      "description": "Whether the desk may hand out an approved request before its start date or after its return date, and what happens to an approved request nobody collects."
+    },
+    {
+      "id": "X03",
+      "anchors": [
+        "SC-04-F05"
+      ],
+      "added": "2026-11-11, after runs 1 to 3",
+      "description": "The schedule on SC-04 shows only 承認済 requests, so the period of the current loan is not shown, and the request button is disabled while the item is on loan, so a future booking is impossible."
+    },
+    {
+      "id": "X04",
+      "anchors": [
+        "SC-01-F02"
+      ],
+      "added": "2026-11-11, after runs 1 to 3",
+      "description": "Initial password, password change and reset, and the complexity rule are not defined."
+    },
+    {
+      "id": "X05",
+      "anchors": [
+        "SC-11-F05"
+      ],
+      "added": "2026-11-11, after runs 1 to 3",
+      "description": "The department options, who maintains the department master, and how a department is tied to its approver are not defined."
+    }
+  ]
+}

@@ -45,3 +45,13 @@ poc3-project-notebook/eval/out/
 # PoC 4 build output and test results (reports hold request data)
 poc4-api-automation/sim/**/target/
 poc4-api-automation/tests/results/
+
+# PoC 6: run output (transcripts, tokens, cost) and the virtual environment
+poc6-spec-review-agent/runs/
+.venv/
+.pytest_cache/
+# PoC 6 part 6 studies the Claude Code configuration itself, so its CLAUDE.md files and .claude/ travel with it.
+!poc6-spec-review-agent/CLAUDE.md
+!poc6-spec-review-agent/src/CLAUDE.md
+!poc6-spec-review-agent/.claude/
+poc6-spec-review-agent/.claude/settings.local.json
