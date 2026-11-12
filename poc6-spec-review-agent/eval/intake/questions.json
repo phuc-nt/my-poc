@@ -1,0 +1,23 @@
+{
+  "note": "Part 7 (A1). A synthetic question list already sent to the customer, as the desk's tracker holds it.",
+  "questions": [
+    {"id": "Q001", "page": "SC-01", "item_ids": ["CMN-R01", "SC-01-R04"], "kind": "contradiction", "severity": "major",
+     "question": "無操作時に自動ログアウトするまでの時間は、共通仕様の30分と画面仕様の60分のどちらが正しいでしょうか。",
+     "status": "open", "answer": null},
+    {"id": "Q002", "page": "SC-05", "item_ids": ["SC-05-R01", "SC-08-R02"], "kind": "contradiction", "severity": "critical",
+     "question": "貸出期間の上限は、貸出申請の14日と窓口の1か月のどちらでしょうか。窓口での延長に承認は必要でしょうか。",
+     "status": "open", "answer": null},
+    {"id": "Q003", "page": "SC-03", "item_ids": ["SC-03-R03"], "kind": "ambiguous", "severity": "minor",
+     "question": "備品一覧の1ページの表示件数をご教示ください。",
+     "status": "answered", "answer": "1ページ20件とする。", "answered_on": "2026-11-05"},
+    {"id": "Q004", "page": "SC-09", "item_ids": ["SC-09-R02"], "kind": "ambiguous", "severity": "major",
+     "question": "督促メール（MAIL-02）の宛先の「関係者」とは、どなたを指すのでしょうか。",
+     "status": "open", "answer": null},
+    {"id": "Q005", "page": "SC-12", "item_ids": ["SC-12-R03"], "kind": "missing", "severity": "minor",
+     "question": "CSVファイルの文字コードと改行コードをご教示ください。",
+     "status": "open", "answer": null},
+    {"id": "Q006", "page": "SC-07", "item_ids": ["SC-07-R03"], "kind": "ambiguous", "severity": "critical",
+     "question": "承認者が操作しない申請を自動処理するまでの期間と、自動処理の内容（承認か却下か）をご教示ください。",
+     "status": "open", "answer": null}
+  ]
+}

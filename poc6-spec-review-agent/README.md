@@ -20,6 +20,7 @@ every run is scored by code against a known answer list. No customer material is
 | P4 | Schema forcing compared (forced `tool_use` on Haiku 5.5, strict tools, `output_config.format`), retry, test set | Done: 8 runs of 12 cases, all 12 of 12 valid after at most one retry; Sonnet found 22 of 23 (the most this set allows) for USD 0.19 (0.10 in a batch), Haiku 19 to 21 for USD 0.015 |
 | P5 | MCP server for the spec (one tool, one resource, `isError`, secrets from the environment) | Done: 8 of 8 checks from an Agent SDK session configured by `.mcp.json`, USD 0.001 |
 | P6 | Claude Code configuration (CLAUDE.md levels, path rules, a command, a skill, a secret-file hook) and a headless run | Done: `claude -p` with `--output-format json` parsed by a script, 7 of 7 checks in 3 runs, the right rules loaded and no others, both SC-01 problems found; the hook blocked a secret file on the third probe; USD 0.011 |
+| P7 | Group A: structured tool errors and a question desk with a gate, a policy hook and a handoff; schema v2, retry policy, crash resume and a sourced report; an independent verifier calibrated through a batch with resubmission; an imported policy, a re-review command, a forked verify skill in a second headless session, a CI template | Done: desk 8 of 8 in 3 runs (the hook fired only under pressure); v2 kind 20 and severity 16 against P4's 17 and 14; verifier 0.85 accurate, threshold 0.9 automates 18%; failed batch item resubmitted by `custom_id`; re-review 0 duplicates, Sonnet found P09; USD 0.53 |
 
 Decisions, trade-offs and measurements per part: [docs/decisions.md](docs/decisions.md). The brief this PoC started
 from: [HANDOVER.md](HANDOVER.md).
@@ -28,15 +29,17 @@ from: [HANDOVER.md](HANDOVER.md).
 
 | Path | What |
 |---|---|
-| `CLAUDE.md`, `src/CLAUDE.md` | P6: project and directory instructions, each with a rule tag |
-| `.claude/` | P6: `rules/` (path rules for `spec/` and `src/`), `commands/review-spec.md`, `skills/score-questions/`, `settings.json` (deny list and the hook), `hooks/block_secret_files.py` |
+| `CLAUDE.md`, `src/CLAUDE.md` | P6: project and directory instructions, each with a rule tag. P7: the project file imports `docs/review-policy.md` |
+| `.claude/` | P6: `rules/` (path rules for `spec/` and `src/`), `commands/review-spec.md`, P7 `commands/re-review-spec.md`, `skills/score-questions/`, P7 `skills/verify-findings/` (`context: fork`), `settings.json` (deny list and the hook), `hooks/block_secret_files.py` |
 | `.mcp.json` | P5: the spec MCP server for Claude Code and the Agent SDK; the token comes from `${SPEC_SERVER_TOKEN}` |
 | `notes/` | P3 working notes built from the spec by `spec-review notes`: `summaries/<page>.md`, `glossary.md`, `manifest.json` (spec hash, facts lost, cost) |
 | `spec/` | The synthetic specification: `OVR` (overview, roles, glossary), `CMN` (common rules, role matrix, messages, mails), `SC-01` to `SC-12` (screens) |
+| `ci/spec-review.yml` | P7: a GitHub Actions template, not active (this repository is public) |
+| `eval/intake/` | P7: the synthetic customer reply, the desk's question state and the expected outcome |
 | `eval/answers.json` | The planted problems with their anchor IDs, kind and severity, and the non-issues |
-| `src/spec_review/` | `spec.py` (loader and ID index), `schema.py` (Pydantic and strict JSON Schema), `score.py` (deterministic scorer), `prompts.py`, `loop.py` (P1), `fake_client.py` (offline script), `sdk_agent.py` (P2 and the notes mode of P3: coordinator, subagents, hooks, approval stop), `notes.py` (P3 notes, fact check, grep), `extract.py` (P4: one request per screen in five output modes, validation with the quote check, retry, batches), `mcp_server.py` (P5: the stdio MCP server), `mcp_check.py` (P5: the SDK session that uses it and the checks), `headless.py` (P6: the `claude -p` command, output parsing and checks), `export.py` (Excel), `cli.py` |
-| `tests/` | Offline tests: schema limits, validation, scorer, every stop reason, the step limit (P1); tools, hooks, gate, approval stop, state file (P2); fact check, retry, fallback, grep, notes mode, context sizes (P3); request shape per mode, quote check, retry per failure kind, batches, budget stop (P4); the MCP tool, error result, resource, stdio start-up and config (P5); config files and tags, command and skill, hook wiring and blocking, the headless command and parsing (P6) |
-| `runs/` | One folder per run. P1: `steps.jsonl` (tokens and cost per step), `transcript.json`. P2 and P3: `transcript.jsonl` (every SDK message), `events.jsonl` (hook and tool events), `state.json` (hook state for a resume), `subagent_findings.json`. P4: `cases.jsonl` (each attempt per screen: stop reason, problem, errors, thinking, tokens, cost), `cases.json` (each screen's final answer). P5: `transcript.jsonl`. P6: `output.json` and `hook_output.json` (the `claude -p` result objects). All: `question_list.json`, `質問表.xlsx`, `summary.json`. `ledger.jsonl` holds the cost of every billed run. Not in git |
+| `src/spec_review/` | `spec.py` (loader and ID index), `schema.py` (Pydantic and strict JSON Schema), `score.py` (deterministic scorer), `prompts.py`, `loop.py` (P1), `fake_client.py` (offline script), `sdk_agent.py` (P2 and the notes mode of P3: coordinator, subagents, hooks, approval stop), `notes.py` (P3 notes, fact check, grep), `extract.py` (P4: one request per screen in five output modes, validation with the quote check, retry, batches), `mcp_server.py` (P5: the stdio MCP server), `mcp_check.py` (P5: the SDK session that uses it and the checks), `headless.py` (P6: the `claude -p` command, output parsing and checks), `tool_errors.py` and `intake.py` (P7 A1: error shape, the question desk), `review_v2.py` (P7 A2, A6: schema v2, retry policy, manifest, report), `verify.py` (P7 A3, A4: verifier, calibration, batch resubmission), `ci_review.py` (P7 A5: re-review and verify checks, PR comment), `export.py` (Excel), `cli.py` |
+| `tests/` | Offline tests: schema limits, validation, scorer, every stop reason, the step limit (P1); tools, hooks, gate, approval stop, state file (P2); fact check, retry, fallback, grep, notes mode, context sizes (P3); request shape per mode, quote check, retry per failure kind, batches, budget stop (P4); the MCP tool, error result, resource, stdio start-up and config (P5); config files and tags, command and skill, hook wiring and blocking, the headless command and parsing (P6); structured errors, gate, policy hook, handoff checks, schema v2, retry policy, resume, report, verifier pool and sample, batch resubmission, calibration, policy import, command and skill frontmatter, re-review and verify checks (P7) |
+| `runs/` | One folder per run. P1: `steps.jsonl` (tokens and cost per step), `transcript.json`. P2 and P3: `transcript.jsonl` (every SDK message), `events.jsonl` (hook and tool events), `state.json` (hook state for a resume), `subagent_findings.json`. P4: `cases.jsonl` (each attempt per screen: stop reason, problem, errors, thinking, tokens, cost), `cases.json` (each screen's final answer). P5: `transcript.jsonl`. P6: `output.json` and `hook_output.json` (the `claude -p` result objects). P7: `call_log` in the intake summary; `manifest.json`, `cases/`, `report.md` (review2); `pool.json`, `batch.jsonl`, `verdicts.json` (verify); `review_output.json`, `verify_output.json`, `pr_comment.md` (ci). All: `question_list.json`, `質問表.xlsx`, `summary.json`. `ledger.jsonl` holds the cost of every billed run. Not in git |
 
 ## Commands
 
@@ -59,6 +62,13 @@ uv run spec-review p4 --mode sonnet-format --few-shot --batch   # with the worke
 uv run spec-review p5                     # billed, about USD 0.001: an Agent SDK session uses the MCP server via .mcp.json
 uv run spec-review-mcp                    # the MCP server on stdio (needs SPEC_SERVER_TOKEN in the environment)
 uv run spec-review p6 --hook-probe        # billed, under USD 0.01: /review-spec SC-01 headless with claude -p, then the hook probe
+uv run spec-review intake --pressure      # billed, under USD 0.01: the question desk on a synthetic reply (P7, A1)
+uv run spec-review review2 --mode sonnet-format --stop-after 4   # billed: v2 schema; stops after 4 cases
+uv run spec-review review2 --resume runs/<run>                  # requests only the pending cases (about USD 0.27 in all)
+uv run spec-review verify --dry-run       # sample size and estimate; without --dry-run a batch, about USD 0.06
+uv run spec-review verify --inject-fault  # one request cut off on purpose, resubmitted by custom_id
+uv run spec-review ci --screen SC-05      # billed, about 1 cent on Haiku: review, then verify in a second claude -p
+uv run spec-review ci --screen SC-05 --prior runs/<run>/question_list.json   # re-review: only new findings
 uv run spec-review score runs/<run>/question_list.json
 ```
 

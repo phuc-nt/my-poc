@@ -31,6 +31,7 @@ exam guide and names the PoC part that practises it.
 | P4 | 質問表 schema: forced `tool_use` vs strict tools vs `output_config.format`, validation, retry, test set at 100% valid | 4 |
 | P5 | MCP server for the spec: a tool, a resource, `isError`, `.mcp.json` | 5 |
 | P6 | Claude Code configuration: `CLAUDE.md` levels, `.claude/rules`, a command, a hook, a headless run | 5 |
+| P7 | Group A, the gaps left after P6: A1 question desk (tool errors, gate, policy hook, handoff), A2 schema v2 and retry policy, A3 verifier and calibration, A4 batch resubmission, A5 import, re-review, forked skill, CI template, A6 resume and sourced report | 6 |
 
 ## Task statements
 
@@ -41,33 +42,33 @@ exam guide and names the PoC part that practises it.
 | 1.1 | Agentic loops | **P1**, P2 | Every `stop_reason` handled in [loop.py](../src/spec_review/loop.py), a step limit, a nudge when `auto` ends without the submit call. In P2, compare how the SDK hides the same loop |
 | 1.2 | Coordinator and subagent patterns | **P2** | One orchestrator, one read-only reviewer per screen |
 | 1.3 | Subagent invocation and context passing | **P2**, P3 | What each subagent receives: its screen plus the CMN/OVR summary of P3, not the whole spec. Its answer is untrusted text to the parent |
-| 1.4 | Multi-step workflows with enforcement and handoff | P1, **P2** | P1: the run counts only when the submit tool accepts the list. P2: a stop for human approval on "critical" questions |
-| 1.5 | Agent SDK hooks for interception and normalisation | **P2**, P6 | P2: a `PostToolUse` hook that normalises item IDs. P6: a hook that blocks writing secret files |
+| 1.4 | Multi-step workflows with enforcement and handoff | P1, P2, **P7 A1** | P1: the run counts only when the submit tool accepts the list. P2: a stop for human approval on "critical" questions. P7: `get_question` as a prerequisite gate enforced by a hook, and a structured `escalate` handoff checked by code |
+| 1.5 | Agent SDK hooks for interception and normalisation | **P2**, P6, P7 A1 | P2: a `PostToolUse` hook that normalises item IDs. P6: a hook that blocks writing secret files. P7: a policy hook that denies and redirects to `escalate`; it fired only in the run that pushed for the shortcut |
 | 1.6 | Task decomposition | **P2** | Per-screen review misses cross-page contradictions (P01, P07, P17 sit on two pages): measure it, then add a cross-page pass |
 | 1.7 | Session state, resumption and forking | P2 | Add one resume of an SDK session after the approval stop, and one fork to try a second prompt from the same point |
 | 2.1 | Tool interfaces and descriptions | **P1**, P5 | Tool descriptions say when to call and what an error means. Exam pattern: fix a misused tool with a clearer description, not a router |
-| 2.2 | Structured MCP error responses | **P5** | `isError` with a message that names the valid page IDs |
+| 2.2 | Structured MCP error responses | P5, **P7 A1** | P5: `isError` with a message that names the valid page IDs. P7: `errorCategory`, `isRetryable`, an empty result kept apart from an error; one transient failure retried, nothing else |
 | 2.3 | Distributing tools and tool choice | P2, **P4** | P2: `allowedTools` per subagent. P4: forced `tool_choice` on Haiku 5.5 against `auto` + `strict` on Sonnet 5.5 (see the drift note below) |
 | 2.4 | MCP servers in Claude Code and agents | **P5** | One server used from Claude Code through `.mcp.json` and from the SDK agent |
 | 2.5 | Built-in tools (Read, Write, Edit, Bash, Grep, Glob) | P2, P6 | Subagents get Read, Grep and Glob only |
-| 3.1 | `CLAUDE.md` hierarchy | **P6** | User, project and directory levels; what loads when |
-| 3.2 | Slash commands and skills | **P6** | One command (`/review-spec`) and one skill |
+| 3.1 | `CLAUDE.md` hierarchy | **P6**, P7 A5 | User, project and directory levels; what loads when. P7: `@docs/review-policy.md` import, seen through its tag |
+| 3.2 | Slash commands and skills | **P6**, P7 A5 | One command (`/review-spec`) and one skill. P7: `argument-hint` with `$0`/`$1`, a skill with `context: fork` and `allowed-tools`; typed as a slash command in `-p` the fork returns nothing, called through the Skill tool it does |
 | 3.3 | Path-specific rules | **P6** | `.claude/rules` with `paths:` for `spec/` and `src/` |
 | 3.4 | Plan mode against direct execution | Study only | Note when plan mode is the right answer |
 | 3.5 | Iterative refinement | P4, P6 | The retry loop; refining a prompt against the scorer |
-| 3.6 | CI/CD | **P6** | One headless run with `-p --output-format json`, its result parsed by a script. A pipeline file is study only |
+| 3.6 | CI/CD | **P6**, **P7 A5** | One headless run with `-p --output-format json`, its result parsed by a script. P7: a pipeline template (`ci/spec-review.yml`, inactive), a re-review given the prior findings (no duplicates), a verify step in a separate session |
 | 4.1 | Explicit criteria to reduce false positives | **P1**, P4 | Measurable definitions of kind and severity in [prompts.py](../src/spec_review/prompts.py). The non-issues N01 to N05 measure false positives |
 | 4.2 | Few-shot prompting | **P4** | Add two examples; compare kind accuracy and false positives with P1 |
-| 4.3 | Structured output through tool use and JSON schemas | **P1**, **P4** | The strict `submit_question_list` tool; in P4 also `output_config.format` |
-| 4.4 | Validation, retry and feedback loops | **P1**, **P4** | Pydantic plus the ID check in code; the errors go back as `is_error` and the model resubmits |
-| 4.5 | Batch processing | P4 | Optional: run the P4 test set through the Message Batches API (half price, no tool loop) and compare |
-| 4.6 | Multi-instance and multi-pass review | **P2** | Per-screen pass, then a cross-page pass; measure what each finds |
+| 4.3 | Structured output through tool use and JSON schemas | **P1**, **P4**, P7 A2 | The strict `submit_question_list` tool; in P4 also `output_config.format`. P7: `other` with `kind_detail`, `detected_pattern`, copied `sides` checked by code |
+| 4.4 | Validation, retry and feedback loops | **P1**, **P4**, P7 A2 | Pydantic plus the ID check in code; the errors go back as `is_error` and the model resubmits. P7: no retry when the information is missing from the request; stop on no progress |
+| 4.5 | Batch processing | P4, **P7 A4** | P4: the test set through the Message Batches API (half price). P7: results matched by `custom_id`, only failed items resubmitted; the 24-hour window keeps batches out of a pre-merge check |
+| 4.6 | Multi-instance and multi-pass review | **P2**, **P7 A3, A5** | Per-screen pass, then a cross-page pass. P7: an independent verifier that never sees the reviewer's reasoning, in a batch (A3) and in a second `claude -p` session (A5) |
 | 5.1 | Preserving critical information | **P3** | Glossary and summaries in files, read back instead of kept in the context |
-| 5.2 | Escalation and ambiguity | **P2** | "Critical" questions stop for a person |
-| 5.3 | Error propagation in multi-agent systems | **P2** | A failed subagent returns a structured failure the orchestrator reports, never a silent gap |
+| 5.2 | Escalation and ambiguity | **P2**, P7 A1 | "Critical" questions stop for a person. P7: escalation on policy and on an answer that conflicts with an earlier one, with a handoff a person can act on |
+| 5.3 | Error propagation in multi-agent systems | **P2**, P7 A6 | A failed subagent returns a structured failure the orchestrator reports, never a silent gap. P7: a partial report names the screens it did not cover |
 | 5.4 | Large codebase exploration | P3, P6 | Grep and Glob over the spec; summaries as a map |
-| 5.5 | Human review and confidence calibration | P2, P4 | The approval stop; severity agreement from the scorer as the calibration measure |
-| 5.6 | Provenance and uncertainty in multi-source synthesis | P1, P2 | Every question carries `item_ids` and `spec_quote` (null when the spec is silent); the scorer checks them |
+| 5.5 | Human review and confidence calibration | P2, P4, **P7 A3** | The approval stop; severity agreement. P7: a stratified sample, accuracy per confidence band and per kind, a threshold chosen on the worst kind (0.9, 18% automated) |
+| 5.6 | Provenance and uncertainty in multi-source synthesis | P1, P2, P7 A6 | Every question carries `item_ids` and `spec_quote`; the scorer checks them. P7: each claim in the report keeps its case, rows, quote page and spec hash; disagreeing claims stay side by side |
 
 ## Scenarios
 
@@ -75,11 +76,11 @@ Four of the six are drawn per sitting.
 
 | Scenario | Closest part |
 |---|---|
-| Customer Support Resolution Agent | P2 (escalation, approval). Mostly study only |
+| Customer Support Resolution Agent | P7 A1 (the question desk: gate, policy hook, escalation handoff), P2 |
 | Code Generation with Claude Code | P6 |
 | Multi-Agent Research System | P2, P3 |
 | Developer Productivity with Claude | P6 |
-| Claude Code for CI/CD | P6 (headless run) |
+| Claude Code for CI/CD | P6 (headless run), P7 A5 (re-review, independent verify, template) |
 | Structured Data Extraction | P1, P4 |
 
 ## API drift the exam may not reflect

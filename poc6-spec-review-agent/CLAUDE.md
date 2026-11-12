@@ -11,3 +11,4 @@ question list (質問表). The answer list is `eval/answers.json`; read [README.
   (`SPEC_REVIEW_BUDGET_USD`). `uv run pytest -q` and `--dry-run` cost nothing.
 - A question cites item IDs that exist in the spec, and `spec_quote` is copied exactly from a page, or null.
 - Documents in this folder are in English; questions to the customer are in Japanese.
+- Reviews, re-reviews and verifications follow the review policy: @docs/review-policy.md

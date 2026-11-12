@@ -30,8 +30,11 @@ def frontmatter(path: Path) -> str:
 
 def test_each_config_file_carries_its_tag_and_scope():
     tags = {p: re.search(r"Rule tag: (P6-[A-Z-]+)", p.read_text("utf-8")).group(1)
-            for p in [ROOT / "CLAUDE.md", ROOT / "src" / "CLAUDE.md", *sorted((ROOT / ".claude" / "rules").glob("*.md"))]}
+            for p in [ROOT / "CLAUDE.md", ROOT / "docs" / "review-policy.md", ROOT / "src" / "CLAUDE.md",
+                      *sorted((ROOT / ".claude" / "rules").glob("*.md"))]}
     assert set(tags.values()) == h.EXPECTED_TAGS | h.ABSENT_TAGS
+    # the policy reaches a session only through the import line of the project CLAUDE.md (not in a code span)
+    assert re.search(r"^[^`]*@docs/review-policy\.md\s*$", (ROOT / "CLAUDE.md").read_text("utf-8"), re.M)
     assert '"spec/**/*.md"' in frontmatter(ROOT / ".claude" / "rules" / "spec-pages.md")
     assert '"src/**/*.py"' in frontmatter(ROOT / ".claude" / "rules" / "python.md")
     assert not (ROOT / "spec" / "CLAUDE.md").exists()  # load_spec reads every *.md in spec/ as a page
@@ -96,15 +99,15 @@ def good_question():
 
 def test_parse_and_check_review():
     out = {"type": "result", "subtype": "success", "is_error": False, "num_turns": 4, "total_cost_usd": 0.012,
-           "result": "", "structured_output": {"rule_tags": ["P6-PROJECT", "P6-RULE-SPEC"], "questions": [good_question()]}}
+           "result": "", "structured_output": {"rule_tags": ["P6-PROJECT", "P6-IMPORT", "P6-RULE-SPEC"], "questions": [good_question()]}}
     raw, answer, err = h.parse_output(json.dumps(out, ensure_ascii=False))
-    assert err is None and answer["rule_tags"] == ["P6-PROJECT", "P6-RULE-SPEC"]
+    assert err is None and answer["rule_tags"] == ["P6-PROJECT", "P6-IMPORT", "P6-RULE-SPEC"]
     res = h.HeadlessResult(returncode=0, raw=raw, answer=answer)
     c = h.check_review(res, SPEC, ANS, "SC-01")
     assert c["passed"] == c["of"] and c["found_on_screen"] == ["P01"] and res.cost_usd == 0.012
     assert set(c["screen_problems"]) == {"P01", "P04"}
 
-    leaked = dict(answer, rule_tags=["P6-PROJECT", "P6-RULE-SPEC", "P6-RULE-PY"])
+    leaked = dict(answer, rule_tags=["P6-PROJECT", "P6-IMPORT", "P6-RULE-SPEC", "P6-RULE-PY"])
     reworded = dict(answer, questions=[good_question() | {"spec_quote": "60分操作がなければ"}])
     for a, failing in ((leaked, "unrelated_tags_absent"), (reworded, "questions_valid")):
         c = h.check_review(h.HeadlessResult(returncode=0, raw=raw, answer=a), SPEC, ANS, "SC-01")

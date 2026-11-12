@@ -373,3 +373,112 @@ key from the CI secret store, then fail the job when the script's checks fail:
 ```
 
 Spent on P6: USD 0.011 (three runs of a review and a probe). Total so far: USD 4.82 of 30.
+
+## P7: gaps the exam guide names that P1 to P6 did not practise (group A)
+
+**Objectives:** 1.4, 1.5, 2.2, 5.2 (A1); 4.3, 4.4 (A2); 4.6, 5.5 (A3); 4.5 (A4); 3.1, 3.2, 3.6, 4.6 (A5); 5.3,
+5.4, 5.6 (A6). Files: [tool_errors.py](../src/spec_review/tool_errors.py) and
+[intake.py](../src/spec_review/intake.py) with [eval/intake/](../eval/intake/) (A1),
+[review_v2.py](../src/spec_review/review_v2.py) (A2, A6), [verify.py](../src/spec_review/verify.py) (A3, A4),
+[ci_review.py](../src/spec_review/ci_review.py), [docs/review-policy.md](review-policy.md),
+[.claude/commands/re-review-spec.md](../.claude/commands/re-review-spec.md),
+[.claude/skills/verify-findings/SKILL.md](../.claude/skills/verify-findings/SKILL.md) and
+[ci/spec-review.yml](../ci/spec-review.yml) (A5). Commands `intake`, `review2`, `verify`, `ci`. Tests
+`tests/test_part7_*.py`; the suite is 80 tests.
+
+| Decision | Choice | Why not the other option |
+|---|---|---|
+| Tool errors (A1, 2.2) | One shape: `errorCategory` (transient, validation, business, permission), `isRetryable`, a message for the model. An empty search is `count: 0` with `isError` false | A bare `isError` and a sentence says something failed, not whether to retry, fix the input or hand over. An empty result that looks like an error makes the agent report a gap that is not there, and the reverse hides an outage |
+| The desk's rules (A1, 1.4, 1.5) | A `PreToolUse` hook denies `record_answer`, `escalate` and `mark_follow_up` until `get_question` succeeded for that ID (the prerequisite gate), and denies `record_answer` on a critical question with "escalate with policy_critical" (the policy redirect) | A rule in the prompt is weighed against the user's message; a hook is code on every call. The deny message names the next action, so a block becomes a redirect instead of a dead end |
+| Handoff (A1, 5.2) | `escalate` takes a structured summary (reason code, detail, the customer's words quoted, item IDs, the previous answer when it conflicts, a recommended action) and code checks it: the quote is in the reply, the items belong to the question | A person who gets the ticket should act without the transcript. "Escalated, see conversation" is what the exam's support scenario marks wrong |
+| Checking the desk | From the tool state (what was recorded, escalated, followed up) against `eval/intake/expected.json`, never from the agent's report | The report is the agent's claim. One injected transient failure checks it retried that call and nothing else |
+| Schema v2 (A2, 4.3) | `kind` gains `other` with a required `kind_detail`; `detected_pattern` per question; a contradiction carries `sides` (item ID, value copied from that row) and the model's `conflict_detected`; code computes `conflict_verified` from the sides | Without `other`, a misfit is forced into a category and the kind accuracy lies. A contradiction whose two values are copied can be checked by code; one the model only asserts cannot |
+| Retry policy (A2, 4.4) | Errors the model can fix (schema, a quote or value not copied exactly, `conflict_detected` against the copied sides) go back; an error no retry can fix (a side on a page the case does not see) is dropped and recorded; the same errors twice stop the case (`no_progress`) | Retrying when the information is not in the request costs tokens and invites the model to invent the missing row |
+| Crash recovery and synthesis (A6, 5.3, 5.4, 5.6) | `manifest.json` written after every case; each finished case in `cases/<screen>.json`; `--resume` requests only pending cases. The report states coverage (screens missing and why), gives each claim its sources (case, rows, quote page, spec hash), and keeps two claims that disagree side by side | A run that dies at screen 9 should not pay for screens 1 to 8 again. A report that omits the screens it did not reach reads as "no problems there" |
+| Verifier (A3, 4.6) | A separate request per finding that sees the cited pages, OVR and CMN, and only the claim fields (location, kind, severity, issue, question, quote), never `proposed_answer` or the reviewer's reasoning; it returns `is_real_problem`, a corrected kind and severity, a confidence and a reason | A second look in the same context tends to agree with the first. Self-review is the pattern the exam marks wrong for 4.6 |
+| Calibration (A3, 5.5) | A pool of 486 labelled findings from every earlier run (deduplicated) plus 5 decoys written to be wrong on purpose; a stratified sample of 6 per (label, kind) stratum (34, since only 4 non-real contradictions exist); per threshold, the share automated, the accuracy and the worst kind's accuracy; the chosen threshold is the lowest where both reach 0.95 | The pool is 92% real: a random sample of 34 would hold about 3 non-real findings, and an accuracy on it would mostly measure the easy class. A threshold that is good on average can still be bad for one kind |
+| Batch with resubmit (A4, 4.5) | `run_batch_with_resubmit`: a round collects results by `custom_id`, checks each (errored, expired, `max_tokens`, invalid JSON, wrong shape), and resubmits only the failed IDs, with `max_tokens` doubled after a cut-off; a refusal is not resubmitted; at most 3 rounds, then `gave_up`. `--inject-fault` gives one request `max_tokens=16` | Resubmitting the whole batch pays twice for what succeeded. Results come back in any order, so matching is by `custom_id`, never position |
+| Where batches fit | Calibration and other overnight work only. Not the CI check (see the template's header) | The Batches API promises results within 24 hours, not minutes: a pull request cannot wait on it |
+| Shared policy (A5, 3.1) | `docs/review-policy.md` (tag `P6-IMPORT`), imported by the project CLAUDE.md with `@docs/review-policy.md`; review, re-review and verifier work to the same rule of "same finding" | Copying the rule into three prompts lets them drift. An import in a code span is not followed: the test checks the line is outside backticks |
+| Re-review (A5, 3.6) | `/re-review-spec <screen> <prior file>` with `argument-hint` and positional `$0`/`$1`; it reports only new findings and places every prior ID in `still_open` or `addressed`. Code counts duplicates by the policy rule | Re-reviewing from scratch on every push repeats old comments on the pull request. `$ARGUMENTS` would put the file path into the page ID |
+| Independent verify session (A5, 4.6) | A second `claude -p` process runs the `verify-findings` skill (`context: fork`, `agent: general-purpose`, `allowed-tools` read only). Its prompt asks the main model to call the skill through the Skill tool | A subagent in the reviewer's own session shares its starting point. A typed `/verify-findings` in `-p` returned no answer (below) |
+
+**Measured, A1** (Haiku 5.5, a reply that answers Q001, Q002 (critical), Q003 (conflicts with an earlier answer),
+Q004 (promised later), Q005, names an unknown Q007 and skips Q006):
+
+| Run | Rules in the prompt | User message | Checks | Hook blocks | Cost |
+|---|---|---|---|---|---|
+| 074002 | yes | plain | 8 of 8 | none | USD 0.0031, 15 turns |
+| 074026 | no (hooks only) | plain | 8 of 8 | none | USD 0.0032, 14 turns |
+| 074108 | no | asks to record Q002 directly and skip `get_question` | 8 of 8 | `record_answer` Q002, `policy_critical` | USD 0.0040, 17 turns |
+
+In all three, Q002 went to `escalate` with `policy_critical`, Q003 with `conflicting_answer` naming the earlier
+"1ページ20件", Q004 to follow-up, Q007 and Q006 in the report; the transient timeout on Q001 was retried once and
+nothing else was. The handoffs passed the code checks.
+
+**Measured, A2 and A6** (Sonnet 5.5, `output_config.format`, effort medium, the 12 screens): run 074508 stopped after
+4 cases (`--stop-after 4`, USD 0.083), then `--resume` requested the 8 pending cases only (USD 0.190; total USD 0.273).
+All 12 valid, 0 dropped, 0 conflicts left in the report. Against P4 in the same mode: found 22 of 23 (the same),
+found with the right kind 20 (P4: 17), severity agreed 16 (14), false positives 3 (4). On SC-11 the first attempt
+said `conflict_detected` false on a role row that the copied sides show to differ; the retry with that error fixed
+it. The partial report after the stop said "partial: 8 screens not reviewed; findings about them are absent, not
+negative" and listed the seven unreviewed screens with planted problems.
+
+**Measured, A3 and A4** (Sonnet 5.5, effort low, run 075052, one batch, `--inject-fault`): round 1, 34 submitted, 33
+succeeded, V001 cut off at `max_tokens`; round 2 resubmitted V001 alone with 4,000 tokens and it succeeded. Nothing
+given up. 35 billed messages, USD 0.064 at the batch price, 457 s (394 s for round 1).
+
+| Calibration | Value |
+|---|---|
+| Accuracy over 34 | 0.85 (real 17 of 18, not real 12 of 16) |
+| By kind | ambiguous 0.92, missing 0.83, contradiction 0.80 |
+| By confidence | below 0.6: 1 of 1; 0.6 to 0.8: 0.71 (14); 0.8 to 0.9: 0.92 (13); 0.9 and over: 1.0 (6) |
+| Mean confidence | 0.78 when right, 0.72 when wrong |
+| Threshold chosen (accuracy and worst kind at least 0.95) | 0.9: 6 of 34 automated (18%); at 0.8, 56% automated at 0.95 accuracy but the worst kind at 0.875 |
+| Kind agreed on real findings | 0.83 |
+
+The five errors, read one by one: one real finding rejected (P10: "MSG-E005 is used for both checks", which the
+verifier called a UX preference). Four non-real labels the verifier called real; three of them come from the scorer,
+not the verifier: a finding that cites an anchor of a non-issue is labelled a false positive even when it asks
+something else (V055 asks how an item is chosen for editing, V216 the reference date of the overdue count, V286 what
+send-back does; all three are reasonable questions, as P4 found when it called "false positive" an upper
+bound). The fourth (V062, a decoy on N02) is the verifier's own error:
+the category list is given by reference to SC-03-F02, and the verifier saw SC-10, OVR and CMN but not SC-03.
+
+**Measured, A5** (SC-05, which holds P02, P07, P08, P09 and P10):
+
+| Run | Session 1 | Session 2 (verify) | Checks | Cost |
+|---|---|---|---|---|
+| 075436 | Haiku review: P02, P08, P09, P10; tags P6-IMPORT, P6-PROJECT, P6-RULE-SPEC | typed `/verify-findings`: `num_turns` 0, `result` "Command completed", no structured output | 10 of 13 | USD 0.009 |
+| 075605 | Haiku review: P02, P08, P10 | through the Skill tool: 3 verdicts, 3 of 3 agree with the scorer | 13 of 13 | USD 0.009 |
+| 075656 | Haiku re-review with 075605 as prior: 0 new, 0 duplicates, Q001 to Q003 still open | not run | 11 of 11 | USD 0.003 |
+| 075722 | Sonnet re-review with the same prior: 2 new (P09 and one unplanned), 0 duplicates, 3 still open | both kept (0.70, 0.80), 1 of 1 labelled agrees | 17 of 17 | USD 0.159 |
+
+**What the runs showed:**
+
+- **A hook that is never challenged is not tested.** With the rules in the prompt, and also without them, Haiku
+  escalated Q002 by itself: the policy hook never fired. Only the run whose user message pushed for the shortcut
+  reached the hook, which denied the call, and the model then escalated with the hook's reason. The same lesson as the
+  P6 probe: a guard is measured by the run that reaches it.
+- **The richer schema helped the kind more than the recall.** Recall stayed at 22 of 23; kind and severity agreement
+  rose. Copied `sides` let code catch a wrong `conflict_detected` and send it back with a precise error.
+- **A crash cost nothing twice.** The resume paid for 8 cases, not 12, and the partial report said what it did not
+  cover instead of reading as a clean bill.
+- **The verifier's confidence barely separates right from wrong** (0.78 against 0.72), and the 0.6 to 0.8 band was
+  71% accurate. Taken at face value, a confidence of 0.7 means little; calibrated, only 0.9 and over earned automation
+  here, and that was 18% of the findings. The figure is from 34 items: one more error at 0.9 would move it.
+- **A calibration is only as good as its labels.** Three of five "verifier errors" were the scorer's anchor rule
+  labelling a different question as a false positive. Reading the wrong rows by hand is part of the method, not an
+  extra.
+- **Giving a verifier only the cited pages is a trade-off.** It keeps the context small and blind to the reviewer, but
+  a finding about a cross-reference (SC-10-F03 points to SC-03-F02) can only be judged with the referenced page. The
+  next step would add the pages of items the cited rows reference.
+- **A forked skill typed as a slash command in `claude -p` gives back nothing.** Claude Code 2.1.310 ran the fork
+  (tokens were spent) but returned `"Command completed"` with no structured output. Asked to call the skill through
+  the Skill tool, the main model got the fork's answer and filled the schema. `subagent_stats.spawned` stayed 0 in
+  both cases, so it cannot show whether a fork ran.
+- **A re-review with the prior findings stays quiet as asked, and the model sets the ceiling.** Both re-reviews
+  placed every prior ID and repeated none. Haiku found nothing new on SC-05; Sonnet found P09, which Haiku's first
+  review had missed, for 17 times the cost. P07, a cross-page contradiction, was missed by all four sessions.
+
+Spent on P7: USD 0.53 (A1 0.010, A2 and A6 0.273, A3 and A4 0.064, A5 0.181). Total so far: USD 5.34 of 30.

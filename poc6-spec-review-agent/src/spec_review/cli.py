@@ -1,4 +1,5 @@
-"""Command line: `uv run spec-review run --dry-run`, `run`, `p2` to `p6`, `notes`, `score <file>`, `index`."""
+"""Command line: `uv run spec-review run --dry-run`, `run`, `p2` to `p6`, `notes`, the part 7 commands `intake`,
+`review2`, `verify` and `ci`, `score <file>`, `index`."""
 
 from __future__ import annotations
 
@@ -342,6 +343,206 @@ def cmd_p6(args: argparse.Namespace) -> int:
     return 0 if passed == of else 1
 
 
+def cmd_intake(args: argparse.Namespace) -> int:
+    import asyncio
+
+    from .intake import check, load_data, run_intake
+
+    budget = float(os.environ.get("SPEC_REVIEW_BUDGET_USD", "30"))
+    left = budget - spent_usd()
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    if left <= 0 or not key:
+        print("No budget left, or ANTHROPIC_API_KEY is not set.")
+        return 2
+    env = {"ANTHROPIC_API_KEY": key}
+    tag = ("policy" if args.policy_in_prompt else "nopolicy") + ("-pressure" if args.pressure else "")
+    run_dir = RUNS / f"{datetime.now():%Y%m%d-%H%M%S}-part7-intake-{args.model.split('-')[1]}-{tag}"
+    run_dir.mkdir(parents=True)
+    res = asyncio.run(run_intake(run_dir, env, model=args.model, effort=args.effort,
+                                 max_budget_usd=min(args.max_budget, left), policy_in_prompt=args.policy_in_prompt,
+                                 pressure=args.pressure))
+    r = res.result
+    cli_cost = r.total_cost_usd if r else None
+    cost = res.own_cost_usd if res.own_cost_usd is not None else (cli_cost or 0.0)
+    summary = {"part": 7, "task": "intake", "model": args.model, "policy_in_prompt": args.policy_in_prompt,
+               "pressure": args.pressure, "outcome": r.subtype if r else "no_result", "turns": r.num_turns if r else None,
+               **check(res.state, load_data()[2]), "report": res.state.report, "call_log": res.state.calls,
+               "init": res.init, "cost_usd": cost, "cli_cost_usd": cli_cost, "seconds": res.seconds,
+               "run_dir": run_dir.name}
+    (run_dir / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+    with LEDGER.open("a") as f:
+        f.write(json.dumps({"run": run_dir.name, "cost_usd": cost}) + "\n")
+    print(json.dumps({k: v for k, v in summary.items() if k not in ("init", "call_log")}, ensure_ascii=False, indent=2,
+                     default=str))
+    return 0 if summary["passed"] == summary["of"] else 1
+
+
+def cmd_review2(args: argparse.Namespace) -> int:
+    from . import review_v2 as rv
+    from .extract import P4Config
+
+    spec = load_spec()
+    answers = json.loads(ANSWERS.read_text(encoding="utf-8"))
+    budget = float(os.environ.get("SPEC_REVIEW_BUDGET_USD", "30"))
+    left = budget - spent_usd()
+    if left <= 0 or not os.environ.get("ANTHROPIC_API_KEY"):
+        print("No budget left, or ANTHROPIC_API_KEY is not set.")
+        return 2
+    if args.resume:
+        run_dir = Path(args.resume) if Path(args.resume).is_absolute() else RUNS / Path(args.resume).name
+        manifest = json.loads((run_dir / "manifest.json").read_text("utf-8"))
+        why = rv.resume_problem(manifest, spec)
+        if why:
+            print(f"Cannot resume {run_dir.name}: {why}.")
+            return 2
+        conf = manifest["config"]
+        cfg = P4Config(mode=conf["mode"], effort=conf["effort"], few_shot=conf["few_shot"],
+                       max_attempts=conf["max_attempts"], screens=list(manifest["cases"]),
+                       budget_left_usd=min(args.max_budget, left))
+    else:
+        cfg = P4Config(mode=args.mode, effort=args.effort, max_attempts=args.max_attempts,
+                       screens=[s.strip().upper() for s in args.screens.split(",")] if args.screens else None,
+                       budget_left_usd=min(args.max_budget, left))
+        run_dir = RUNS / f"{datetime.now():%Y%m%d-%H%M%S}-part7-review2-{args.mode}"
+        run_dir.mkdir(parents=True)
+    import anthropic
+
+    t0 = datetime.now()
+    out = rv.run_v2(anthropic.Anthropic(), spec, cfg, run_dir, stop_after=args.stop_after)
+    report = rv.synthesise(run_dir, spec, answers)
+    with LEDGER.open("a") as f:
+        f.write(json.dumps({"run": run_dir.name + ("/resume" if args.resume else ""), "cost_usd": out["cost_usd"]}) + "\n")
+    summary = {"part": 7, "task": "review2", "run_dir": run_dir.name, "resumed": bool(args.resume),
+               "stop_after": args.stop_after, "requested": out["requested"], "cost_usd": out["cost_usd"],
+               "seconds": round((datetime.now() - t0).total_seconds(), 1),
+               "statuses": {s: c["status"] for s, c in out["manifest"]["cases"].items()},
+               **{k: report[k] for k in ("coverage", "score", "patterns", "kind_other", "dropped", "stated_vs_computed",
+                                         "outcomes")}, "conflicts": len(report["conflicts"])}
+    name = "summary-resume.json" if args.resume else "summary.json"
+    (run_dir / name).write_text(json.dumps(summary, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+    print(json.dumps(summary, ensure_ascii=False, indent=2, default=str))
+    return 0
+
+
+def cmd_verify(args: argparse.Namespace) -> int:
+    from . import verify as vf
+
+    spec = load_spec()
+    answers = json.loads(ANSWERS.read_text(encoding="utf-8"))
+    pool = vf.build_pool(answers)
+    sample = vf.stratified_sample(pool, args.per_stratum)
+    # A batch cannot be stopped at a spend cap halfway, so the cap is checked on an upper estimate before it starts:
+    # about 9K prompt tokens and 1.5K output tokens a request at the batch price, twice for the fault and a retry.
+    estimate = (len(sample) + 2) * (9000 * 2.0 + 1500 * 10.0) / 1e6 * 0.5
+    plan = {"pool": len(pool), "sample": len(sample), "estimate_usd": round(estimate, 3), "model": args.model}
+    if args.dry_run:
+        print(json.dumps(plan, indent=2))
+        return 0
+    budget = float(os.environ.get("SPEC_REVIEW_BUDGET_USD", "30"))
+    left = budget - spent_usd()
+    if left <= 0 or not os.environ.get("ANTHROPIC_API_KEY"):
+        print("No budget left, or ANTHROPIC_API_KEY is not set.")
+        return 2
+    if estimate > min(args.max_budget, left):
+        print(f"The estimate {estimate:.3f} USD is over the cap {min(args.max_budget, left):.3f} USD.")
+        return 2
+    import anthropic
+
+    run_dir = RUNS / f"{datetime.now():%Y%m%d-%H%M%S}-part7-verify-{args.model.split('-')[1]}"
+    run_dir.mkdir(parents=True)
+    t0 = datetime.now()
+    out = vf.run_verify(anthropic.Anthropic(), spec, answers, run_dir, per_stratum=args.per_stratum,
+                        model=args.model, inject_fault=args.inject_fault, poll_s=args.poll)
+    with LEDGER.open("a") as f:
+        f.write(json.dumps({"run": run_dir.name, "cost_usd": out["cost_usd"]}) + "\n")
+    summary = {"part": 7, "task": "verify", "run_dir": run_dir.name, **plan, "inject_fault": args.inject_fault,
+               "seconds": round((datetime.now() - t0).total_seconds(), 1), **out}
+    (run_dir / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2, default=str),
+                                          encoding="utf-8")
+    print(json.dumps(summary, ensure_ascii=False, indent=2, default=str))
+    return 0
+
+
+def cmd_ci(args: argparse.Namespace) -> int:
+    """Part 7 (A5): review (or re-review) a screen in one headless session, verify in a second, independent one."""
+    import secrets
+
+    from . import ci_review as ci
+    from . import headless as h
+    from .mcp_server import TOKEN_VAR
+
+    spec = load_spec()
+    answers = json.loads(ANSWERS.read_text(encoding="utf-8"))
+    screen = args.screen.upper()
+    budget = float(os.environ.get("SPEC_REVIEW_BUDGET_USD", "30"))
+    left = budget - spent_usd()
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    if left <= 0 or not key:
+        print("No budget left, or ANTHROPIC_API_KEY is not set.")
+        return 2
+    env = {k: os.environ[k] for k in ("PATH", "HOME", "TMPDIR", "LANG") if k in os.environ}
+    env |= {"ANTHROPIC_API_KEY": key, TOKEN_VAR: os.environ.get(TOKEN_VAR) or secrets.token_urlsafe(16)}
+    prior_path = Path(args.prior).resolve() if args.prior else None
+    tag = "rereview" if prior_path else "review"
+    run_dir = RUNS / f"{datetime.now():%Y%m%d-%H%M%S}-part7-ci-{tag}-{screen}-{args.model.split('-')[1]}"
+    run_dir.mkdir(parents=True)
+    cap = min(args.max_budget, left)
+    tools = ["Read", h.T_READ]
+
+    if prior_path:
+        prior = ci.load_prior(prior_path)
+        rel = os.path.relpath(prior_path, ROOT)
+        cmd = h.build_command(f"/re-review-spec {screen} {rel}", args.model, cap, schema=ci.re_review_schema(spec),
+                              tools=tools)
+        res = h.run_headless(cmd, env)
+        review = ci.check_re_review(res, spec, answers, screen, prior)
+    else:
+        cmd = h.build_command(f"/review-spec {screen}", args.model, cap, schema=h.review_schema(spec), tools=tools)
+        res = h.run_headless(cmd, env)
+        review = h.check_review(res, spec, answers, screen)
+    (run_dir / "review_output.json").write_text(json.dumps(res.raw, ensure_ascii=False, indent=2), encoding="utf-8")
+    qs = review["questions"]
+    (run_dir / "question_list.json").write_text(json.dumps({"questions": qs}, ensure_ascii=False, indent=2),
+                                                encoding="utf-8")
+    steps = {"review": {"session_id": (res.raw or {}).get("session_id"), "cost_usd": res.cost_usd,
+                        "seconds": res.seconds, "num_turns": (res.raw or {}).get("num_turns"),
+                        "stderr_tail": res.stderr_tail if res.returncode else "",
+                        **{k: v for k, v in review.items() if k != "questions"}}}
+
+    verify = None
+    if qs and not args.no_verify:
+        rel = os.path.relpath(run_dir / "question_list.json", ROOT)
+        # Typed as /verify-findings, the forked skill runs but `claude -p` returns only "Command completed" (run
+        # 20261112-075436). Invoked through the Skill tool, the fork's answer comes back to this session, which
+        # passes it on in the structured output.
+        cmd2 = h.build_command(ci.VERIFY_PROMPT.format(file=rel), args.model, max(min(cap, left - res.cost_usd), 0.01),
+                               schema=ci.verify_schema(), tools=ci.VERIFY_TOOLS + args.verify_tools)
+        res2 = h.run_headless(cmd2, env)
+        (run_dir / "verify_output.json").write_text(json.dumps(res2.raw, ensure_ascii=False, indent=2),
+                                                    encoding="utf-8")
+        verify = ci.check_verify(res2, qs, answers, {"P6-PROJECT", "P6-IMPORT"})
+        sid1, sid2 = (res.raw or {}).get("session_id"), (res2.raw or {}).get("session_id")
+        verify["checks"]["separate_session"] = bool(sid2) and sid1 != sid2
+        verify["passed"], verify["of"] = sum(verify["checks"].values()), len(verify["checks"])
+        steps["verify"] = {"session_id": sid2, "cost_usd": res2.cost_usd, "seconds": res2.seconds,
+                           "num_turns": (res2.raw or {}).get("num_turns"),
+                           "stderr_tail": res2.stderr_tail if res2.returncode else "", **verify}
+    comment = ci.pr_comment(screen, review, verify, bool(prior_path))
+    (run_dir / "pr_comment.md").write_text(comment, encoding="utf-8")
+    cost = round(sum(s["cost_usd"] for s in steps.values()), 6)
+    passed = sum(s["passed"] for s in steps.values())
+    of = sum(s["of"] for s in steps.values())
+    summary = {"part": 7, "task": "ci", "screen": screen, "model": args.model, "prior": args.prior,
+               "steps": steps, "passed": passed, "of": of, "cost_usd": cost, "run_dir": run_dir.name}
+    (run_dir / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2, default=str),
+                                          encoding="utf-8")
+    with LEDGER.open("a") as f:
+        f.write(json.dumps({"run": run_dir.name, "cost_usd": cost}) + "\n")
+    print(json.dumps(summary, ensure_ascii=False, indent=2, default=str))
+    print(comment)
+    return 0 if passed == of else 1
+
+
 def cmd_score(args: argparse.Namespace) -> int:
     data = json.loads(Path(args.file).read_text(encoding="utf-8"))
     print(json.dumps(score(data["questions"], json.loads(ANSWERS.read_text(encoding="utf-8"))), ensure_ascii=False, indent=2))
@@ -410,6 +611,41 @@ def main(argv: list[str] | None = None) -> int:
     hp.add_argument("--max-budget", type=float, default=0.30, help="USD cap for the review run (--max-budget-usd)")
     hp.add_argument("--hook-probe", action="store_true", help="also ask a second run to write a secret file, to see the hook block it")
     hp.set_defaults(fn=cmd_p6)
+    it = sub.add_parser("intake", help="Part 7: the question desk processes the customer's reply (billed)")
+    it.add_argument("--model", default="claude-haiku-5-5")
+    it.add_argument("--effort", default="medium", choices=["low", "medium", "high"])
+    it.add_argument("--max-budget", type=float, default=0.30, help="USD cap for this run")
+    it.add_argument("--no-policy-in-prompt", dest="policy_in_prompt", action="store_false",
+                    help="leave the desk rules out of the prompt, so only the hooks enforce them")
+    it.add_argument("--pressure", action="store_true",
+                    help="the user message asks to record the critical Q002 directly and skip get_question")
+    it.set_defaults(fn=cmd_intake)
+    r2 = sub.add_parser("review2", help="Part 7: the test set with the v2 schema, manifest and resume (billed)")
+    r2.add_argument("--mode", default="sonnet-format",
+                    choices=["haiku-forced", "haiku-forced-loose", "haiku-format", "sonnet-strict", "sonnet-format"])
+    r2.add_argument("--effort", default="medium", choices=["low", "medium", "high"])
+    r2.add_argument("--max-attempts", type=int, default=3)
+    r2.add_argument("--screens", help="comma-separated subset")
+    r2.add_argument("--stop-after", type=int, default=None, help="start only N cases, then stop (a simulated crash)")
+    r2.add_argument("--resume", metavar="RUN_DIR", help="continue the pending cases of an earlier run")
+    r2.add_argument("--max-budget", type=float, default=1.0, help="USD cap for this invocation")
+    r2.set_defaults(fn=cmd_review2)
+    vp = sub.add_parser("verify", help="Part 7: an independent verifier, calibrated, run as a batch (billed)")
+    vp.add_argument("--model", default="claude-sonnet-5-5")
+    vp.add_argument("--per-stratum", type=int, default=6, help="items per (label, kind) stratum")
+    vp.add_argument("--inject-fault", action="store_true", help="one request gets max_tokens=16 and must be resubmitted")
+    vp.add_argument("--poll", type=float, default=15.0, help="seconds between batch status checks")
+    vp.add_argument("--dry-run", action="store_true", help="show the sample size and the cost estimate only")
+    vp.add_argument("--max-budget", type=float, default=0.60, help="USD cap, checked on the estimate")
+    vp.set_defaults(fn=cmd_verify)
+    cp = sub.add_parser("ci", help="Part 7: review or re-review a screen, then verify in a separate session (billed)")
+    cp.add_argument("--screen", default="SC-05")
+    cp.add_argument("--prior", help="question_list.json of an earlier review: re-review and report only new findings")
+    cp.add_argument("--model", default="claude-haiku-5-5")
+    cp.add_argument("--no-verify", action="store_true")
+    cp.add_argument("--verify-tools", nargs="*", default=[], help="extra built-in tools for the verify session")
+    cp.add_argument("--max-budget", type=float, default=0.30, help="USD cap for each session")
+    cp.set_defaults(fn=cmd_ci)
     s = sub.add_parser("score", help="score a question_list.json against eval/answers.json")
     s.add_argument("file")
     s.set_defaults(fn=cmd_score)

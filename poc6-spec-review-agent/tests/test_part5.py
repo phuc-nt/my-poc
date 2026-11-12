@@ -30,7 +30,8 @@ def test_tool_reads_a_page_and_normalises_the_id():
         lambda c: c.call_tool("read_page", {"page_id": "sc-06"}),
         lambda c: c.call_tool("read_page", {"page_id": "ＳＣ－０６"}),
     ]))
-    (tool,) = tools.tools
+    tool = next(t for t in tools.tools if t.name == "read_page")
+    assert {t.name for t in tools.tools} == {"read_page", "search_spec"}  # search_spec: part 7 (A1)
     assert tool.name == "read_page" and tool.annotations.read_only_hint and INDEX_URI in tool.description
     assert tool.input_schema["required"] == ["page_id"]
     assert not page.is_error and page.content[0].text == SPEC.pages["SC-06"].text

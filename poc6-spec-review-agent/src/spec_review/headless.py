@@ -27,9 +27,9 @@ MCP_CONFIG = ROOT / ".mcp.json"
 T_READ = "mcp__spec__read_page"
 
 # Which configuration files should reach a run of /review-spec, and which should not: the project CLAUDE.md always,
-# the spec rule because the command reads spec/*.md, and neither the src/ CLAUDE.md nor the Python rule, because the
-# run opens no file under src/ or tests/.
-EXPECTED_TAGS = {"P6-PROJECT", "P6-RULE-SPEC"}
+# the review policy it imports with @docs/review-policy.md (part 7), the spec rule because the command reads
+# spec/*.md, and neither the src/ CLAUDE.md nor the Python rule, because the run opens no file under src/ or tests/.
+EXPECTED_TAGS = {"P6-PROJECT", "P6-IMPORT", "P6-RULE-SPEC"}
 ABSENT_TAGS = {"P6-SRC-DIR", "P6-RULE-PY"}
 
 # The first wording ("Create .env.local ...") never reached the hook: the model refused on the CLAUDE.md rule alone.

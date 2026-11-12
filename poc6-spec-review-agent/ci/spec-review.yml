@@ -1,0 +1,103 @@
+# Template of a pull-request check that reviews the changed spec screens (part 7, A5; task statement 3.6).
+#
+# It is NOT active: it sits in ci/, not .github/workflows/, because this repository is public and the PoC has no CI
+# budget. To use it in a private repository, copy it to .github/workflows/ and add the secret ANTHROPIC_API_KEY.
+#
+# What it shows:
+# - claude -p runs headless with --output-format json and --json-schema, so the job parses a known shape and never
+#   scrapes prose (the `ci` subcommand wraps the two calls and their checks).
+# - The review session and the verify session are two separate processes; the verifier (`/verify-findings`,
+#   context: fork) never sees the reviewer's context.
+# - A later push re-reviews with the findings of the previous run as input (`--prior`), so the comment lists only new
+#   findings instead of repeating the old ones on every push.
+# - --setting-sources project: the run uses this folder's CLAUDE.md, rules, commands and skills, and nobody's user
+#   settings; a spend cap applies to each session (--max-budget-usd inside `ci`).
+# - The Message Batches API is not used here: it promises results within 24 hours, not minutes, so it suits the
+#   nightly verifier calibration (`spec-review verify`), never a check a developer waits on before a merge.
+
+name: spec-review
+
+on:
+  pull_request:
+    paths: ["poc6-spec-review-agent/spec/**"]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: spec-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: poc6-spec-review-agent
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Find the changed screens
+        id: screens
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          screens=$(git diff --name-only "$base"...HEAD -- spec/ | sed -n 's#.*spec/\(SC-[0-9][0-9]\)\.md#\1#p' | sort -u | tr '\n' ' ')
+          echo "list=$screens" >> "$GITHUB_OUTPUT"
+
+      - name: Restore the findings of the previous run on this PR
+        uses: actions/cache/restore@v4
+        with:
+          path: poc6-spec-review-agent/prior
+          key: spec-review-${{ github.event.pull_request.number }}-${{ github.sha }}
+          restore-keys: spec-review-${{ github.event.pull_request.number }}-
+
+      - name: Review, then verify in a separate session
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SPEC_REVIEW_BUDGET_USD: "2"
+        run: |
+          mkdir -p prior comments
+          status=0
+          for s in ${{ steps.screens.outputs.list }}; do
+            args="--screen $s --model claude-haiku-5-5"
+            [ -f "prior/$s.json" ] && args="$args --prior prior/$s.json"
+            uv run spec-review ci $args > "comments/$s.log" || status=1
+            run=$(ls -td runs/*-part7-ci-*-"$s"-* | head -1)
+            cp "$run/pr_comment.md" "comments/$s.md"
+            # the next push re-reviews against everything found so far
+            python3 - "$run/question_list.json" "prior/$s.json" <<'PY'
+          import json, os, sys
+          new = json.load(open(sys.argv[1]))["questions"]
+          old = json.load(open(sys.argv[2]))["questions"] if os.path.exists(sys.argv[2]) else []
+          for i, q in enumerate(new, len(old) + 1):
+              q["id"] = f"Q{i:03d}"
+          json.dump({"questions": old + new}, open(sys.argv[2], "w"), ensure_ascii=False, indent=1)
+          PY
+          done
+          exit $status
+
+      - name: Save the findings for the next push
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: poc6-spec-review-agent/prior
+          key: spec-review-${{ github.event.pull_request.number }}-${{ github.sha }}
+
+      - name: Comment on the pull request
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for f in comments/*.md; do
+            [ -f "$f" ] && gh pr comment "${{ github.event.pull_request.number }}" --body-file "$f"
+          done

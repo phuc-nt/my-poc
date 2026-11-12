@@ -1,0 +1,8 @@
+{
+  "note": "What the desk must end with, checked from the tool state, not from the agent's report.",
+  "recorded": ["Q001", "Q005"],
+  "escalated": {"Q002": "policy_critical", "Q003": "conflicting_answer"},
+  "follow_up": ["Q004"],
+  "unknown_ids": ["Q007"],
+  "unanswered": ["Q006"]
+}
