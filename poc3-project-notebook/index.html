@@ -1,0 +1,1001 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project Notebook: kiến trúc và chất lượng Knowledge Base</title>
+<meta name="description" content="Tài liệu cho ban lãnh đạo: kiến trúc mới nhất của Project Notebook và cách Preparation step nâng chất lượng Knowledge Base.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:light dark;
+  --page:#f9f9f7;--surface:#fcfcfb;--sunken:#f1f0ec;
+  --ink:#0b0b0b;--ink2:#52514e;--muted:#898781;
+  --grid:#e1e0d9;--axis:#c3c2b7;--border:rgba(11,11,11,.10);
+  --accent:#2a78d6;--accent-soft:#e7f0fc;--accent-ink:#184f95;
+  --before:#898781;--good:#0ca30c;--good-text:#006300;--crit:#d03b3b;
+  --shadow:0 1px 2px rgba(11,11,11,.04),0 10px 30px rgba(11,11,11,.05);
+  --font:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --page:#0d0d0d;--surface:#1a1a19;--sunken:#232321;
+    --ink:#f0efec;--ink2:#c3c2b7;--muted:#898781;
+    --grid:#2c2c2a;--axis:#383835;--border:rgba(255,255,255,.10);
+    --accent:#3987e5;--accent-soft:#12253f;--accent-ink:#9ec5f4;
+    --good-text:#0ca30c;--shadow:none;
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--page);color:var(--ink);font-family:var(--font);font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+.prose{max-width:720px}
+p{margin:0 0 1em}
+h1,h2,h3{line-height:1.25;margin:0;letter-spacing:-.01em}
+h1{font-size:clamp(30px,4.6vw,46px);font-weight:700;letter-spacing:-.02em;text-wrap:balance}
+h2{font-size:clamp(24px,3vw,30px);font-weight:700;margin-bottom:14px;text-wrap:balance}
+h3{font-size:17px;font-weight:600}
+b,strong{font-weight:600}
+code{font-family:var(--mono);font-size:.88em;background:var(--sunken);padding:.1em .35em;border-radius:5px}
+.term{font-style:normal;font-weight:500}
+
+/* header */
+header.top{padding:56px 0 28px}
+.eyebrow{font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:18px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.eyebrow i{width:4px;height:4px;border-radius:50%;background:var(--muted);display:inline-block;vertical-align:middle;margin-right:10px}
+.swipe{display:none}
+.hero{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:36px;align-items:end}
+.lead{font-size:19px;color:var(--ink2);margin-top:18px;max-width:640px}
+.herocard{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:24px;box-shadow:var(--shadow)}
+.herocard .lab{font-size:14px;color:var(--ink2)}
+.herocard .big{font-size:64px;font-weight:700;letter-spacing:-.03em;line-height:1.05;margin:6px 0 4px}
+.herocard .big small{font-size:28px;font-weight:600;color:var(--muted);letter-spacing:0}
+.delta{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:var(--good-text)}
+.delta svg{width:14px;height:14px}
+.herocard .foot{font-size:13px;color:var(--ink2);margin-top:12px;border-top:1px solid var(--grid);padding-top:12px}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:34px 0 0}
+.tile{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+.tile .v{font-size:28px;font-weight:600;letter-spacing:-.02em;line-height:1.2}
+.tile .l{font-size:14px;color:var(--ink2);line-height:1.45;margin-top:4px}
+.tile .d{font-size:13px;color:var(--muted);margin-top:6px}
+
+/* sections */
+section{padding:56px 0 8px}
+.num{font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-ink);margin-bottom:8px}
+.toc{display:flex;flex-wrap:wrap;gap:8px;margin:34px 0 0;padding:0;list-style:none}
+.toc a{display:block;font-size:14px;font-weight:500;color:var(--ink2);text-decoration:none;border:1px solid var(--border);border-radius:999px;padding:6px 14px;background:var(--surface)}
+.toc a:hover{color:var(--ink);border-color:var(--axis)}
+
+/* figures */
+figure.fig{margin:26px 0 10px;background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:22px;box-shadow:var(--shadow)}
+.fig-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.fig-sub{font-size:14px;color:var(--ink2);margin:4px 0 0;max-width:560px;line-height:1.5}
+figcaption{font-size:14px;color:var(--ink2);margin-top:16px;padding-top:14px;border-top:1px solid var(--grid);line-height:1.55}
+.seg{display:inline-flex;background:var(--sunken);border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{font:inherit;font-size:14px;font-weight:500;color:var(--ink2);background:none;border:0;border-radius:8px;padding:7px 13px;cursor:pointer;line-height:1.3}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed=true]{background:var(--surface);color:var(--ink);box-shadow:0 0 0 1px var(--border),0 1px 2px rgba(0,0,0,.06)}
+button:focus-visible,[tabindex]:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:14px;color:var(--ink2);margin-bottom:10px}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.sw{width:11px;height:11px;border-radius:50%;display:inline-block;background:var(--before)}
+.sw.a{background:var(--accent)}
+.sw.sq{border-radius:3px}
+details.tbl{margin-top:14px;font-size:14px}
+details.tbl summary{cursor:pointer;color:var(--ink2);font-weight:500;width:max-content}
+table.data{border-collapse:collapse;width:100%;margin-top:10px;font-size:14px}
+table.data th,table.data td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--grid)}
+table.data th{font-weight:600;color:var(--ink2)}
+table.data td.n,table.data th.n{text-align:right;font-variant-numeric:tabular-nums}
+.tip{position:fixed;z-index:20;pointer-events:none;background:var(--ink);color:var(--page);font-size:13px;line-height:1.45;padding:8px 11px;border-radius:9px;max-width:270px;opacity:0;transition:opacity .12s;box-shadow:0 6px 20px rgba(0,0,0,.2)}
+.tip.show{opacity:1}
+.tip b{font-weight:700}
+.tip .tl{opacity:.75}
+
+/* architecture map */
+.arch-scroll{overflow-x:auto;margin:0 -6px;padding:0 6px}
+#arch{display:block;width:100%;min-width:840px;height:auto;font-family:var(--font)}
+#arch text{fill:var(--ink)}
+#arch .glab{font-size:12.5px;font-weight:600;letter-spacing:.09em;fill:var(--muted)}
+#arch .node{cursor:pointer;transition:opacity .3s}
+#arch .node rect.box{fill:var(--surface);stroke:var(--axis);stroke-width:1.2;transition:stroke .2s,fill .2s}
+#arch .node.wrapbox rect.box{fill:var(--sunken)}
+#arch .node.new rect.box{fill:var(--accent-soft);stroke:var(--accent)}
+#arch .node:hover rect.box{stroke:var(--ink2)}
+#arch .node.sel rect.box{stroke:var(--ink);stroke-width:2.2}
+#arch .node .nt{font-size:16px;font-weight:600}
+#arch .node .ns{font-size:13.5px;fill:var(--ink2)}
+#arch .chip rect{fill:var(--surface);stroke:var(--axis);stroke-width:1}
+#arch .chip.new rect{fill:var(--accent-soft);stroke:var(--accent)}
+#arch .chip text{font-size:14px;font-weight:500}
+#arch .badge rect{fill:var(--accent)}
+#arch .badge text{fill:#fff;font-size:10.5px;font-weight:700;letter-spacing:.06em}
+#arch .edge{transition:opacity .3s}
+#arch .edge path{fill:none;stroke:var(--axis);stroke-width:1.6;marker-end:url(#arr)}
+#arch .edge.bidir path{marker-start:url(#arr)}
+#arch .edge text{font-size:13.5px;fill:var(--ink2);paint-order:stroke;stroke:var(--surface);stroke-width:5px;stroke-linejoin:round}
+#arch .arr{fill:var(--axis)}
+#arch .arr-on{fill:var(--accent)}
+#arch .dot{fill:var(--accent);stroke:var(--surface);stroke-width:2;display:none}
+#arch[data-flow=ingest] .node:not(.f-ingest),#arch[data-flow=ingest] .edge:not(.f-ingest),
+#arch[data-flow=query] .node:not(.f-query),#arch[data-flow=query] .edge:not(.f-query){opacity:.26}
+#arch[data-flow=ingest] .edge.f-ingest path,#arch[data-flow=query] .edge.f-query path,#arch[data-flow=all] .edge path{stroke:var(--accent);marker-end:url(#arr-on)}
+#arch[data-flow=ingest] .edge.f-ingest.bidir path,#arch[data-flow=all] .edge.bidir path{marker-start:url(#arr-on)}
+#arch[data-flow=ingest] .dot.f-ingest,#arch[data-flow=query] .dot.f-query,#arch[data-flow=all] .dot{display:inline}
+.arch-panel{margin-top:14px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 18px;background:var(--sunken);border-radius:12px;padding:16px 18px;min-height:96px;align-items:start}
+.arch-panel .k{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);grid-column:1/-1}
+.arch-panel h3{font-size:18px;white-space:nowrap}
+.arch-panel p{margin:0;font-size:15.5px;color:var(--ink2);line-height:1.55}
+.hint{font-size:13px;color:var(--muted);margin:10px 0 0}
+
+/* what the KB sees */
+.slide{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:14px}
+.slide-main,.slide-notes{border:1px solid var(--grid);border-radius:12px;padding:18px 20px;background:var(--page);position:relative}
+.slide-title{font-size:21px;font-weight:700;margin-bottom:10px;line-height:1.3}
+.slide ul{margin:0 0 12px;padding-left:20px}
+.slide li{margin:4px 0;font-size:15.5px}
+.slide table{border-collapse:collapse;font-size:14.5px;width:100%}
+.slide td,.slide th{border:1px solid var(--grid);padding:5px 9px;text-align:left;font-weight:400}
+.slide th{font-weight:600;background:var(--sunken)}
+.tag{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);display:block;margin-bottom:8px}
+.slide-notes p{font-size:15px;margin:0}
+.w{border-radius:4px;transition:color .35s,background-color .35s,box-shadow .35s;padding:0 1px}
+.slide[data-view=raw] .w.lost{color:transparent;background:var(--grid);user-select:none}
+.slide[data-view=prep] .w.lost{box-shadow:inset 0 -2px 0 var(--accent)}
+.slide .gone{display:none;position:absolute;inset:0;border-radius:12px;align-items:center;justify-content:center;text-align:center;font-size:14px;font-weight:600;color:var(--ink2);padding:16px;background:repeating-linear-gradient(135deg,transparent 0 9px,var(--grid) 9px 10px)}
+.slide .gone span{background:var(--page);padding:6px 12px;border-radius:8px;border:1px solid var(--grid)}
+.slide[data-view=raw] .slide-notes .gone{display:flex}
+.slide[data-view=raw] .slide-notes>*:not(.gone){visibility:hidden}
+.slide[data-view=prep] .slide-notes{border-color:var(--accent)}
+.readout{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
+.readout>div{background:var(--sunken);border-radius:10px;padding:11px 14px}
+.readout .rv{font-size:24px;font-weight:600;line-height:1.2}
+.readout .rl{font-size:13px;color:var(--ink2);line-height:1.4}
+
+/* step player */
+.steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));position:relative;margin-bottom:18px}
+.steps::before,.steps .prog{content:"";position:absolute;left:10%;top:17px;height:2px;border-radius:2px}
+.steps::before{right:10%;background:var(--grid)}
+.steps .prog{background:var(--accent);width:0;transition:width .5s ease}
+.step{font:inherit;background:none;border:0;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;padding:0 4px;color:var(--ink2);position:relative;z-index:1;text-align:center}
+.step .c{width:36px;height:36px;border-radius:50%;background:var(--surface);border:2px solid var(--grid);display:grid;place-items:center;font-size:14px;font-weight:600;transition:all .3s}
+.step .t{font-size:13.5px;font-weight:500;line-height:1.35}
+.step.done .c{border-color:var(--accent);color:var(--accent-ink)}
+.step.on .c{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 0 0 5px var(--accent-soft)}
+.step.on .t{color:var(--ink);font-weight:600}
+.stage{background:var(--sunken);border-radius:14px;padding:22px;min-height:312px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:26px;align-items:center}
+.stage-text h3{font-size:20px;margin-bottom:8px}
+.stage-text p{font-size:15.5px;color:var(--ink2);margin:0}
+.pane{display:none;flex-direction:column;gap:10px}
+.pane.on{display:flex}
+.pane.on>*{animation:rise .5s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0)*140ms)}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:11px 14px;display:flex;align-items:center;gap:12px;font-size:14.5px;line-height:1.4}
+.card small{display:block;color:var(--ink2);font-size:13px}
+.card.hl{border-color:var(--accent);background:var(--accent-soft)}
+.card.dim{opacity:.6}
+.ext{font-size:11px;font-weight:700;letter-spacing:.04em;background:var(--ink);color:var(--page);border-radius:6px;padding:5px 0;width:44px;text-align:center;flex:none}
+.ext.mk{background:var(--accent);color:#fff}
+.pill{margin-left:auto;font-size:12px;font-weight:600;border-radius:999px;padding:3px 10px;background:var(--accent);color:#fff;white-space:nowrap}
+.pill.ghost{background:none;color:var(--ink2);border:1px solid var(--axis)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.chipx{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 11px;font-size:13.5px;font-weight:500}
+.chipx.hl{border-color:var(--accent);background:var(--accent-soft)}
+.arrow{color:var(--muted);font-size:17px;flex:none}
+.mdfile{font-family:var(--mono);font-size:12.5px;line-height:1.6;background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:12px 14px;white-space:pre-wrap;overflow-wrap:anywhere}
+.mdfile .hl{background:var(--accent-soft);box-shadow:inset 2px 0 0 var(--accent);display:block;margin:0 -14px;padding:0 14px}
+.kbframe{border:1.5px dashed var(--axis);border-radius:13px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.kbframe .cap{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+.linkbar{font-size:13px;color:var(--ink2);text-align:center}
+.bubble{border-radius:14px;padding:10px 14px;font-size:14.5px;line-height:1.5;max-width:92%}
+.bubble.q{background:var(--ink);color:var(--page);align-self:flex-end;border-bottom-right-radius:4px}
+.bubble.a{background:var(--surface);border:1px solid var(--border);border-bottom-left-radius:4px}
+.cite{display:inline-grid;place-items:center;min-width:19px;height:19px;border-radius:6px;background:var(--accent);color:#fff;font-size:11.5px;font-weight:700;vertical-align:1px;padding:0 4px}
+.player{display:flex;align-items:center;gap:10px;margin-top:14px}
+.btn{font:inherit;font-size:14px;font-weight:500;border:1px solid var(--border);background:var(--surface);color:var(--ink);border-radius:9px;padding:7px 14px;cursor:pointer}
+.btn:hover{border-color:var(--axis)}
+
+/* charts */
+#db{display:block;width:100%;height:auto;font-family:var(--font);overflow:visible}
+#db .gl{stroke:var(--grid);stroke-width:1}
+#db .tick{font-size:12px;fill:var(--muted);font-variant-numeric:tabular-nums}
+#db .rl{font-size:14.5px;fill:var(--ink);font-weight:500}
+#db .conn{stroke:var(--axis);stroke-width:2;stroke-linecap:round}
+#db .pb{fill:var(--before);stroke:var(--surface);stroke-width:2}
+#db .pa{fill:var(--accent);stroke:var(--surface);stroke-width:2}
+#db .vb{font-size:13px;fill:var(--ink2)}
+#db .va{font-size:14px;fill:var(--ink);font-weight:600}
+#db .hit{fill:transparent;cursor:default}
+#db .rowg:hover .hit,#db .rowg:focus .hit{fill:var(--sunken)}
+#db .rowg:focus{outline:none}
+.score-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.score-head .sv{font-size:40px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.score-head .sl{font-size:15px;color:var(--ink2)}
+.clusters{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.cluster{background:var(--sunken);border-radius:11px;padding:11px 13px}
+.cluster .cl{font-size:13.5px;font-weight:500;margin-bottom:8px;display:flex;justify-content:space-between;gap:8px}
+.cluster .cl span{color:var(--ink2);font-variant-numeric:tabular-nums}
+.dots{display:flex;gap:6px;flex-wrap:wrap}
+.qd{width:17px;height:17px;border-radius:50%;background:var(--good);position:relative;transition:background-color .4s,box-shadow .4s,transform .4s}
+.qd.fail{background:transparent;box-shadow:inset 0 0 0 2px var(--crit)}
+.qd.fail::before,.qd.fail::after{content:"";position:absolute;left:50%;top:50%;width:9px;height:2px;background:var(--crit);border-radius:1px;transform:translate(-50%,-50%) rotate(45deg)}
+.qd.fail::after{transform:translate(-50%,-50%) rotate(-45deg)}
+.qd.pop{animation:pop .6s cubic-bezier(.2,1.6,.4,1)}
+@keyframes pop{0%{transform:scale(.4)}100%{transform:scale(1)}}
+.lg-pass,.lg-fail{width:13px;height:13px;border-radius:50%;display:inline-block;background:var(--good)}
+.lg-fail{background:transparent;box-shadow:inset 0 0 0 2px var(--crit)}
+.bars{display:grid;gap:2px}
+.brow{display:grid;grid-template-columns:minmax(150px,1.5fr) minmax(120px,2fr) 54px 74px 74px 74px;gap:12px;align-items:center;padding:8px 8px;border-radius:9px;font-size:14.5px}
+.brow.h{font-size:12.5px;font-weight:600;color:var(--ink2);padding-bottom:4px;align-items:end;line-height:1.3}
+.brow:not(.h):hover{background:var(--sunken)}
+.brow .nm{line-height:1.35}
+.brow.pick .nm{font-weight:600}
+.brow .n{text-align:right;font-variant-numeric:tabular-nums}
+.track{height:12px;position:relative}
+.bar{height:12px;border-radius:0 4px 4px 0;background:var(--before);width:0;transition:width .7s cubic-bezier(.2,.7,.2,1)}
+.brow.pick .bar{background:var(--accent)}
+.brow.r5{grid-template-columns:minmax(150px,1.5fr) minmax(120px,2fr) 70px 74px 112px}
+.tagpick{font-size:11px;font-weight:700;letter-spacing:.05em;background:var(--accent);color:#fff;border-radius:5px;padding:2px 6px;margin-left:6px;white-space:nowrap;vertical-align:1px}
+
+/* principles + limits */
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:22px}
+.pcard{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px}
+.pcard svg{width:26px;height:26px;color:var(--accent);margin-bottom:10px}
+.pcard h3{margin-bottom:6px}
+.pcard p{font-size:15px;color:var(--ink2);margin:0;line-height:1.55}
+.limits{margin:22px 0 0;padding:0;list-style:none;border-top:1px solid var(--grid)}
+.limits li{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:22px;padding:15px 0;border-bottom:1px solid var(--grid);font-size:15.5px}
+.limits b{display:block}
+.limits span{color:var(--ink2)}
+footer{margin:56px 0 0;padding:26px 0 46px;border-top:1px solid var(--grid);font-size:14px;color:var(--ink2)}
+.reveal{opacity:0;transform:translateY(14px);transition:opacity .6s,transform .6s}
+.reveal.in{opacity:1;transform:none}
+
+@media (max-width:860px){
+  .swipe{display:block;margin:0 0 6px}
+  body{font-size:16px}
+  .hero{grid-template-columns:1fr;gap:22px}
+  .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .slide,.stage{grid-template-columns:1fr}
+  .grid3{grid-template-columns:1fr}
+  .limits li{grid-template-columns:1fr;gap:4px}
+  .step .t{font-size:12px}
+  .brow,.brow.r5{grid-template-columns:minmax(0,1fr) auto;gap:4px 10px}
+  .brow>*{white-space:normal}
+  .brow>:nth-child(3){white-space:nowrap}
+  .brow .track,.brow .bh{grid-column:1/-1;order:3}
+  .brow .x{display:none}
+  .brow.h .bh{display:none}
+  figure.fig{padding:16px}
+  .readout{grid-template-columns:1fr}
+  .arch-panel{grid-template-columns:1fr}
+  .arch-panel h3{white-space:normal}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+  .reveal{opacity:1;transform:none}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="eyebrow"><span>Project Notebook</span><span><i></i>Tài liệu cho ban lãnh đạo</span><span><i></i>14/11/2026</span></div>
+    <div class="hero">
+      <div>
+        <h1>Trợ lý tri thức dự án: kiến trúc mới và cách nâng chất lượng Knowledge Base</h1>
+        <p class="lead">Project Notebook trả lời câu hỏi từ tài liệu trên Confluence và Jira, kể cả file đính kèm. Bản mới nhất thêm một <b>Preparation step</b> trước Knowledge Base: nội dung tiếng Việt trong file Office, PDF và ảnh không còn bị mất khi được index.</p>
+      </div>
+      <div class="herocard">
+        <div class="lab">Câu hỏi về file đính kèm được trả lời đúng</div>
+        <div class="big">38<small>/38</small></div>
+        <div class="delta"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 11V3M3.5 6.5 7 3l3.5 3.5"/></svg>trước khi có Preparation step: 34/38</div>
+        <div class="foot">Đo ngày 14/11/2026 trên 23 file tiếng Việt giả lập, đính kèm trên Jira và Confluence.</div>
+      </div>
+    </div>
+
+    <div class="tiles">
+      <div class="tile"><div class="v">96–100%</div><div class="l">số từ của pptx, docx, doc, pdf mà Knowledge Base giữ được</div><div class="d">trước: 47–62%</div></div>
+      <div class="tile"><div class="v">13 / 13</div><div class="l">file cần xử lý đã có text document, tạo tự động</div><div class="d">10 file còn lại KB vốn đọc tốt</div></div>
+      <div class="tile"><div class="v">47 / 47</div><div class="l">kiểm tra end-to-end của toàn hệ thống đều đạt</div><div class="d">chat, phân quyền, sync, MCP</div></div>
+      <div class="tile"><div class="v">0</div><div class="l">thay đổi ghi lên Confluence và Jira</div><div class="d">hệ thống chỉ đọc</div></div>
+    </div>
+
+    <ul class="toc">
+      <li><a href="#s1">1. Kiến trúc gồm những gì</a></li>
+      <li><a href="#s2">2. Bài toán chất lượng</a></li>
+      <li><a href="#s3">3. Preparation step</a></li>
+      <li><a href="#s4">4. Kết quả đo</a></li>
+      <li><a href="#s5">5. Các phương án đã thử</a></li>
+      <li><a href="#s6">6. Nguyên tắc thiết kế</a></li>
+      <li><a href="#s7">7. Giới hạn còn lại</a></li>
+    </ul>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section id="s1">
+  <div class="num">Phần 1</div>
+  <h2>Kiến trúc gồm những gì</h2>
+  <div class="prose">
+    <p>Hệ thống có hai luồng. <b>Luồng nạp tài liệu</b> đưa nội dung từ Confluence và Jira vào Knowledge Base và giữ cho nó luôn mới. <b>Luồng hỏi đáp</b> nhận câu hỏi, tìm đúng đoạn tài liệu mà người hỏi được phép đọc, rồi viết câu trả lời kèm citation.</p>
+    <p>Toàn bộ chạy serverless trong AWS project của công ty, ở một Region. Tài liệu gốc vẫn nằm ở Confluence và Jira.</p>
+  </div>
+
+  <figure class="fig reveal">
+    <div class="fig-head">
+      <div>
+        <h3>Bản đồ kiến trúc</h3>
+        <p class="fig-sub">Chọn một luồng để xem dữ liệu đi qua những thành phần nào. Bấm vào từng thành phần để đọc vai trò của nó.</p>
+      </div>
+      <div class="seg" role="group" aria-label="Chọn luồng" id="flowseg">
+        <button data-flow="ingest" aria-pressed="true">Luồng nạp tài liệu</button>
+        <button data-flow="query" aria-pressed="false">Luồng hỏi đáp</button>
+        <button data-flow="all" aria-pressed="false">Cả hai</button>
+      </div>
+    </div>
+    <p class="hint swipe">Vuốt ngang để xem hết bản đồ.</p>
+    <div class="arch-scroll">
+      <svg id="arch" viewBox="0 0 1160 486" data-flow="ingest" role="img" aria-label="Bản đồ kiến trúc Project Notebook: Confluence và Jira được Sync Monitor và Preparation step đưa vào Amazon Bedrock Managed Knowledge Bases; API, chat model và lớp phân quyền phục vụ web UI và AI coding agents.">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" class="arr"/></marker>
+          <marker id="arr-on" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" class="arr-on"/></marker>
+        </defs>
+      </svg>
+    </div>
+    <div class="arch-panel" id="archpanel" aria-live="polite">
+      <div class="k">Thành phần đang chọn</div>
+      <h3 id="ap-t"></h3>
+      <p id="ap-d"></p>
+    </div>
+    <p class="hint">Phần tô xanh là phần mới của bản này: Preparation step và text document.</p>
+    <figcaption>Điểm mới nằm ở luồng nạp tài liệu: giữa nguồn và Knowledge Base có thêm một bước chuẩn bị. Luồng hỏi đáp không đổi, nên người dùng không phải học lại gì.</figcaption>
+  </figure>
+</section>
+
+<section id="s2">
+  <div class="num">Phần 2</div>
+  <h2>Bài toán: KB đọc được file, nhưng chỉ giữ được một nửa</h2>
+  <div class="prose">
+    <p>Amazon Bedrock Managed Knowledge Bases tự parse và index tài liệu, nên không phải vận hành hạ tầng tìm kiếm. Đổi lại, parser của dịch vụ không có thiết lập nào để chỉnh.</p>
+    <p>Với file tiếng Việt, phép đo cho thấy parser chỉ giữ đúng khoảng một nửa số từ của pptx, docx, doc và pdf. Phần mất chủ yếu là các từ có dấu. Speaker notes của slide không được index.</p>
+    <p>Chat model thường vẫn đoán lại được dấu và trả lời đúng. Nhưng tên riêng và thuật ngữ chính xác thì không được khôi phục ổn định, và thông tin không có trong passage nào thì không thể trả lời.</p>
+  </div>
+
+  <figure class="fig reveal">
+    <div class="fig-head">
+      <div>
+        <h3>Cùng một slide, ba cách nhìn</h3>
+        <p class="fig-sub">Hình minh hoạ, dựng theo tỷ lệ đo được trên file pptx thử nghiệm. Nội dung slide là ví dụ.</p>
+      </div>
+      <div class="seg" role="group" aria-label="Chọn cách nhìn" id="viewseg">
+        <button data-view="orig" aria-pressed="false">File gốc</button>
+        <button data-view="raw" aria-pressed="true">KB đọc trực tiếp</button>
+        <button data-view="prep" aria-pressed="false">Có Preparation step</button>
+      </div>
+    </div>
+    <div class="slide" id="slide" data-view="raw">
+      <div class="slide-main">
+        <div class="slide-title" data-t>Quy trình hoàn tiền đơn hàng</div>
+        <ul>
+          <li data-t>Khách gửi yêu cầu trong vòng 7 ngày kể từ khi nhận hàng</li>
+          <li data-t>Đơn trên 5 triệu đồng cần trưởng nhóm phê duyệt</li>
+          <li data-t>Tiền được hoàn về tài khoản sau 3 ngày làm việc</li>
+        </ul>
+        <table>
+          <tr><th data-t>Hạng mục</th><th data-t>Thời hạn</th></tr>
+          <tr><td data-t>Đổi sản phẩm lỗi</td><td data-t>30 ngày</td></tr>
+          <tr><td data-t>Hoàn tiền vận chuyển</td><td data-t>Không áp dụng</td></tr>
+        </table>
+      </div>
+      <div class="slide-notes">
+        <span class="tag">Speaker notes</span>
+        <p data-t data-notes>Ngoại lệ: khách hàng doanh nghiệp được kéo dài thành 14 ngày, cần kế toán xác nhận trước khi hoàn tiền.</p>
+        <div class="gone"><span>KB không index phần này</span></div>
+      </div>
+    </div>
+    <div class="readout">
+      <div><div class="rv" id="ro1">47%</div><div class="rl">số từ KB giữ đúng</div></div>
+      <div><div class="rv" id="ro2">27%</div><div class="rl">số từ có dấu tiếng Việt được giữ đúng</div></div>
+      <div><div class="rv" id="ro3">Không</div><div class="rl">speaker notes có trong KB</div></div>
+    </div>
+    <figcaption>Ô xám là những từ KB không còn giữ đúng như đã viết. Khi KB đọc trực tiếp file pptx, hơn một nửa nội dung rơi vào trạng thái này và toàn bộ speaker notes biến mất. Với Preparation step, mọi từ đều có trong KB.</figcaption>
+  </figure>
+</section>
+
+<section id="s3">
+  <div class="num">Phần 3</div>
+  <h2>Cách giải: Preparation step trước Knowledge Base</h2>
+  <div class="prose">
+    <p>Vì không chỉnh được parser, hệ thống đưa cho nó thứ mà nó đọc tốt. KB giữ 100% nội dung của file Markdown. Vậy với mỗi file đính kèm thuộc định dạng parser đọc kém, hệ thống tạo thêm một <b>text document</b>: nội dung của chính file đó, viết lại thành Markdown, đặt cạnh file gốc trong KB.</p>
+    <p>File gốc không bị thay thế. Text document mang cùng link với file gốc, nên citation trong câu trả lời vẫn mở đúng file trên Jira hoặc Confluence.</p>
+  </div>
+
+  <figure class="fig reveal" id="fig-steps">
+    <div class="fig-head">
+      <div>
+        <h3>Đường đi của một file đính kèm</h3>
+        <p class="fig-sub">Năm bước, chạy tự động mỗi 15 phút. Bấm vào từng bước hoặc để hình tự chạy.</p>
+      </div>
+    </div>
+    <div class="steps" id="steps"><div class="prog"></div></div>
+    <div class="stage">
+      <div class="stage-text" aria-live="polite"><h3 id="st-t"></h3><p id="st-d"></p></div>
+      <div class="stage-view">
+        <div class="pane" data-p="0">
+          <div class="card hl" style="--i:0"><span class="ext">PPTX</span><div><b>Chính sách hoàn tiền.pptx</b><small>đính kèm trên một Jira issue · version 2</small></div><span class="pill">có thay đổi</span></div>
+          <div class="card dim" style="--i:1"><span class="ext">XLSX</span><div><b>Bảng giá.xlsx</b><small>định dạng KB đã đọc tốt</small></div><span class="pill ghost">bỏ qua</span></div>
+          <div class="card dim" style="--i:2"><span class="ext">PDF</span><div><b>Hợp đồng mẫu.pdf</b><small>version không đổi</small></div><span class="pill ghost">đã xử lý</span></div>
+        </div>
+        <div class="pane" data-p="1">
+          <div class="row" style="--i:0"><span class="ext">PPTX</span><span class="arrow">→</span><span class="chipx">Slide</span><span class="chipx">Bảng</span><span class="chipx hl">Speaker notes</span></div>
+          <div class="row" style="--i:1"><span class="ext">DOCX</span><span class="arrow">→</span><span class="chipx">Đoạn văn</span><span class="chipx">Bảng</span></div>
+          <div class="row" style="--i:2"><span class="ext">PDF</span><span class="arrow">→</span><span class="chipx">Text layer</span></div>
+          <div class="row" style="--i:3"><span class="ext">PNG</span><span class="ext">SCAN</span><span class="arrow">→</span><span class="chipx hl">Vision model trong Region</span><span class="arrow">→</span><span class="chipx">Text</span></div>
+        </div>
+        <div class="pane" data-p="2">
+          <div class="mdfile" style="--i:0"># Chính sách hoàn tiền
+
+## Slide 2: Quy trình hoàn tiền đơn hàng
+- Đơn trên 5 triệu đồng cần trưởng nhóm phê duyệt
+| Hạng mục | Thời hạn |
+| Đổi sản phẩm lỗi | 30 ngày |
+<span class="hl">Notes: Khách hàng doanh nghiệp được kéo dài
+thành 14 ngày, cần kế toán xác nhận.</span></div>
+          <div class="card" style="--i:1"><span class="ext mk">MD</span><div><b>Chính sách hoàn tiền.pptx.text.md</b><small>lưu trong S3 bucket của AWS project</small></div></div>
+        </div>
+        <div class="pane" data-p="3">
+          <div class="kbframe" style="--i:0">
+            <div class="cap">Managed Knowledge Base</div>
+            <div class="card"><span class="ext">PPTX</span><div><b>File gốc</b><small>giữ nguyên, KB đọc như trước</small></div></div>
+            <div class="linkbar">↕ cùng một link về file gốc</div>
+            <div class="card hl"><span class="ext mk">MD</span><div><b>Text document</b><small>đầy đủ nội dung, kể cả speaker notes</small></div><span class="pill">mới</span></div>
+          </div>
+        </div>
+        <div class="pane" data-p="4">
+          <div class="bubble q" style="--i:0">Khách hàng doanh nghiệp được hoàn tiền trong bao lâu?</div>
+          <div class="bubble a" style="--i:1">Khách hàng doanh nghiệp được kéo dài thành 14 ngày và cần kế toán xác nhận. <span class="cite">1</span></div>
+          <div class="card hl" style="--i:2"><span class="cite">1</span><div><b>Chính sách hoàn tiền.pptx</b><small>bấm để mở file gốc trên Jira</small></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="player">
+      <button class="btn" id="st-play" aria-label="Tạm dừng hoặc chạy tiếp">Tạm dừng</button>
+      <button class="btn" id="st-prev" aria-label="Bước trước">←</button>
+      <button class="btn" id="st-next" aria-label="Bước sau">→</button>
+    </div>
+    <figcaption>Câu hỏi ở bước 5 chỉ trả lời được nhờ speaker notes. Trước đây đó là phần KB không có. Khi file đổi version, text document được tạo lại. Khi file bị gỡ, text document bị xoá theo.</figcaption>
+  </figure>
+</section>
+
+<section id="s4">
+  <div class="num">Phần 4</div>
+  <h2>Kết quả đo</h2>
+  <div class="prose">
+    <p>Có hai phép đo. Phép thứ nhất so nội dung KB giữ được với nội dung thật của file. Phép thứ hai hỏi 38 câu, mỗi câu chỉ trả lời được từ một phần của một file: một sheet, một slide, một bảng, một đoạn speaker notes.</p>
+  </div>
+
+  <figure class="fig reveal" id="fig-db">
+    <div class="fig-head">
+      <div>
+        <h3>Nội dung Knowledge Base giữ được, theo định dạng file</h3>
+        <p class="fig-sub">Tỷ lệ từ của file có mặt đúng trong KB. Sáu định dạng đi qua Preparation step.</p>
+      </div>
+      <div class="seg" role="group" aria-label="Chọn phép đo" id="dbseg">
+        <button data-m="all" aria-pressed="true">Tất cả các từ</button>
+        <button data-m="acc" aria-pressed="false">Từ có dấu tiếng Việt</button>
+      </div>
+    </div>
+    <div class="legend"><span><i class="sw"></i>KB đọc trực tiếp file</span><span><i class="sw a"></i>Có Preparation step</span></div>
+    <svg id="db" role="img" aria-label="Biểu đồ trước và sau cho sáu định dạng file: với Preparation step, tỷ lệ từ được giữ tăng từ khoảng 47 đến 62 phần trăm lên 96 đến 100 phần trăm."></svg>
+    <details class="tbl">
+      <summary>Xem dạng bảng</summary>
+      <table class="data" id="dbtable"></table>
+    </details>
+    <figcaption>Excel, Markdown, text và CSV không có trong biểu đồ: KB đã giữ 100% nội dung của chúng, nên hệ thống để nguyên. 4% còn thiếu của docx là ba từ trong một dòng code, không phải tiếng Việt.</figcaption>
+  </figure>
+
+  <figure class="fig reveal" id="fig-score">
+    <div class="fig-head">
+      <div>
+        <h3>38 câu hỏi về file đính kèm</h3>
+        <p class="fig-sub">Mỗi chấm là một câu hỏi. Một câu đạt khi câu trả lời có đủ dữ kiện mong đợi và passage của đúng file được tìm thấy.</p>
+      </div>
+      <div class="seg" role="group" aria-label="Chọn thời điểm" id="scseg">
+        <button data-s="before" aria-pressed="true">Trước</button>
+        <button data-s="after" aria-pressed="false">Có Preparation step</button>
+      </div>
+    </div>
+    <div class="score-head"><div class="sv" id="sc-v">34/38</div><div class="sl" id="sc-l">câu đạt khi KB đọc trực tiếp file</div></div>
+    <div class="legend"><span><i class="lg-pass"></i>Đạt</span><span><i class="lg-fail"></i>Không đạt</span></div>
+    <div class="clusters" id="clusters"></div>
+    <figcaption>Bốn câu không đạt trước đây đều do giới hạn của parser: ba câu hỏi vào speaker notes của PowerPoint, một câu hỏi vào chữ trong ảnh đính kèm trên một Confluence page. Cả bốn hiện được trả lời từ text document. Kết quả như nhau trên hai nguồn: Jira 19/19, Confluence 19/19.</figcaption>
+  </figure>
+</section>
+
+<section id="s5">
+  <div class="num">Phần 5</div>
+  <h2>Các phương án đã thử trước khi chọn</h2>
+  <div class="prose">
+    <p>Phương án được chọn không phải phương án duy nhất được thử. Mỗi file được gửi vào KB dưới nhiều dạng khác nhau, rồi đo cùng một bộ chỉ số. Chuyển file sang PDF, cách thường được nghĩ đến đầu tiên, không cải thiện gì.</p>
+  </div>
+
+  <figure class="fig reveal" id="fig-lab">
+    <div class="fig-head">
+      <div>
+        <h3>So sánh các dạng gửi vào Knowledge Base</h3>
+        <p class="fig-sub">Chọn một định dạng file. Thanh ngang là tỷ lệ từ KB giữ được.</p>
+      </div>
+      <div class="seg" role="group" aria-label="Chọn định dạng" id="labseg"></div>
+    </div>
+    <div class="legend"><span><i class="sw sq a"></i>Phương án được chọn</span><span><i class="sw sq"></i>Phương án khác</span></div>
+    <div class="bars" id="labbars"></div>
+    <figcaption>"Dữ kiện trong top passage" là số câu hỏi mà dữ kiện cần thiết nằm trong năm passage đầu tiên KB trả về. Phương án được chọn luôn đạt mức cao nhất và không bao giờ kém hơn việc chỉ gửi file gốc.</figcaption>
+  </figure>
+
+  <figure class="fig reveal" id="fig-readers">
+    <div class="fig-head">
+      <div>
+        <h3>Model đọc ảnh và trang scan</h3>
+        <p class="fig-sub">Ảnh và PDF scan không có text để trích, nên cần một vision model đọc. Thanh ngang là tỷ lệ từ có dấu tiếng Việt được đọc đúng. Các model đều chạy trong cùng Region.</p>
+      </div>
+    </div>
+    <div class="legend"><span><i class="sw sq a"></i>Model đang dùng</span><span><i class="sw sq"></i>Model khác đã thử</span></div>
+    <div class="bars" id="readerbars"></div>
+    <figcaption>Bốn model đọc đúng toàn bộ. Hệ thống dùng Qwen3 VL 235B làm mặc định và đổi được bằng một setting. Amazon Textract không đọc tiếng Việt. Bedrock Data Automation chưa được thử vì ở Region này nó cần xử lý cross-Region.</figcaption>
+  </figure>
+</section>
+
+<section id="s6">
+  <div class="num">Phần 6</div>
+  <h2>Nguyên tắc thiết kế</h2>
+  <div class="prose"><p>Sáu lựa chọn sau giữ cho việc nâng chất lượng không tạo thêm rủi ro về dữ liệu và vận hành.</p></div>
+  <div class="grid3">
+    <div class="pcard reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="11" height="14" rx="2"/><path d="M17 8h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2"/><path d="M8.5 9v4M6.5 11h4"/></svg><h3>Thêm, không thay thế</h3><p>File gốc vẫn ở trong KB. Text document chỉ bổ sung, nên kết quả không bao giờ kém hơn trước, và phần chỉ file gốc mới có (ảnh nằm trong file) vẫn được giữ.</p></div>
+    <div class="pcard reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><h3>Citation mở file gốc</h3><p>Text document mang link của file gốc. Người đọc kiểm chứng câu trả lời trên chính tài liệu họ quen, không phải trên một bản sao.</p></div>
+    <div class="pcard reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.8"/></svg><h3>Chỉ đọc</h3><p>Không có gì được ghi lên Confluence hay Jira. Một cách khác, đính kèm file Markdown ngược lên Confluence page, đã thử và chạy được nhưng không dùng vì nó sửa wiki của đội dự án.</p></div>
+    <div class="pcard reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.5 3.2 8 7.5 9.5 4.300-1.5 7.5-5 7.5-9.5V6L12 3Z"/><path d="m9 12 2.2 2.2L15.200 10"/></svg><h3>Dữ liệu ở trong một Region</h3><p>File, text document, Knowledge Base, chat model và vision model đều nằm trong AWS project của công ty, ở một Region. Không có xử lý cross-Region.</p></div>
+    <div class="pcard reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.900"/><path d="M20 4.500V9h-4.500"/></svg><h3>Tự cập nhật, tự phục hồi</h3><p>File đổi version thì text document được tạo lại. File bị gỡ thì text document bị xoá. Một file không xử lý được sau ba lần thử vẫn có trong KB như trước, kèm cảnh báo cho người vận hành.</p></div>
+    <div class="pcard reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.200"/><path d="M3 19c.6-3 3-4.800 6-4.800s5.400 1.800 6 4.800"/><path d="M16.500 11.500 18 13l3-3.200"/></svg><h3>Cùng một bộ quyền</h3><p>Text document thuộc cùng source với file gốc. Ai không được cấp source đó thì không nhận được passage của cả hai, trên web cũng như qua MCP.</p></div>
+  </div>
+</section>
+
+<section id="s7">
+  <div class="num">Phần 7</div>
+  <h2>Giới hạn còn lại</h2>
+  <div class="prose"><p>Kết quả trên chứng minh cơ chế hoạt động. Những điểm sau cần được biết trước khi dùng với dữ liệu thật.</p></div>
+  <ul class="limits">
+    <li><b>Dữ liệu thử nghiệm nhỏ và giả lập</b><span>23 file và 38 câu hỏi, nội dung tiếng Việt tự tạo. Đủ để so sánh các phương án, chưa đủ để cam kết con số trên tài liệu thật của một dự án.</span></li>
+    <li><b>Phân quyền theo source, không theo từng file</b><span>Một grant mở cả một Confluence space hoặc Jira project. Kiểm tra phạm vi truy cập đạt 4/5: một source đang được cấu hình trùng space với source khác, nên người được cấp source này đọc được nội dung của source kia. Đây là lỗi cấu hình, phải sửa trước khi có dữ liệu thật.</span></li>
+    <li><b>Số source trên mỗi Knowledge Base</b><span>Một KB có tối đa 5 data source. Mỗi Confluence source dùng 2 (connector và text document), nên khi thêm nhiều space sẽ cần thêm KB.</span></li>
+    <li><b>File lớn</b><span>File trên 20 MB không đi qua Preparation step. Chúng vẫn ở trong KB, với chất lượng của parser.</span></li>
+    <li><b>Chi phí của bước mới</b><span>Chưa được đo riêng. Vision model chỉ chạy cho ảnh và trang scan, một lần cho mỗi version của file.</span></li>
+  </ul>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">Project Notebook là một proof of concept. Số liệu trong tài liệu này được đo ngày 14/11/2026 trên dữ liệu giả lập, không phải tài liệu thật của dự án nào.</div>
+</footer>
+
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+(() => {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const NS = 'http://www.w3.org/2000/svg';
+const sv = (tag, attrs = {}, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; };
+const h = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const ease = (t) => 1 - Math.pow(1 - t, 3);
+function tween(ms, step, done) {
+  if (calm) { step(1); done && done(); return; }
+  const t0 = performance.now();
+  const tick = (now) => { const t = Math.min(1, (now - t0) / ms); step(ease(t)); t < 1 ? requestAnimationFrame(tick) : done && done(); };
+  requestAnimationFrame(tick);
+}
+function seg(root, attr, onPick) {
+  root.addEventListener('click', (ev) => {
+    const b = ev.target.closest('button'); if (!b) return;
+    $$('button', root).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    onPick(b.dataset[attr], true);
+  });
+}
+function pick(root, attr, value) { $$('button', root).forEach((x) => x.setAttribute('aria-pressed', String(x.dataset[attr] === value))); }
+function onView(el, fn, threshold = 0.35) {
+  if (!('IntersectionObserver' in window)) { fn(); return; }
+  const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); fn(); } }, { threshold });
+  io.observe(el);
+}
+$$('.reveal').forEach((el) => onView(el, () => el.classList.add('in'), 0.08));
+
+/* tooltip */
+const tip = $('#tip');
+function showTip(rows, x, y) {
+  tip.replaceChildren();
+  rows.forEach(([value, label], i) => {
+    const line = h('div');
+    if (i === 0) { line.append(h('b', '', value)); }
+    else { line.append(h('b', '', value), document.createTextNode(' '), h('span', 'tl', label)); }
+    tip.append(line);
+  });
+  tip.classList.add('show');
+  const r = tip.getBoundingClientRect();
+  tip.style.left = Math.max(8, Math.min(innerWidth - r.width - 8, x + 14)) + 'px';
+  tip.style.top = Math.max(8, y - r.height - 12) + 'px';
+}
+const hideTip = () => tip.classList.remove('show');
+
+/* ---------- 1. architecture map ---------- */
+(() => {
+  const svg = $('#arch');
+  const GROUPS = [[16, 'NGUỒN TÀI LIỆU'], [250, 'ĐỒNG BỘ VÀ CHUẨN BỊ'], [596, 'KNOWLEDGE BASE'], [832, 'NGƯỜI DÙNG VÀ ỨNG DỤNG']];
+  const NODES = [
+    { id: 'confluence', x: 16, y: 180, w: 140, h: 64, t: 'Confluence', s: 'page + attachment', f: 'ingest',
+      d: 'Nơi đội dự án viết tài liệu. Hệ thống chỉ đọc page, blog post và file đính kèm; không ghi ngược lại bất cứ thứ gì.' },
+    { id: 'jira', x: 16, y: 266, w: 140, h: 64, t: 'Jira', s: 'issue + attachment', f: 'ingest',
+      d: 'Issue, comment và file đính kèm của issue. Sync Monitor đọc Jira và nạp vào một data source riêng của Knowledge Base.' },
+    { id: 'monitor', x: 250, y: 180, w: 250, h: 150, t: 'Sync Monitor', s: 'AWS Lambda · mỗi 15 phút', f: 'ingest', wrap: true,
+      d: 'Chạy mỗi 15 phút: phát hiện file mới, file đổi version và file bị gỡ; đồng bộ Jira; theo dõi trạng thái từng source và báo khi có source lỗi thời hoặc file không đọc được.' },
+    { id: 'prep', x: 268, y: 252, w: 214, h: 64, t: 'Preparation step', s: 'file → Markdown', f: 'ingest', isNew: true,
+      d: 'Phần mới. Với pptx, docx, doc, pdf, trang scan và ảnh, bước này viết lại nội dung của file thành một text document dạng Markdown, gồm cả bảng và speaker notes, rồi đặt nó cạnh file gốc trong Knowledge Base.' },
+    { id: 'vision', x: 250, y: 410, w: 119, h: 60, t: 'Vision model', s: 'Qwen3 VL', f: 'ingest',
+      d: 'Model có khả năng đọc ảnh, chạy trên Amazon Bedrock trong cùng Region. Chỉ dùng cho ảnh và trang scan, nơi không có text để trích. Đổi model bằng một setting.' },
+    { id: 'bucket', x: 381, y: 410, w: 119, h: 60, t: 'S3 bucket', s: 'text document', f: 'ingest',
+      d: 'Lưu các text document trong AWS project của công ty. Khi file gốc bị gỡ khỏi Jira hoặc Confluence, text document của nó bị xoá theo.' },
+    { id: 'kb', x: 596, y: 100, w: 190, h: 230, t: 'Knowledge Bases', s: 'Amazon Bedrock, managed', f: 'ingest query', top: true,
+      d: 'Amazon Bedrock Managed Knowledge Bases tự parse, index và phục vụ tìm kiếm; không có hạ tầng tìm kiếm nào phải vận hành. Mỗi file đã qua Preparation step có hai bản ở đây: file gốc và text document, cùng trỏ về một link.' },
+    { id: 'cloudwatch', x: 596, y: 410, w: 190, h: 60, t: 'CloudWatch', s: 'metrics, alarms', f: 'ingest',
+      d: 'Metrics, alarms và dashboard cho việc đồng bộ. Người vận hành biết ngay khi một source không còn mới hoặc một file không được index.' },
+    { id: 'web', x: 832, y: 50, w: 144, h: 60, t: 'Web UI', s: 'qua CloudFront', f: 'query',
+      d: 'Ứng dụng web cho đội dự án: chat có citation, notebook theo chủ đề, studio tạo briefing, FAQ, mind map; trang monitoring và trang chi phí cho admin.' },
+    { id: 'agents', x: 988, y: 50, w: 144, h: 60, t: 'Coding agents', s: 'qua MCP', f: 'query',
+      d: 'Các AI coding agent trong code editor của kỹ sư truy vấn cùng kho tri thức qua MCP, với cùng bộ quyền như trên web.' },
+    { id: 'api', x: 882, y: 185, w: 200, h: 70, t: 'API + MCP', s: 'AWS Lambda · streaming', f: 'query',
+      d: 'Một điểm vào duy nhất cho web app và cho AI coding agents. Mọi request đều được kiểm tra quyền trước khi tìm kiếm; câu trả lời được trả về dạng streaming.' },
+    { id: 'model', x: 832, y: 340, w: 144, h: 60, t: 'Chat model', s: 'GLM 5', f: 'query',
+      d: 'Model GLM 5 trên Amazon Bedrock viết câu trả lời từ các passage tìm được và gắn citation cho từng dữ kiện. Có hai chế độ: fast cho câu hỏi thường, deep cho câu hỏi rộng cần tách thành nhiều câu con. Model thay được bằng setting.' },
+    { id: 'auth', x: 988, y: 340, w: 144, h: 60, t: 'Access control', s: 'Cognito, DynamoDB', f: 'query',
+      d: 'Người dùng đăng ký qua Amazon Cognito, admin duyệt và cấp quyền theo từng source; grant lưu trong DynamoDB. Mỗi người chỉ nhận passage từ những source mình được cấp, kể cả với text document.' },
+  ];
+  const EDGES = [
+    { id: 'e1', d: 'M86,180 V136 Q86,124 98,124 H596', f: 'ingest', l: 'Confluence connector · page + file gốc', lx: 345, ly: 114, dots: 2 },
+    { id: 'e2', d: 'M156,212 H250', f: 'ingest', l: 'attachment', lx: 203, ly: 202 },
+    { id: 'e3', d: 'M156,298 H250', f: 'ingest', l: 'issue + file', lx: 203, ly: 288 },
+    { id: 'e4', d: 'M310,330 V410', f: 'ingest', l: 'ảnh, scan', lx: 320, ly: 376, a: 'start', bidir: true },
+    { id: 'e5', d: 'M440,330 V410', f: 'ingest', l: 'lưu lại', lx: 450, ly: 376, a: 'start' },
+    { id: 'e6', d: 'M500,262 H596', f: 'ingest', l: 'text document', lx: 548, ly: 252 },
+    { id: 'e7', d: 'M500,312 C550,312 546,440 596,440', f: 'ingest', l: 'trạng thái sync', lx: 560, ly: 368, a: 'start' },
+    { id: 'q1', d: 'M904,110 C904,150 950,145 950,185', f: 'query', l: 'câu hỏi', lx: 908, ly: 152, a: 'end' },
+    { id: 'q2', d: 'M1060,110 C1060,150 1014,145 1014,185', f: 'query', l: 'MCP', lx: 1056, ly: 152, a: 'start' },
+    { id: 'q4', d: 'M882,220 H786', f: 'query', l: 'tìm passage', lx: 834, ly: 210 },
+    { id: 'q5', d: 'M950,255 C950,300 904,295 904,340', f: 'query', l: 'viết trả lời', lx: 908, ly: 304, a: 'end' },
+    { id: 'q3', d: 'M1014,255 C1014,300 1060,295 1060,340', f: 'query', l: 'kiểm tra quyền', lx: 1056, ly: 304, a: 'start' },
+  ];
+  const cls = (f) => f.split(' ').map((x) => 'f-' + x).join(' ');
+  GROUPS.forEach(([x, t]) => svg.append(sv('text', { x, y: 28, class: 'glab' }, t)));
+
+  const edgeLayer = sv('g'), nodeLayer = sv('g'), dotLayer = sv('g');
+  svg.append(edgeLayer, nodeLayer, dotLayer);
+  EDGES.forEach((e) => {
+    const g = sv('g', { class: `edge ${cls(e.f)}${e.bidir ? ' bidir' : ''}` });
+    const p = sv('path', { id: e.id, d: e.d });
+    g.append(p, sv('text', { x: e.lx, y: e.ly, 'text-anchor': e.a || 'middle' }, e.l));
+    edgeLayer.append(g);
+    if (calm) return;
+    const len = p.getTotalLength(), n = e.dots || 1, dur = Math.max(1.6, len / 70);
+    for (let i = 0; i < n; i++) {
+      const c = sv('circle', { r: 5, class: `dot ${cls(e.f)}` });
+      const am = sv('animateMotion', { dur: dur.toFixed(2) + 's', repeatCount: 'indefinite', begin: (-(dur * i) / n).toFixed(2) + 's' });
+      am.append(sv('mpath', { href: '#' + e.id }));
+      c.append(am);
+      dotLayer.append(c);
+    }
+  });
+
+  const title = $('#ap-t'), desc = $('#ap-d');
+  function select(n, g) {
+    $$('.node', svg).forEach((x) => x.classList.toggle('sel', x === g));
+    title.textContent = n.t; desc.textContent = n.d;
+  }
+  NODES.forEach((n) => {
+    const g = sv('g', { class: `node ${cls(n.f)}${n.isNew ? ' new' : ''}${n.wrap ? ' wrapbox' : ''}`, tabindex: 0, role: 'button', 'aria-label': `${n.t}: ${n.s}` });
+    g.append(sv('rect', { class: 'box', x: n.x, y: n.y, width: n.w, height: n.h, rx: 12 }));
+    const stacked = n.wrap || n.top;
+    const cx = n.x + n.w / 2, ty = stacked ? n.y + 30 : n.y + n.h / 2 - 3;
+    g.append(sv('text', { class: 'nt', x: cx, y: ty, 'text-anchor': 'middle' }, n.t));
+    g.append(sv('text', { class: 'ns', x: cx, y: ty + 20, 'text-anchor': 'middle' }, n.s));
+    if (n.isNew) {
+      const b = sv('g', { class: 'badge' });
+      b.append(sv('rect', { x: n.x + n.w - 44, y: n.y - 9, width: 38, height: 18, rx: 9 }), sv('text', { x: n.x + n.w - 25, y: n.y + 4, 'text-anchor': 'middle' }, 'MỚI'));
+      g.append(b);
+    }
+    if (n.id === 'kb') {
+      [['File gốc', 182, ''], ['Text document', 240, ' new']].forEach(([t, y, c]) => {
+        const chip = sv('g', { class: 'chip' + c });
+        chip.append(sv('rect', { x: n.x + 18, y, width: n.w - 36, height: 44, rx: 9 }), sv('text', { x: cx, y: y + 27, 'text-anchor': 'middle' }, t));
+        g.append(chip);
+      });
+    }
+    g.addEventListener('click', () => select(n, g));
+    g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); select(n, g); } });
+    nodeLayer.append(g);
+    if (n.id === 'prep') select(n, g);
+  });
+  seg($('#flowseg'), 'flow', (flow) => svg.setAttribute('data-flow', flow));
+})();
+
+/* ---------- 2. what the KB sees ---------- */
+(() => {
+  const slide = $('#slide');
+  let acc = 0;
+  $$('[data-t]', slide).forEach((el) => {
+    const notes = el.hasAttribute('data-notes');
+    const words = el.textContent.trim().split(/\s+/);
+    el.replaceChildren();
+    words.forEach((word, i) => {
+      const span = h('span', 'w', word);
+      const accented = /[^\x00-\x7F]/.test(word);
+      if (notes || (accented && acc++ % 4 !== 0)) span.classList.add('lost');
+      el.append(span);
+      if (i < words.length - 1) el.append(' ');
+    });
+  });
+  const READ = { orig: ['100%', '100%', 'Có'], raw: ['47%', '27%', 'Không'], prep: ['100%', '100%', 'Có'] };
+  const LABEL = { orig: 'số từ trong file gốc', raw: 'số từ KB giữ đúng', prep: 'số từ KB giữ đúng' };
+  const ro = [$('#ro1'), $('#ro2'), $('#ro3')];
+  const firstLabel = ro[0].nextElementSibling;
+  seg($('#viewseg'), 'view', (view) => {
+    slide.dataset.view = view;
+    READ[view].forEach((value, i) => { ro[i].textContent = value; });
+    firstLabel.textContent = LABEL[view];
+  });
+})();
+
+/* ---------- 3. step player ---------- */
+(() => {
+  const STEPS = [
+    ['Phát hiện', 'Phát hiện file mới hoặc đổi version', 'Mỗi 15 phút, Sync Monitor so version của từng file đính kèm trên Jira và Confluence. Chỉ file mới hoặc file đã đổi version mới được xử lý; định dạng KB đã đọc tốt thì bỏ qua.'],
+    ['Trích nội dung', 'Lấy nội dung từ chính file', 'Text được đọc thẳng từ file: slide, bảng và speaker notes của PowerPoint; đoạn văn và bảng của Word; text layer của PDF. Ảnh và trang scan được một vision model trong Region đọc.'],
+    ['Tạo text document', 'Viết lại thành Markdown', 'Nội dung được viết thành một file Markdown, định dạng mà Knowledge Base giữ được 100%, và lưu vào S3 bucket trong AWS project của công ty.'],
+    ['Nạp vào KB', 'Đặt cạnh file gốc trong Knowledge Base', 'Text document được nạp vào cùng source với file gốc và mang cùng link. File gốc ở nguyên chỗ cũ, không bị thay thế.'],
+    ['Trả lời', 'Trả lời có citation về file gốc', 'Khi có câu hỏi, passage đến từ cả hai bản. Người dùng chỉ thấy một nguồn duy nhất; bấm citation là mở đúng file gốc trên Jira hoặc Confluence.'],
+  ];
+  const root = $('#steps'), prog = $('.prog', root), fig = $('#fig-steps');
+  const panes = $$('.pane', fig), tt = $('#st-t'), td = $('#st-d'), play = $('#st-play');
+  let cur = 0, timer = null, playing = false;
+  const buttons = STEPS.map(([short], i) => {
+    const b = h('button', 'step');
+    b.append(h('span', 'c', String(i + 1)), h('span', 't', short));
+    b.addEventListener('click', () => { stop(); go(i); });
+    root.append(b);
+    return b;
+  });
+  function go(i) {
+    cur = (i + STEPS.length) % STEPS.length;
+    buttons.forEach((b, k) => { b.classList.toggle('on', k === cur); b.classList.toggle('done', k < cur); b.setAttribute('aria-current', k === cur ? 'step' : 'false'); });
+    panes.forEach((p, k) => p.classList.toggle('on', k === cur));
+    prog.style.width = (cur / (STEPS.length - 1)) * 80 + '%';
+    tt.textContent = `${cur + 1}. ${STEPS[cur][1]}`; td.textContent = STEPS[cur][2];
+  }
+  function start() { if (calm) return; playing = true; play.textContent = 'Tạm dừng'; clearInterval(timer); timer = setInterval(() => go(cur + 1), 4200); }
+  function stop() { playing = false; play.textContent = 'Tự chạy'; clearInterval(timer); }
+  play.addEventListener('click', () => (playing ? stop() : start()));
+  $('#st-prev').addEventListener('click', () => { stop(); go(cur - 1); });
+  $('#st-next').addEventListener('click', () => { stop(); go(cur + 1); });
+  go(0); stop();
+  onView(fig, start, 0.4);
+})();
+
+/* ---------- 4a. dumbbell ---------- */
+(() => {
+  const DATA = [
+    ['PowerPoint .pptx', [47, 100], [27, 100]],
+    ['Word .docx', [59, 96], [36, 100]],
+    ['Word .doc', [59, 100], [40, 100]],
+    ['PDF có text', [62, 100], [35, 100]],
+    ['PDF scan', [51, 100], [28, 100]],
+    ['Ảnh .png', [97, 100], [95, 100]],
+  ];
+  const svg = $('#db'), fig = $('#fig-db');
+  const LEG = { all: 'tất cả các từ', acc: 'từ có dấu' };
+  let measure = 'all', shown = false;
+  let cur = DATA.map((d) => [d[1][0], d[1][0]]);
+  let parts = [], geo = null;
+  const target = () => DATA.map((d) => (measure === 'all' ? d[1] : d[2]).slice());
+  function build() {
+    const W = Math.max(320, Math.round(svg.parentNode.clientWidth - 44));
+    const L = W < 520 ? 118 : 170, R = 52, T = 8, RH = 46, H = T + DATA.length * RH + 30;
+    geo = { x: (v) => L + ((W - L - R) * v) / 100, T, RH };
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.replaceChildren();
+    [0, 25, 50, 75, 100].forEach((v) => {
+      svg.append(sv('line', { class: 'gl', x1: geo.x(v), x2: geo.x(v), y1: T, y2: H - 26 }));
+      svg.append(sv('text', { class: 'tick', x: geo.x(v), y: H - 8, 'text-anchor': 'middle' }, v + '%'));
+    });
+    parts = DATA.map((d, i) => {
+      const y = T + i * RH + RH / 2;
+      const g = sv('g', { class: 'rowg', tabindex: 0, role: 'img' });
+      const p = {
+        g, y,
+        hit: sv('rect', { class: 'hit', x: 0, y: y - RH / 2 + 3, width: W, height: RH - 6, rx: 8 }),
+        conn: sv('line', { class: 'conn', y1: y, y2: y }),
+        pb: sv('circle', { class: 'pb', cy: y, r: 7 }), pa: sv('circle', { class: 'pa', cy: y, r: 7 }),
+        vb: sv('text', { class: 'vb', y: y + 5, 'text-anchor': 'end' }), va: sv('text', { class: 'va', y: y + 5 }),
+      };
+      g.append(p.hit, sv('text', { class: 'rl', x: 8, y: y + 5 }, d[0]), p.conn, p.vb, p.va, p.pb, p.pa);
+      const tipRows = () => [[d[0], ''], [Math.round(target()[i][0]) + '%', 'KB đọc trực tiếp · ' + LEG[measure]], [Math.round(target()[i][1]) + '%', 'có Preparation step']];
+      g.addEventListener('pointermove', (ev) => showTip(tipRows(), ev.clientX, ev.clientY));
+      g.addEventListener('pointerleave', hideTip);
+      g.addEventListener('focus', () => { const r = g.getBoundingClientRect(); showTip(tipRows(), r.left + r.width / 2, r.top); });
+      g.addEventListener('blur', hideTip);
+      svg.append(g);
+      return p;
+    });
+    draw();
+  }
+  function draw() {
+    parts.forEach((p, i) => {
+      const [b, a] = cur[i], xb = geo.x(b), xa = geo.x(a);
+      p.conn.setAttribute('x1', xb); p.conn.setAttribute('x2', xa);
+      p.pb.setAttribute('cx', xb); p.pa.setAttribute('cx', xa);
+      p.vb.setAttribute('x', xb - 13); p.vb.textContent = Math.round(b) + '%';
+      p.va.setAttribute('x', xa + 13); p.va.textContent = Math.round(a) + '%';
+      p.va.style.opacity = a - b < 0.5 ? 0 : 1;
+      p.g.setAttribute('aria-label', `${DATA[i][0]}: ${Math.round(target()[i][0])}% khi KB đọc trực tiếp, ${Math.round(target()[i][1])}% khi có Preparation step`);
+    });
+  }
+  function animate() {
+    const from = cur.map((c) => c.slice()), to = target();
+    tween(800, (t) => { cur = from.map((f, i) => [f[0] + (to[i][0] - f[0]) * t, f[1] + (to[i][1] - f[1]) * t]); draw(); });
+  }
+  seg($('#dbseg'), 'm', (m) => { measure = m; if (shown) animate(); else { cur = DATA.map((d) => { const v = m === 'all' ? d[1] : d[2]; return [v[0], v[0]]; }); draw(); } });
+  build();
+  onView(fig, () => { shown = true; animate(); }, 0.45);
+  let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(build, 120); });
+
+  const table = $('#dbtable');
+  const head = h('tr');
+  ['Định dạng', 'Tất cả từ: trước', 'sau', 'Từ có dấu: trước', 'sau'].forEach((t, i) => head.append(h('th', i ? 'n' : '', t)));
+  table.append(head);
+  DATA.forEach((d) => { const tr = h('tr'); tr.append(h('td', '', d[0])); [d[1][0], d[1][1], d[2][0], d[2][1]].forEach((v) => tr.append(h('td', 'n', v + '%'))); table.append(tr); });
+})();
+
+/* ---------- 4b. scorecard ---------- */
+(() => {
+  const SC = [['Nội dung issue', 2, 0], ['Excel .xlsx', 4, 0], ['Excel .xls', 2, 0], ['Word .docx', 4, 0], ['Word .doc', 2, 0], ['PowerPoint .pptx', 7, 3],
+    ['PDF có text', 3, 0], ['PDF scan', 2, 0], ['Markdown .md', 7, 0], ['Text .txt', 1, 0], ['CSV', 2, 0], ['Ảnh .png', 2, 1]];
+  const root = $('#clusters'), v = $('#sc-v'), l = $('#sc-l'), fig = $('#fig-score'), segEl = $('#scseg');
+  const total = SC.reduce((s, c) => s + c[1], 0), failed = SC.reduce((s, c) => s + c[2], 0);
+  const clusters = SC.map(([name, n, fail]) => {
+    const c = h('div', 'cluster'), head = h('div', 'cl'), count = h('span', '', ''), dots = h('div', 'dots');
+    head.append(document.createTextNode(name), count);
+    const qs = Array.from({ length: n }, (_, i) => { const q = h('i', 'qd'); q.dataset.weak = i >= n - fail ? '1' : ''; dots.append(q); return q; });
+    c.append(head, dots); root.append(c);
+    return { name, n, fail, qs, count, c };
+  });
+  let state = null;
+  function set(s) {
+    if (s === state) return; const first = state === null; state = s;
+    const before = s === 'before';
+    clusters.forEach((c) => {
+      c.qs.forEach((q) => {
+        const weak = q.dataset.weak === '1';
+        q.classList.toggle('fail', weak && before);
+        if (weak && !first) { q.classList.remove('pop'); void q.offsetWidth; q.classList.add('pop'); }
+      });
+      const pass = before ? c.n - c.fail : c.n;
+      c.count.textContent = `${pass}/${c.n}`;
+      c.c.setAttribute('role', 'img');
+      c.c.setAttribute('aria-label', `${c.name}: ${pass} trên ${c.n} câu đạt`);
+    });
+    v.textContent = `${before ? total - failed : total}/${total}`;
+    l.textContent = before ? 'câu đạt khi KB đọc trực tiếp file' : 'câu đạt khi có Preparation step';
+    pick(segEl, 's', s);
+  }
+  seg(segEl, 's', (s) => { clearTimeout(auto); set(s); });
+  set('before');
+  let auto;
+  onView(fig, () => { auto = setTimeout(() => set('after'), calm ? 0 : 1400); }, 0.5);
+})();
+
+/* ---------- 5. lab explorer + readers ---------- */
+(() => {
+  const LAB = {
+    'PowerPoint': [
+      ['Chỉ file gốc', 47, 27, '3/7', '3/7'],
+      ['File gốc + speaker notes dạng text', 68, 52, '6/7', '7/7'],
+      ['File gốc + Markdown', 100, 100, '7/7', '7/7', 1],
+      ['Chỉ Markdown', 100, 100, '7/7', '7/7'],
+      ['Chỉ HTML', 100, 100, '7/7', '7/7'],
+      ['Chép notes lên mặt slide', 57, 34, '5/7', '5/7'],
+      ['Chuyển sang PDF', 57, 34, '6/7', '6/7'],
+    ],
+    'Word .docx': [
+      ['Chỉ file gốc', 59, 36, '3/4', '4/4'],
+      ['File gốc + Markdown', 96, 100, '4/4', '4/4', 1],
+      ['Chỉ Markdown hoặc HTML', 96, 100, '4/4', '4/4'],
+      ['Markdown tạo bằng pandoc', 83, 88, '4/4', '4/4'],
+      ['Chuyển sang PDF', 59, 36, '3/4', '4/4'],
+    ],
+    'Word .doc': [
+      ['Chỉ file gốc', 59, 40, '1/2', '2/2'],
+      ['File gốc + text trích từ file', 100, 100, '2/2', '2/2', 1],
+    ],
+    'PDF có text': [
+      ['Chỉ file gốc', 62, 35, '3/3', '3/3'],
+      ['File gốc + text layer', 100, 100, '3/3', '3/3', 1],
+    ],
+    'PDF scan': [
+      ['Chỉ file gốc', 51, 28, '1/2', '2/2'],
+      ['File gốc + text do Qwen3 VL đọc', 100, 100, '2/2', '2/2', 1],
+      ['Mỗi trang thành một ảnh png', 97, 95, '2/2', '2/2'],
+      ['Text do Nova Lite đọc', 82, 73, '2/2', '2/2'],
+    ],
+    'Ảnh .png': [
+      ['Chỉ file gốc', 97, 95, '2/2', '2/2'],
+      ['File gốc + text do Qwen3 VL đọc', 100, 100, '2/2', '2/2', 1],
+      ['Text do Nova Lite đọc', 83, 72, '2/2', '2/2'],
+      ['Chuyển ảnh sang PDF', 58, 31, '2/2', '2/2'],
+    ],
+  };
+  const segEl = $('#labseg'), bars = $('#labbars');
+  function row(cells, klass) {
+    const r = h('div', 'brow ' + (klass || ''));
+    cells.forEach((c) => r.append(c));
+    return r;
+  }
+  function barCell(value) { const t = h('div', 'track'), b = h('div', 'bar'); t.append(b); requestAnimationFrame(() => requestAnimationFrame(() => { b.style.width = value + '%'; })); return t; }
+  function nameCell(name, chosen, tag) { const n = h('div', 'nm', name); if (chosen) n.append(h('span', 'tagpick', tag)); return n; }
+  function render(key) {
+    bars.replaceChildren(row([h('div', '', 'Dạng gửi vào KB'), h('div', 'bh', 'Số từ KB giữ được'), h('div', 'n', ''), h('div', 'n x', 'Từ có dấu'), h('div', 'n x', 'Dữ kiện trong top passage'), h('div', 'n x', 'Trả lời đúng')], 'h'));
+    LAB[key].forEach(([name, all, acc, facts, right, chosen]) => {
+      const r = row([nameCell(name, chosen, 'ĐƯỢC CHỌN'), barCell(all), h('div', 'n', all + '%'), h('div', 'n x', acc + '%'), h('div', 'n x', facts), h('div', 'n x', right)], chosen ? 'pick' : '');
+      r.tabIndex = 0;
+      const rows = [[name, ''], [all + '%', 'số từ KB giữ được'], [acc + '%', 'từ có dấu'], [facts, 'dữ kiện trong top passage'], [right, 'trả lời đúng']];
+      r.addEventListener('pointermove', (ev) => showTip(rows, ev.clientX, ev.clientY));
+      r.addEventListener('pointerleave', hideTip);
+      r.addEventListener('focus', () => { const b = r.getBoundingClientRect(); showTip(rows, b.left + 40, b.top); });
+      r.addEventListener('blur', hideTip);
+      bars.append(r);
+    });
+  }
+  Object.keys(LAB).forEach((key, i) => { const b = h('button', '', key); b.dataset.k = key; b.setAttribute('aria-pressed', String(i === 0)); segEl.append(b); });
+  seg(segEl, 'k', render);
+  onView($('#fig-lab'), () => render(Object.keys(LAB)[0]), 0.3);
+
+  const READERS = [
+    ['Qwen3 VL 235B', 100, 100, '3,3', 1], ['Mistral Large 3', 100, 100, '2,9'], ['Kimi K2.5', 100, 100, '3,8'], ['Gemma 3 27B', 100, 100, '5,2'],
+    ['Gemma 3 12B / 4B', 99.5, 99, '9,3 (12B)', 0, '99–100%'], ['Magistral Small, Ministral 3', 94, 96, ''], ['Nova Pro', 77, 83, ''],
+    ['Nemotron Nano 12B v2', 75, 82, ''], ['Nova Lite', 58, 69, ''], ['Amazon Textract', 29, 49, ''],
+  ];
+  const rb = $('#readerbars');
+  onView($('#fig-readers'), () => {
+    rb.append(row([h('div', '', 'Model'), h('div', 'bh', 'Từ có dấu đọc đúng'), h('div', 'n', ''), h('div', 'n x', 'Tất cả từ'), h('div', 'n x', 'Giây mỗi trang')], 'h r5'));
+    READERS.forEach(([name, acc, all, secs, chosen, accText]) => {
+      const accLabel = accText || acc + '%';
+      const r = row([nameCell(name, chosen, 'ĐANG DÙNG'), barCell(acc), h('div', 'n', accLabel), h('div', 'n x', all + '%'), h('div', 'n x', secs || '–')], 'r5' + (chosen ? ' pick' : ''));
+      r.tabIndex = 0;
+      const rows = [[name, ''], [accLabel, 'từ có dấu đọc đúng'], [all + '%', 'tất cả từ']].concat(secs ? [[secs, 'giây mỗi trang']] : []);
+      r.addEventListener('pointermove', (ev) => showTip(rows, ev.clientX, ev.clientY));
+      r.addEventListener('pointerleave', hideTip);
+      r.addEventListener('focus', () => { const b = r.getBoundingClientRect(); showTip(rows, b.left + 40, b.top); });
+      r.addEventListener('blur', hideTip);
+      rb.append(r);
+    });
+  }, 0.2);
+})();
+})();
+</script>
+</body>
+</html>
