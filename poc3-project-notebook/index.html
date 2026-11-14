@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Project Notebook: kiến trúc và chất lượng Knowledge Base</title>
-<meta name="description" content="Tài liệu cho ban lãnh đạo: kiến trúc mới nhất của Project Notebook, cách Preparation step nâng chất lượng Knowledge Base, hai cách sử dụng qua web UI và MCP, và vì sao web UI cho câu trả lời tốt.">
+<title>Project Notebook: trợ lý tri thức dự án cho Confluence và Jira</title>
+<meta name="description" content="Project Notebook trả lời câu hỏi của đội dự án từ Confluence và Jira, có citation, đếm chính xác, báo cáo nghiên cứu và phân quyền theo từng page và issue.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -286,7 +286,7 @@ mark{background:var(--accent-soft);color:inherit;box-shadow:inset 0 -2px 0 var(-
 .card.hl mark{background:var(--surface)}
 .pcard .tag{color:var(--accent-ink)}
 .pcard.hlcard{border-color:var(--accent)}
-.arms{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.arms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:16px}
 .arm{font:inherit;text-align:left;color:var(--ink);background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:14px 16px;cursor:pointer}
 .arm:hover{border-color:var(--axis)}
 .arm[aria-pressed=true]{border-color:var(--accent);background:var(--accent-soft)}
@@ -302,6 +302,19 @@ mark{background:var(--accent-soft);color:inherit;box-shadow:inset 0 -2px 0 var(-
 
 /* principles + limits */
 .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:22px}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:22px}
+#gates{display:block;width:100%;min-width:840px;height:auto;font-family:var(--font)}
+#gates text{fill:var(--ink)}
+#gates .box{fill:var(--surface);stroke:var(--axis);stroke-width:1.2}
+#gates .gate{fill:var(--accent-soft);stroke:var(--accent)}
+#gates .nt{font-size:16px;font-weight:600}
+#gates .ns{font-size:13.5px;fill:var(--ink2)}
+#gates .nx{font-size:14.5px;font-weight:600}
+#gates .go{fill:none;stroke:var(--accent);stroke-width:1.8}
+#gates .stop{fill:none;stroke:var(--axis);stroke-width:1.6;stroke-dasharray:5 5}
+#gates .ga{fill:var(--accent)}
+#gates .gx{fill:var(--axis)}
+#fig-count .readout,#fig-research .readout{margin-top:16px}
 .pcard{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px}
 .pcard svg{width:26px;height:26px;color:var(--accent);margin-bottom:10px}
 .pcard h3{margin-bottom:6px}
@@ -320,7 +333,7 @@ footer{margin:56px 0 0;padding:26px 0 46px;border-top:1px solid var(--grid);font
   .hero{grid-template-columns:1fr;gap:22px}
   .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
   .slide,.stage{grid-template-columns:1fr}
-  .grid3{grid-template-columns:1fr}
+  .grid3,.grid4{grid-template-columns:1fr}
   .limits li{grid-template-columns:1fr;gap:4px}
   .step .t{font-size:12px}
   .brow,.brow.r5{grid-template-columns:minmax(0,1fr) auto;gap:4px 10px}
@@ -351,34 +364,37 @@ footer{margin:56px 0 0;padding:26px 0 46px;border-top:1px solid var(--grid);font
     <div class="eyebrow"><span>Project Notebook</span><span><i></i>Tài liệu cho ban lãnh đạo</span><span><i></i>14/11/2026</span></div>
     <div class="hero">
       <div>
-        <h1>Trợ lý tri thức dự án: kiến trúc mới và cách nâng chất lượng Knowledge Base</h1>
-        <p class="lead">Project Notebook trả lời câu hỏi từ tài liệu trên Confluence và Jira, kể cả file đính kèm. Bản mới nhất thêm một <b>Preparation step</b> trước Knowledge Base: nội dung tiếng Việt trong file Office, PDF và ảnh không còn bị mất khi được index. Kho tri thức được dùng theo hai cách: <b>web UI</b> cho cả đội dự án và <b>MCP</b> cho AI coding agent của kỹ sư. Ở chế độ Agent, web UI tự tìm và đọc nhiều bước như một coding agent rồi mới trả lời.</p>
+        <h1>Project Notebook: trợ lý tri thức dự án cho Confluence và Jira</h1>
+        <p class="lead">Project Notebook trả lời câu hỏi của đội dự án từ tài liệu trên Confluence và Jira, kể cả file đính kèm. Mỗi dữ kiện trong câu trả lời có <b>citation</b> về tài liệu gốc. Ngoài hỏi đáp, hệ thống đếm và tính chính xác trên Jira và trên bảng số liệu, và viết báo cáo nghiên cứu có trích dẫn. Kho tri thức được dùng qua <b>web UI</b> cho cả đội và qua <b>MCP</b> cho AI coding agent của kỹ sư. Ở cả hai, mỗi người chỉ thấy những page và issue mình được phép đọc.</p>
       </div>
       <div class="herocard">
         <div class="lab">Câu hỏi về file đính kèm được trả lời đúng</div>
         <div class="big">38<small>/38</small></div>
-        <div class="delta"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 11V3M3.5 6.5 7 3l3.5 3.5"/></svg>trước khi có Preparation step: 34/38</div>
+        <div class="delta"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 11V3M3.5 6.5 7 3l3.5 3.5"/></svg>khi Knowledge Base đọc trực tiếp file: 34/38</div>
         <div class="foot">Đo ngày 14/11/2026 trên 23 file tiếng Việt giả lập, đính kèm trên Jira và Confluence.</div>
       </div>
     </div>
 
     <div class="tiles">
-      <div class="tile"><div class="v">96–100%</div><div class="l">số từ của pptx, docx, doc, pdf mà Knowledge Base giữ được</div><div class="d">trước: 47–62%</div></div>
-      <div class="tile"><div class="v">13 / 13</div><div class="l">file cần xử lý đã có text document, tạo tự động</div><div class="d">10 file còn lại KB vốn đọc tốt</div></div>
-      <div class="tile"><div class="v">79 / 79</div><div class="l">kiểm tra end-to-end của toàn hệ thống đều đạt</div><div class="d">chat, agent, phân quyền, sync, MCP</div></div>
+      <div class="tile"><div class="v">96–100%</div><div class="l">số từ của pptx, docx, doc, pdf mà Knowledge Base giữ được</div><div class="d">khi KB đọc trực tiếp file: 47–62%</div></div>
+      <div class="tile"><div class="v">78 / 79</div><div class="l">câu hỏi web UI trả lời đạt, ngang một coding agent dùng MCP</div><div class="d">cùng model, cùng bộ tool</div></div>
+      <div class="tile"><div class="v">88 / 88</div><div class="l">kiểm tra end-to-end của toàn hệ thống đều đạt</div><div class="d">chat, agent, research, phân quyền, sync, MCP</div></div>
       <div class="tile"><div class="v">0</div><div class="l">thay đổi ghi lên Confluence và Jira</div><div class="d">hệ thống chỉ đọc</div></div>
     </div>
 
     <ul class="toc">
-      <li><a href="#s1">1. Kiến trúc gồm những gì</a></li>
-      <li><a href="#s2">2. Bài toán chất lượng</a></li>
-      <li><a href="#s3">3. Preparation step</a></li>
-      <li><a href="#s4">4. Kết quả đo</a></li>
-      <li><a href="#s5">5. Các phương án đã thử</a></li>
-      <li><a href="#s6">6. Hai cách sử dụng</a></li>
-      <li><a href="#s7">7. Vì sao web UI trả lời tốt</a></li>
-      <li><a href="#s8">8. Nguyên tắc thiết kế</a></li>
-      <li><a href="#s9">9. Giới hạn còn lại</a></li>
+      <li><a href="#s1">1. Hệ thống làm được gì</a></li>
+      <li><a href="#s2">2. Kiến trúc</a></li>
+      <li><a href="#s3">3. Nạp tài liệu</a></li>
+      <li><a href="#s4">4. Chất lượng khâu nạp</a></li>
+      <li><a href="#s5">5. Hai cách sử dụng</a></li>
+      <li><a href="#s6">6. Cách trả lời</a></li>
+      <li><a href="#s7">7. Đếm và tính chính xác</a></li>
+      <li><a href="#s8">8. Research mode</a></li>
+      <li><a href="#s9">9. Chất lượng và chi phí</a></li>
+      <li><a href="#s10">10. Phân quyền</a></li>
+      <li><a href="#s11">11. Nguyên tắc thiết kế</a></li>
+      <li><a href="#s12">12. Giới hạn</a></li>
     </ul>
   </div>
 </header>
@@ -387,10 +403,29 @@ footer{margin:56px 0 0;padding:26px 0 46px;border-top:1px solid var(--grid);font
 
 <section id="s1">
   <div class="num">Phần 1</div>
-  <h2>Kiến trúc gồm những gì</h2>
+  <h2>Hệ thống làm được gì</h2>
+  <div class="prose">
+    <p>Tri thức của một dự án nằm rải trên wiki, issue và hàng trăm file đính kèm, viết bằng tiếng Việt, tiếng Anh và tiếng Nhật. Project Notebook gom chúng vào một kho tìm kiếm được và trả lời bằng lời thường, luôn kèm đường dẫn về tài liệu gốc để người hỏi tự kiểm chứng.</p>
+    <p>Hệ thống trả lời ba loại yêu cầu, và mỗi loại được xử lý bằng một cách riêng vì chúng hỏng theo những kiểu khác nhau.</p>
+  </div>
+  <div class="grid3">
+    <div class="pcard reveal"><span class="tag">Hỏi đáp</span><h3>Câu trả lời có citation</h3><p>"Đơn hoàn tiền của khách hàng doanh nghiệp cần ai duyệt?" Hệ thống tìm trong tài liệu, đọc khi cần, và viết câu trả lời mà mỗi dữ kiện mang một citation. Phần tài liệu không nêu thì được nói rõ là không nêu.</p></div>
+    <div class="pcard reveal"><span class="tag">Con số</span><h3>Đếm và tính chính xác</h3><p>"Còn bao nhiêu issue đang mở?" hay "Tổng số lỗi trong bảng đo là bao nhiêu?" Con số được lấy bằng một truy vấn trên Jira hoặc một phép tính trên bảng, không ước lượng từ vài đoạn văn.</p></div>
+    <div class="pcard reveal"><span class="tag">Báo cáo</span><h3>Nghiên cứu một chủ đề</h3><p>"Viết báo cáo về tình trạng tính năng X." Hệ thống lập dàn ý, tìm riêng cho từng mục, rồi viết một báo cáo có trích dẫn và danh sách những điều tài liệu chưa trả lời.</p></div>
+  </div>
+  <div class="grid3">
+    <div class="pcard reveal"><span class="tag">Nguồn</span><h3>Confluence, Jira và file đính kèm</h3><p>Page, blog post, issue, comment và file đính kèm: Excel, Word, PowerPoint, PDF, Markdown, text, CSV, ảnh và trang scan. Nội dung tự cập nhật mỗi 15 phút.</p></div>
+    <div class="pcard reveal"><span class="tag">Kênh dùng</span><h3>Web UI và MCP</h3><p>Cả đội dùng trên trình duyệt. Kỹ sư dùng ngay trong code editor, qua AI coding agent. Hai kênh dùng chung một kho tri thức và một bộ tool.</p></div>
+    <div class="pcard reveal"><span class="tag">Quyền</span><h3>Theo đúng quyền ở nguồn</h3><p>Admin cấp quyền theo từng source. Trong mỗi source, page bị hạn chế trên Confluence và issue có security level trên Jira chỉ hiện với đúng những người được đọc chúng.</p></div>
+  </div>
+</section>
+
+<section id="s2">
+  <div class="num">Phần 2</div>
+  <h2>Kiến trúc</h2>
   <div class="prose">
     <p>Hệ thống có hai luồng. <b>Luồng nạp tài liệu</b> đưa nội dung từ Confluence và Jira vào Knowledge Base và giữ cho nó luôn mới. <b>Luồng hỏi đáp</b> nhận câu hỏi, tìm đúng đoạn tài liệu mà người hỏi được phép đọc, rồi viết câu trả lời kèm citation.</p>
-    <p>Hệ thống chạy serverless trong AWS project của công ty, ở một Region. Tài liệu gốc vẫn nằm ở Confluence và Jira. Có một ngoại lệ có chủ đích: chat model được gọi qua Claude API, ngoài AWS project (xem Phần 8).</p>
+    <p>Hệ thống chạy serverless trong AWS project của công ty, ở một Region. Tài liệu gốc vẫn nằm ở Confluence và Jira. Có một ngoại lệ có chủ đích: chat model được gọi qua Claude API, ngoài AWS project (Phần 11 và Phần 12).</p>
   </div>
 
   <figure class="fig reveal">
@@ -407,7 +442,7 @@ footer{margin:56px 0 0;padding:26px 0 46px;border-top:1px solid var(--grid);font
     </div>
     <p class="hint swipe">Vuốt ngang để xem hết bản đồ.</p>
     <div class="arch-scroll">
-      <svg id="arch" viewBox="0 0 1160 486" data-flow="ingest" role="img" aria-label="Bản đồ kiến trúc Project Notebook: Confluence và Jira được Sync Monitor và Preparation step đưa vào Amazon Bedrock Managed Knowledge Bases; API, chat model và lớp phân quyền phục vụ web UI và AI coding agents.">
+      <svg id="arch" viewBox="0 0 1160 486" data-flow="ingest" role="img" aria-label="Bản đồ kiến trúc Project Notebook: Confluence và Jira được Sync Monitor và Preparation step đưa vào Amazon Bedrock Managed Knowledge Bases; API, chat model và lớp phân quyền theo source, page và issue phục vụ web UI và AI coding agents.">
         <defs>
           <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" class="arr"/></marker>
           <marker id="arr-on" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" class="arr-on"/></marker>
@@ -419,14 +454,14 @@ footer{margin:56px 0 0;padding:26px 0 46px;border-top:1px solid var(--grid);font
       <h3 id="ap-t"></h3>
       <p id="ap-d"></p>
     </div>
-    <p class="hint">Phần tô xanh là phần mới của bản này: Preparation step và text document.</p>
-    <figcaption>Điểm mới nằm ở luồng nạp tài liệu: giữa nguồn và Knowledge Base có thêm một bước chuẩn bị. Ở luồng hỏi đáp, chat model nay là Claude Sonnet 5.5 và web UI có thêm chế độ Agent (Phần 7); cách hỏi của người dùng không đổi.</figcaption>
+    <p class="hint">Phần tô xanh là Preparation step và text document: phần hệ thống xây thêm quanh dịch vụ managed.</p>
+    <figcaption>Ở luồng nạp tài liệu, giữa nguồn và Knowledge Base có một bước chuẩn bị (Phần 3), và Sync Monitor đọc cả restriction của page và issue (Phần 10). Ở luồng hỏi đáp, mọi request đi qua lớp phân quyền trước khi tới Knowledge Base, và chat model là Claude Sonnet 5.5.</figcaption>
   </figure>
 </section>
 
-<section id="s2">
-  <div class="num">Phần 2</div>
-  <h2>Bài toán: KB đọc được file, nhưng chỉ giữ được một nửa</h2>
+<section id="s3">
+  <div class="num">Phần 3</div>
+  <h2>Nạp tài liệu: giữ trọn nội dung của file đính kèm</h2>
   <div class="prose">
     <p>Amazon Bedrock Managed Knowledge Bases tự parse và index tài liệu, nên không phải vận hành hạ tầng tìm kiếm. Đổi lại, parser của dịch vụ không có thiết lập nào để chỉnh.</p>
     <p>Với file tiếng Việt, phép đo cho thấy parser chỉ giữ đúng khoảng một nửa số từ của pptx, docx, doc và pdf. Phần mất chủ yếu là các từ có dấu. Speaker notes của slide không được index.</p>
@@ -472,12 +507,9 @@ footer{margin:56px 0 0;padding:26px 0 46px;border-top:1px solid var(--grid);font
     </div>
     <figcaption>Ô xám là những từ KB không còn giữ đúng như đã viết. Khi KB đọc trực tiếp file pptx, hơn một nửa nội dung rơi vào trạng thái này và toàn bộ speaker notes biến mất. Với Preparation step, mọi từ đều có trong KB.</figcaption>
   </figure>
-</section>
 
-<section id="s3">
-  <div class="num">Phần 3</div>
-  <h2>Cách giải: Preparation step trước Knowledge Base</h2>
-  <div class="prose">
+  <div class="prose" style="margin-top:34px">
+    <h3 class="sub">Preparation step trước Knowledge Base</h3>
     <p>Vì không chỉnh được parser, hệ thống đưa cho nó thứ mà nó đọc tốt. KB giữ 100% nội dung của file Markdown. Vậy với mỗi file đính kèm thuộc định dạng parser đọc kém, hệ thống tạo thêm một <b>text document</b>: nội dung của chính file đó, viết lại thành Markdown, đặt cạnh file gốc trong KB.</p>
     <p>File gốc không bị thay thế. Text document mang cùng link với file gốc, nên citation trong câu trả lời vẫn mở đúng file trên Jira hoặc Confluence.</p>
   </div>
@@ -518,9 +550,9 @@ thành 14 ngày, cần kế toán xác nhận.</span></div>
         <div class="pane" data-p="3">
           <div class="kbframe" style="--i:0">
             <div class="cap">Managed Knowledge Base</div>
-            <div class="card"><span class="ext">PPTX</span><div><b>File gốc</b><small>giữ nguyên, KB đọc như trước</small></div></div>
+            <div class="card"><span class="ext">PPTX</span><div><b>File gốc</b><small>giữ nguyên, KB vẫn đọc trực tiếp</small></div></div>
             <div class="linkbar">↕ cùng một link về file gốc</div>
-            <div class="card hl"><span class="ext mk">MD</span><div><b>Text document</b><small>đầy đủ nội dung, kể cả speaker notes</small></div><span class="pill">mới</span></div>
+            <div class="card hl"><span class="ext mk">MD</span><div><b>Text document</b><small>đầy đủ nội dung, kể cả speaker notes</small></div><span class="pill">bổ sung</span></div>
           </div>
         </div>
         <div class="pane" data-p="4">
@@ -535,13 +567,13 @@ thành 14 ngày, cần kế toán xác nhận.</span></div>
       <button class="btn st-prev" aria-label="Bước trước">←</button>
       <button class="btn st-next" aria-label="Bước sau">→</button>
     </div>
-    <figcaption>Câu hỏi ở bước 5 chỉ trả lời được nhờ speaker notes. Trước đây đó là phần KB không có. Khi file đổi version, text document được tạo lại. Khi file bị gỡ, text document bị xoá theo.</figcaption>
+    <figcaption>Câu hỏi ở bước 5 chỉ trả lời được nhờ speaker notes. Khi KB đọc trực tiếp file, phần này không có trong KB. Khi file đổi version, text document được tạo lại. Khi file bị gỡ, text document bị xoá theo.</figcaption>
   </figure>
 </section>
 
 <section id="s4">
   <div class="num">Phần 4</div>
-  <h2>Kết quả đo</h2>
+  <h2>Chất lượng của khâu nạp tài liệu</h2>
   <div class="prose">
     <p>Có hai phép đo. Phép thứ nhất so nội dung KB giữ được với nội dung thật của file. Phép thứ hai hỏi 38 câu, mỗi câu chỉ trả lời được từ một phần của một file: một sheet, một slide, một bảng, một đoạn speaker notes.</p>
   </div>
@@ -558,7 +590,7 @@ thành 14 ngày, cần kế toán xác nhận.</span></div>
       </div>
     </div>
     <div class="legend"><span><i class="sw"></i>KB đọc trực tiếp file</span><span><i class="sw a"></i>Có Preparation step</span></div>
-    <svg id="db" role="img" aria-label="Biểu đồ trước và sau cho sáu định dạng file: với Preparation step, tỷ lệ từ được giữ tăng từ khoảng 47 đến 62 phần trăm lên 96 đến 100 phần trăm."></svg>
+    <svg id="db" role="img" aria-label="Biểu đồ so sánh hai cách nạp cho sáu định dạng file: với Preparation step, tỷ lệ từ được giữ tăng từ khoảng 47 đến 62 phần trăm lên 96 đến 100 phần trăm."></svg>
     <details class="tbl">
       <summary>Xem dạng bảng</summary>
       <table class="data" id="dbtable"></table>
@@ -572,23 +604,20 @@ thành 14 ngày, cần kế toán xác nhận.</span></div>
         <h3>38 câu hỏi về file đính kèm</h3>
         <p class="fig-sub">Mỗi chấm là một câu hỏi. Một câu đạt khi câu trả lời có đủ dữ kiện mong đợi và passage của đúng file được tìm thấy.</p>
       </div>
-      <div class="seg" role="group" aria-label="Chọn thời điểm" id="scseg">
-        <button data-s="before" aria-pressed="true">Trước</button>
+      <div class="seg" role="group" aria-label="Chọn cách nạp" id="scseg">
+        <button data-s="before" aria-pressed="true">KB đọc trực tiếp</button>
         <button data-s="after" aria-pressed="false">Có Preparation step</button>
       </div>
     </div>
     <div class="score-head"><div class="sv" id="sc-v">34/38</div><div class="sl" id="sc-l">câu đạt khi KB đọc trực tiếp file</div></div>
     <div class="legend"><span><i class="lg-pass"></i>Đạt</span><span><i class="lg-fail"></i>Không đạt</span></div>
     <div class="clusters" id="clusters"></div>
-    <figcaption>Bốn câu không đạt trước đây đều do giới hạn của parser: ba câu hỏi vào speaker notes của PowerPoint, một câu hỏi vào chữ trong ảnh đính kèm trên một Confluence page. Cả bốn hiện được trả lời từ text document. Kết quả như nhau trên hai nguồn: Jira 19/19, Confluence 19/19.</figcaption>
+    <figcaption>Bốn câu không đạt khi KB đọc trực tiếp file đều do giới hạn của parser: ba câu hỏi vào speaker notes của PowerPoint, một câu hỏi vào chữ trong ảnh đính kèm trên một Confluence page. Với Preparation step, cả bốn được trả lời từ text document. Kết quả như nhau trên hai nguồn: Jira 19/19, Confluence 19/19.</figcaption>
   </figure>
-</section>
 
-<section id="s5">
-  <div class="num">Phần 5</div>
-  <h2>Các phương án đã thử trước khi chọn</h2>
-  <div class="prose">
-    <p>Phương án được chọn không phải phương án duy nhất được thử. Mỗi file được gửi vào KB dưới nhiều dạng khác nhau, rồi đo cùng một bộ chỉ số. Chuyển file sang PDF, cách thường được nghĩ đến đầu tiên, không cải thiện gì.</p>
+  <div class="prose" style="margin-top:34px">
+    <h3 class="sub">Các phương án đã cân nhắc</h3>
+    <p>Cách làm trên được chọn sau khi đo nhiều phương án. Mỗi file được gửi vào KB dưới nhiều dạng khác nhau, rồi đo cùng một bộ chỉ số. Chuyển file sang PDF, cách thường được nghĩ đến đầu tiên, không cải thiện gì.</p>
   </div>
 
   <figure class="fig reveal" id="fig-lab">
@@ -617,8 +646,8 @@ thành 14 ngày, cần kế toán xác nhận.</span></div>
   </figure>
 </section>
 
-<section id="s6">
-  <div class="num">Phần 6</div>
+<section id="s5">
+  <div class="num">Phần 5</div>
   <h2>Hai cách sử dụng: web UI và MCP</h2>
   <div class="prose">
     <p>Cùng một kho tri thức được dùng theo hai cách. <b>Web UI</b> dành cho cả đội dự án: mở trình duyệt, hỏi bằng lời thường, đọc câu trả lời và kiểm chứng trên tài liệu gốc. <b>MCP</b> dành cho kỹ sư đang làm việc với một AI coding agent trong code editor: agent tự tra tài liệu dự án ngay trong lúc viết code, không phải chuyển cửa sổ.</p>
@@ -668,12 +697,20 @@ thành 14 ngày, cần kế toán xác nhận.</span></div>
   </div>
 </section>
 
-<section id="s7">
-  <div class="num">Phần 7</div>
-  <h2>Vì sao web UI cho câu trả lời tốt</h2>
+<section id="s6">
+  <div class="num">Phần 6</div>
+  <h2>Cách hệ thống trả lời một câu hỏi</h2>
   <div class="prose">
-    <p>Một chatbot tài liệu thông thường tìm một lần rồi trả lời từ những gì tìm được. Cách này hỏng khi dữ kiện nằm ở một tài liệu khác, được viết bằng từ khác, hoặc bằng ngôn ngữ khác với câu hỏi. Coding agent dùng MCP không gặp giới hạn đó, vì nó tự tìm lại nhiều lần cho đến khi đủ.</p>
-    <p>Chế độ <b>Agent</b> của web UI làm việc theo đúng cách ấy. Model tự quyết định tìm gì, bằng từ nào, khi nào cần đọc cả một tài liệu và khi nào đã đủ để trả lời. Nó dùng chính bộ tool mà MCP đưa cho coding agent.</p>
+    <p>Một chatbot tài liệu thông thường tìm một lần rồi trả lời từ những gì tìm được. Cách này hỏng khi dữ kiện nằm ở một tài liệu khác, được viết bằng từ khác, hoặc bằng ngôn ngữ khác với câu hỏi. Vì vậy web UI có bốn chế độ, từ nhanh đến kỹ, và người dùng chọn theo câu hỏi.</p>
+  </div>
+  <div class="grid4">
+    <div class="pcard reveal"><span class="tag">Mặc định</span><h3>Fast</h3><p>Một lần tìm trong mỗi Knowledge Base, rồi viết câu trả lời. Nhanh nhất; hợp với câu hỏi có đáp án nằm gọn trong một tài liệu.</p></div>
+    <div class="pcard reveal"><span class="tag">Câu hỏi rộng</span><h3>Deep</h3><p>Knowledge Base tự tách câu hỏi thành nhiều câu con và tìm cho từng câu. Hợp với câu hỏi rộng có nhiều ý.</p></div>
+    <div class="pcard reveal hlcard"><span class="tag">Câu hỏi cần tổng hợp</span><h3>Agent</h3><p>Model tự tìm nhiều lần, đọc cả tài liệu, đếm và tính khi cần, và quyết định khi nào đủ. Hợp với câu hỏi cần ghép dữ kiện từ nhiều tài liệu.</p></div>
+    <div class="pcard reveal"><span class="tag">Báo cáo</span><h3>Research</h3><p>Lập dàn ý, nghiên cứu từng mục song song, rồi viết một báo cáo có trích dẫn. Chậm và tốn hơn một câu trả lời (Phần 8).</p></div>
+  </div>
+  <div class="prose" style="margin-top:22px">
+    <p>Chế độ <b>Agent</b> làm việc như một coding agent dùng MCP: model tự quyết định tìm gì, bằng từ nào, khi nào cần đọc cả một tài liệu và khi nào đã đủ để trả lời. Nó dùng chính bộ tool mà MCP đưa cho coding agent. Một câu đã trả lời ở chế độ khác có nút để hỏi lại ở chế độ Agent.</p>
   </div>
 
   <figure class="fig reveal" id="fig-agent">
@@ -726,36 +763,131 @@ thành 14 ngày, cần kế toán xác nhận.</span></div>
 
   <div class="prose" style="margin-top:34px">
     <h3 class="sub">Những gì tạo nên chất lượng</h3>
-    <p>Câu trả lời tốt không đến từ riêng model. Nó là kết quả của bảy điều cùng có mặt.</p>
+    <p>Câu trả lời tốt không đến từ riêng model. Nó là kết quả của tám điều cùng có mặt.</p>
   </div>
   <ul class="limits">
     <li><b>Tìm nhiều lần, bằng nhiều cách nói</b><span>Tài liệu dự án viết bằng tiếng Việt, tiếng Anh và tiếng Nhật. Model tìm lại bằng từ khác, bằng ngôn ngữ khác, bằng đúng mã hoặc tên riêng, và tìm riêng cho từng phần của câu hỏi.</span></li>
-    <li><b>Đọc cả tài liệu khi cần</b><span>Câu hỏi về một danh sách đầy đủ, một bảng, mọi bước của một quy trình hay một con số đếm không trả lời được từ vài passage. Khi đó model đọc toàn văn tài liệu.</span></li>
+    <li><b>Đọc cả tài liệu khi cần</b><span>Câu hỏi về mọi bước của một quy trình hay toàn bộ một danh sách không trả lời được từ vài passage. Khi đó model đọc toàn văn tài liệu.</span></li>
+    <li><b>Đếm bằng truy vấn, không bằng ước lượng</b><span>Search chỉ trả về những đoạn gần câu hỏi nhất, không phải tất cả. Câu hỏi "bao nhiêu" được trả lời bằng tool đếm và tính (Phần 7).</span></li>
     <li><b>Tìm thẳng vào dữ kiện</b><span>Một dữ kiện về tính năng thường được viết ở nơi khác: test plan, design note, release notes, issue. Trước khi kết luận là tài liệu không nêu, model phải tìm chính dữ kiện đó bằng lời khác.</span></li>
     <li><b>Chỉ nói điều tài liệu nói</b><span>Mỗi dữ kiện mang citation về tài liệu gốc. Phần nào tài liệu không trả lời thì câu trả lời nói rõ là tài liệu không nêu, không đoán. Nội dung tài liệu được coi là thông tin, không phải mệnh lệnh cho model.</span></li>
     <li><b>Nội dung đã có đủ trong Knowledge Base</b><span>Tìm giỏi đến đâu cũng không thấy thứ không được index. Preparation step (Phần 3) đưa speaker notes, chữ trong ảnh và text tiếng Việt của file Office vào KB.</span></li>
-    <li><b>Cùng một bộ tool với MCP</b><span>Web UI và MCP chạy cùng một đoạn code cho search và đọc tài liệu. Một cải tiến ở tool có ngay ở cả hai cách dùng, và hai cách cho kết quả so sánh được.</span></li>
+    <li><b>Cùng một bộ tool với MCP</b><span>Web UI và MCP chạy cùng một đoạn code cho search, đọc tài liệu, đếm và tính. Một cải tiến ở tool có ngay ở cả hai cách dùng, và hai cách cho kết quả so sánh được.</span></li>
     <li><b>Con người khép vòng</b><span>Người dùng kiểm chứng qua citation và vote kèm lý do. Câu hỏi mà tài liệu chưa trả lời được hiện trên trang KB quality, để đội dự án biết cần viết thêm gì.</span></li>
   </ul>
+</section>
 
-  <div class="prose" style="margin-top:34px">
-    <h3 class="sub">Ba chế độ trả lời</h3>
-    <p>Người dùng chọn chế độ theo câu hỏi. Một câu đã trả lời ở chế độ khác có nút để hỏi lại ở chế độ Agent.</p>
+<section id="s7">
+  <div class="num">Phần 7</div>
+  <h2>Đếm và tính chính xác</h2>
+  <div class="prose">
+    <p>Tìm kiếm theo nghĩa trả về vài đoạn văn gần câu hỏi nhất. Nó không trả về mọi issue, mọi dòng của một bảng hay mọi file của một page. Một trợ lý chỉ có search sẽ đếm trên những gì nó tình cờ thấy và đưa ra một con số trông hợp lý nhưng sai.</p>
+    <p>Vì vậy, bên cạnh các tool tìm và đọc, model có ba tool <b>tính thay vì tìm</b>. Con số trong câu trả lời do code tính ra trên dữ liệu đầy đủ; model chỉ chọn phép tính và diễn giải kết quả.</p>
   </div>
   <div class="grid3">
-    <div class="pcard reveal"><span class="tag">Mặc định</span><h3>Fast</h3><p>Một lần tìm trong mỗi Knowledge Base, rồi viết câu trả lời. Nhanh nhất; hợp với câu hỏi có đáp án nằm gọn trong một tài liệu.</p></div>
-    <div class="pcard reveal"><span class="tag">Câu hỏi rộng</span><h3>Deep</h3><p>Knowledge Base tự tách câu hỏi thành nhiều câu con và tìm cho từng câu. Hợp với câu hỏi rộng có nhiều ý.</p></div>
-    <div class="pcard reveal hlcard"><span class="tag">Câu hỏi cần tổng hợp</span><h3>Agent</h3><p>Model tự tìm nhiều lần, đọc cả tài liệu và quyết định khi nào đủ. Chậm hơn; hợp với câu hỏi cần ghép dữ kiện từ nhiều tài liệu. Phép đo dưới đây dùng chế độ này.</p></div>
+    <div class="pcard reveal"><span class="tag">query_jira</span><h3>Đếm trên Jira</h3><p>Chạy một truy vấn JQL trên Jira ngay lúc hỏi. Trả về tổng số chính xác, số đếm theo status, assignee, priority, loại, version hoặc label, và danh sách issue. Câu trả lời ghi rõ số liệu được đọc từ Jira vừa xong.</p></div>
+    <div class="pcard reveal"><span class="tag">query_table</span><h3>Tính trên bảng</h3><p>Lọc, đếm, tổng, trung bình, nhỏ nhất, lớn nhất và nhóm theo cột, trên một bảng của một tài liệu: spreadsheet, file CSV, bảng trong page, trong Word hoặc PDF.</p></div>
+    <div class="pcard reveal"><span class="tag">list_documents</span><h3>Liệt kê đầy đủ</h3><p>Danh sách đầy đủ tài liệu của một source kèm tổng số chính xác, lọc được theo loại, theo tên và theo page hoặc issue mà file được đính kèm.</p></div>
+  </div>
+
+  <figure class="fig reveal" id="fig-count">
+    <div class="fig-head">
+      <div>
+        <h3>Ba phép thử trên dữ liệu thử nghiệm</h3>
+        <p class="fig-sub">Mỗi con số được so với nguồn: số Jira tự đếm, tổng tính tay trên file, và số file thật của page.</p>
+      </div>
+    </div>
+    <div class="readout">
+      <div><div class="rv">121 issue</div><div class="rl">tổng số issue do query_jira trả về, bằng đúng số Jira tự đếm; trong đó 70 issue đang mở</div></div>
+      <div><div class="rv">1.284</div><div class="rl">tổng một cột của một file CSV đính kèm, do query_table tính, đúng với file</div></div>
+      <div><div class="rv">6 / 6</div><div class="rl">file đính kèm của một page được liệt kê đủ; chỉ với search, câu này nêu 5 trên 6 file</div></div>
+    </div>
+    <figcaption>Ba tool này có ở cả web UI (chế độ Agent và Research) và MCP. Chúng chịu cùng lớp phân quyền: query_jira chỉ chạy trong các Jira project người hỏi được cấp, và issue bị ẩn với người đó không có trong danh sách lẫn trong số đếm.</figcaption>
+  </figure>
+</section>
+
+<section id="s8">
+  <div class="num">Phần 8</div>
+  <h2>Research mode: báo cáo có trích dẫn</h2>
+  <div class="prose">
+    <p>Một số yêu cầu không phải một câu hỏi mà là một đề bài: tổng hợp tình trạng của một tính năng, so sánh hai phương án, chuẩn bị tài liệu onboarding. Trả lời trong một lượt sẽ nông và thiếu.</p>
+    <p>Ở chế độ <b>Research</b>, hệ thống làm việc như một người viết báo cáo: lập dàn ý, nghiên cứu từng mục, rồi tổng hợp. Mỗi mục được một vòng tìm kiếm riêng viết, các mục chạy cùng lúc, và mọi citation trong báo cáo dùng chung một bộ số.</p>
+  </div>
+
+  <figure class="fig reveal" id="fig-research">
+    <div class="fig-head">
+      <div>
+        <h3>Một báo cáo ở chế độ Research</h3>
+        <p class="fig-sub">Năm bước trong một lần yêu cầu. Bấm vào từng bước hoặc để hình tự chạy. Nội dung báo cáo là ví dụ.</p>
+      </div>
+    </div>
+    <div class="steps"><div class="prog"></div></div>
+    <div class="stage">
+      <div class="stage-text" aria-live="polite"><h3 class="st-t"></h3><p class="st-d"></p></div>
+      <div class="stage-view">
+        <div class="pane" data-p="0">
+          <div class="bubble q" style="--i:0">Viết báo cáo về tính năng hoàn tiền: quy định hiện hành, tiến độ và những việc còn mở.</div>
+          <div class="card" style="--i:1"><span class="ext mk wide">RESEARCH</span><div><b>Chế độ Research</b><small>Claude Sonnet 5.5 · báo cáo nhiều mục, có trích dẫn</small></div></div>
+        </div>
+        <div class="pane" data-p="1">
+          <div class="card dim" style="--i:0"><span class="ext wide">SEARCH</span><div><b>Một lượt tìm rộng</b><small>để biết tài liệu có gì về chủ đề</small></div></div>
+          <div class="card hl" style="--i:1"><span class="ext mk wide">PLAN</span><div><b>Dàn ý ba mục</b><small>1. Quy định hiện hành · 2. Tiến độ trên Jira · 3. Việc còn mở</small></div></div>
+          <div class="linkbar" style="--i:2">Mỗi mục có các câu hỏi riêng cần trả lời.</div>
+        </div>
+        <div class="pane" data-p="2">
+          <div class="card hl" style="--i:0"><span class="ext wide">§1</span><div><b>Quy định hiện hành</b><small>search ×3 · đọc toàn văn một file pptx</small></div></div>
+          <div class="card hl" style="--i:1"><span class="ext wide">§2</span><div><b>Tiến độ trên Jira</b><small>query_jira: đếm issue theo status · search ×2</small></div></div>
+          <div class="card hl" style="--i:2"><span class="ext wide">§3</span><div><b>Việc còn mở</b><small>search ×3 · liệt kê file đính kèm của một page</small></div></div>
+          <div class="linkbar" style="--i:3">Ba mục chạy cùng lúc, mỗi mục tự tìm nhiều vòng.</div>
+        </div>
+        <div class="pane" data-p="3">
+          <div class="card" style="--i:0"><span class="ext mk wide">TÓM TẮT</span><div><b>Trả lời thẳng vào đề bài</b><small>tối đa 150 từ, giữ nguyên số citation của các mục</small></div></div>
+          <div class="card hl" style="--i:1"><span class="ext wide">CÒN MỞ</span><div><b>Điều tài liệu chưa nêu</b><small>những phần đề bài hỏi mà tài liệu không trả lời, hoặc các mục mâu thuẫn nhau</small></div></div>
+        </div>
+        <div class="pane" data-p="4">
+          <div class="mdfile" style="--i:0"># Tính năng hoàn tiền: quy định và tiến độ
+
+Tóm tắt: đơn trên 5 triệu đồng cần trưởng nhóm
+phê duyệt <span class="cite">1</span>; còn 4 issue đang mở <span class="cite">7</span>.
+
+## 1. Quy định hiện hành
+## 2. Tiến độ trên Jira
+## 3. Việc còn mở
+<span class="hl">Tài liệu chưa nêu: ai duyệt thay khi
+trưởng nhóm vắng mặt.</span></div>
+          <div class="row" style="--i:1"><span class="chipx">Mở citation</span><span class="chipx">Tải báo cáo</span><span class="chipx hl">Chi phí của báo cáo này</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="player">
+      <button class="btn st-play" aria-label="Tạm dừng hoặc chạy tiếp">Tạm dừng</button>
+      <button class="btn st-prev" aria-label="Bước trước">←</button>
+      <button class="btn st-next" aria-label="Bước sau">→</button>
+    </div>
+    <div class="readout">
+      <div><div class="rv">29–43 giây</div><div class="rl">thời gian cho một báo cáo</div></div>
+      <div><div class="rv">10–11</div><div class="rl">lần tra cứu mỗi báo cáo</div></div>
+      <div><div class="rv">0,21–0,26 USD</div><div class="rl">chi phí model mỗi báo cáo, theo giá niêm yết</div></div>
+    </div>
+    <figcaption>Số đo trên các báo cáo thử nghiệm ngày 14/11/2026. Báo cáo có giới hạn: ba đến năm mục, mỗi mục tối đa 5 vòng và 10 lần gọi tool, toàn bộ trong 300 giây. Chi phí của từng báo cáo hiện ngay trên màn hình, và báo cáo chỉ trích những đoạn tài liệu đã thật sự được tìm thấy.</figcaption>
+  </figure>
+</section>
+
+<section id="s9">
+  <div class="num">Phần 9</div>
+  <h2>Chất lượng trả lời và chi phí</h2>
+  <div class="prose">
+    <p>Thước đo được chọn là một coding agent dùng MCP: nó tự tìm nhiều lần cho đến khi đủ, và là cách dùng mà kỹ sư đánh giá cao nhất. Phép đo hỏi cùng 79 câu ở cả hai cách dùng, với cùng model và cùng bộ tool tìm và đọc.</p>
   </div>
 
   <figure class="fig reveal" id="fig-cmp">
     <div class="fig-head">
       <div>
         <h3>Đo trên cùng model, cùng 79 câu hỏi</h3>
-        <p class="fig-sub">Claude Sonnet 5.5 ở cả hai cách dùng, cùng bộ tool. Chọn một lần đo để xem từng câu hỏi; mỗi chấm là một câu.</p>
+        <p class="fig-sub">Claude Sonnet 5.5 ở cả hai cách dùng, cùng bộ tool tìm và đọc. Chọn một cách dùng để xem từng câu hỏi; mỗi chấm là một câu.</p>
       </div>
     </div>
-    <div class="arms" id="arms" role="group" aria-label="Chọn lần đo"></div>
+    <div class="arms" id="arms" role="group" aria-label="Chọn cách dùng"></div>
     <div class="legend"><span><i class="lg-pass"></i>Đạt</span><span><i class="lg-fail"></i>Không đạt (rê chuột để xem lý do)</span></div>
     <div class="clusters wide" id="cmpclusters"></div>
     <div class="readout">
@@ -767,37 +899,113 @@ thành 14 ngày, cần kế toán xác nhận.</span></div>
       <summary>Xem dạng bảng</summary>
       <div class="tscroll"><table class="data" id="cmptable"></table></div>
     </details>
-    <figcaption>Ở lần chạy đầu, web UI kém Claude Code hai câu: dữ kiện được viết trong một tài liệu test, không nằm trên page của tính năng, và web UI dừng tìm sớm hơn. Sau khi thêm một dòng hướng dẫn cho model (mục "Tìm thẳng vào dữ kiện" ở trên), cả hai câu đạt. Một câu không đạt ở mọi lần đo. Chi phí model khoảng 0,03 USD mỗi câu với web UI và 0,04 USD với Claude Code, theo giá niêm yết. Mỗi câu chỉ chạy một lần; Phần 9 nói về độ tin cậy của phép đo này.</figcaption>
+    <figcaption>Hai cách dùng đạt cùng 78/79. Câu không đạt là cùng một câu ở cả hai: liệt kê file đính kèm của một page, khi chỉ có search thì nêu 5 trên 6 file. Với tool liệt kê (Phần 7), câu này được trả lời đủ 6/6 khi hỏi lại riêng; cả bộ 79 câu chưa được chạy lại với tool đó. Web UI trả lời đúng ngôn ngữ của câu hỏi ở cả 79 câu. Chi phí model khoảng 0,03 USD mỗi câu với web UI và 0,04 USD với Claude Code. Mỗi câu chỉ chạy một lần; Phần 12 nói về độ tin cậy của phép đo này.</figcaption>
+  </figure>
+
+  <figure class="fig reveal" id="fig-cost">
+    <div class="fig-head">
+      <div>
+        <h3>Chi phí model theo loại yêu cầu</h3>
+        <p class="fig-sub">Theo giá niêm yết của Claude Sonnet 5.5, đo trên dữ liệu thử nghiệm. Chưa gồm chi phí hạ tầng AWS.</p>
+      </div>
+    </div>
+    <div class="tscroll"><table class="data">
+      <tr><th>Loại yêu cầu</th><th>Cách xử lý</th><th class="n">USD mỗi lần</th></tr>
+      <tr><td>Câu hỏi thông thường</td><td>Agent: tìm và đọc, trung bình 2,4 lần tra cứu</td><td class="n">0,03</td></tr>
+      <tr><td>Câu hỏi tính trên bảng</td><td>Agent với query_table</td><td class="n">0,08</td></tr>
+      <tr><td>Câu hỏi đếm trên Jira</td><td>Agent với query_jira</td><td class="n">0,10</td></tr>
+      <tr><td>Báo cáo nghiên cứu</td><td>Research: 10–11 lần tra cứu</td><td class="n">0,21–0,26</td></tr>
+    </table></div>
+    <figcaption>Dòng đầu là trung bình của 79 câu hỏi. Các dòng còn lại đo trên một vài lần hỏi, nên chỉ cho biết cỡ của chi phí. Trang chi phí trong web UI cộng mức dùng thật theo tháng cho admin.</figcaption>
   </figure>
 </section>
 
-<section id="s8">
-  <div class="num">Phần 8</div>
+<section id="s10">
+  <div class="num">Phần 10</div>
+  <h2>Phân quyền: theo source, rồi theo từng page và issue</h2>
+  <div class="prose">
+    <p>Hệ thống không đặt ra một bộ quyền riêng cho tài liệu. Nó áp dụng lại quyền mà đội dự án đã đặt ở Confluence và Jira, qua hai lớp kiểm tra nối tiếp nhau.</p>
+    <p><b>Lớp 1</b> là grant theo source: admin duyệt từng tài khoản và cấp từng source, tức một Confluence space hoặc một nhóm Jira project. <b>Lớp 2</b> nằm bên trong source đã được cấp: một Confluence page có read restriction, các page con và file đính kèm của nó, cũng như một Jira issue có security level và file đính kèm của nó, chỉ hiện với những người mà restriction nêu tên.</p>
+  </div>
+
+  <figure class="fig reveal" id="fig-gates">
+    <div class="fig-head">
+      <div>
+        <h3>Hai lớp kiểm tra trước khi nội dung tới người đọc</h3>
+        <p class="fig-sub">Mọi yêu cầu, từ web UI cũng như từ MCP, đi qua cả hai lớp trên server.</p>
+      </div>
+    </div>
+    <p class="hint swipe">Vuốt ngang để xem hết sơ đồ.</p>
+    <div class="arch-scroll">
+      <svg id="gates" viewBox="0 0 1160 222" role="img" aria-label="Người dùng đã đăng nhập đi qua lớp 1, grant theo source do admin cấp, rồi lớp 2, restriction theo page và issue lấy từ Confluence và Jira, trước khi nhận nội dung. Không qua được lớp nào thì nội dung trả lời như không tồn tại.">
+        <defs>
+          <marker id="g-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,1 L10,5 L0,9 z" class="ga"/></marker>
+          <marker id="g-arr-off" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,1 L10,5 L0,9 z" class="gx"/></marker>
+        </defs>
+        <rect class="box" x="16" y="30" width="150" height="70" rx="12"/>
+        <text class="nt" x="91" y="61" text-anchor="middle">Người dùng</text>
+        <text class="ns" x="91" y="82" text-anchor="middle">đã đăng nhập</text>
+        <path class="go" d="M166,65 H234" marker-end="url(#g-arr)"/>
+        <rect class="box gate" x="236" y="30" width="230" height="70" rx="12"/>
+        <text class="nt" x="351" y="61" text-anchor="middle">Lớp 1 · Source grant</text>
+        <text class="ns" x="351" y="82" text-anchor="middle">admin cấp theo từng source</text>
+        <path class="go" d="M466,65 H534" marker-end="url(#g-arr)"/>
+        <rect class="box gate" x="536" y="30" width="270" height="70" rx="12"/>
+        <text class="nt" x="671" y="61" text-anchor="middle">Lớp 2 · Page và issue</text>
+        <text class="ns" x="671" y="82" text-anchor="middle">restriction đọc từ Confluence và Jira</text>
+        <path class="go" d="M806,65 H874" marker-end="url(#g-arr)"/>
+        <rect class="box" x="876" y="30" width="268" height="70" rx="12"/>
+        <text class="nt" x="1010" y="61" text-anchor="middle">Nội dung được đọc</text>
+        <text class="ns" x="1010" y="82" text-anchor="middle">passage, tài liệu, danh sách, số đếm</text>
+        <path class="stop" d="M351,100 V146" marker-end="url(#g-arr-off)"/>
+        <text class="nx" x="351" y="170" text-anchor="middle">Không có grant</text>
+        <text class="ns" x="351" y="190" text-anchor="middle">source không hiện ra với người đó</text>
+        <path class="stop" d="M671,100 V146" marker-end="url(#g-arr-off)"/>
+        <text class="nx" x="671" y="170" text-anchor="middle">Không có tên trong restriction</text>
+        <text class="ns" x="671" y="190" text-anchor="middle">tài liệu trả lời như không tồn tại</text>
+      </svg>
+    </div>
+    <div class="facts">
+      <div class="fact"><div class="k">Kiểm ở mọi đường</div><p>Search, chế độ Agent và Research, danh sách tài liệu, reader, library dùng chung, các tool của MCP, và cả số đếm trên Jira.</p></div>
+      <div class="fact"><div class="k">Như không tồn tại</div><p>Tài liệu bị ẩn không báo "bạn không có quyền". Nó không có trong kết quả, nên không lộ cả việc nó tồn tại.</p></div>
+      <div class="fact"><div class="k">Từ chối khi không chắc</div><p>Source chưa có bảng restriction thì không hiện gì. Khi không đọc được Confluence hoặc Jira, bảng cũ được giữ và admin nhận cảnh báo.</p></div>
+      <div class="fact"><div class="k">Không có ngoại lệ</div><p>Admin của ứng dụng cũng được kiểm tra như mọi người. Người dùng được khớp với restriction bằng email.</p></div>
+    </div>
+    <figcaption>Sync Monitor đọc lại restriction mỗi 15 phút, nên một thay đổi quyền ở Confluence hoặc Jira có hiệu lực trong tối đa 15 phút. Phép thử gồm 12 kiểm tra trên mọi đường đọc và đều đạt: khi một page bị hạn chế, người khác không còn thấy page và các file của nó; khi gỡ hạn chế, mọi thứ trở lại. Phép thử dùng một bảng restriction ghi tay; Phần 12 nói rõ phần chưa thử.</figcaption>
+  </figure>
+</section>
+
+<section id="s11">
+  <div class="num">Phần 11</div>
   <h2>Nguyên tắc thiết kế</h2>
-  <div class="prose"><p>Sáu lựa chọn sau giữ rủi ro về dữ liệu và vận hành ở mức thấp trong khi nâng chất lượng.</p></div>
+  <div class="prose"><p>Sáu lựa chọn sau giữ rủi ro về dữ liệu và vận hành ở mức thấp.</p></div>
   <div class="grid3">
-    <div class="pcard reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="11" height="14" rx="2"/><path d="M17 8h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2"/><path d="M8.5 9v4M6.5 11h4"/></svg><h3>Thêm, không thay thế</h3><p>File gốc vẫn ở trong KB. Text document chỉ bổ sung, nên kết quả không bao giờ kém hơn trước, và phần chỉ file gốc mới có (ảnh nằm trong file) vẫn được giữ.</p></div>
+    <div class="pcard reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="11" height="14" rx="2"/><path d="M17 8h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2"/><path d="M8.5 9v4M6.5 11h4"/></svg><h3>Thêm, không thay thế</h3><p>File gốc vẫn ở trong KB. Text document chỉ bổ sung, nên kết quả không bao giờ kém hơn việc chỉ có file gốc, và phần chỉ file gốc mới có (ảnh nằm trong file) vẫn được giữ.</p></div>
     <div class="pcard reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><h3>Citation mở file gốc</h3><p>Text document mang link của file gốc. Người đọc kiểm chứng câu trả lời trên chính tài liệu họ quen, không phải trên một bản sao.</p></div>
     <div class="pcard reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.8"/></svg><h3>Chỉ đọc</h3><p>Không có gì được ghi lên Confluence hay Jira. Một cách khác, đính kèm file Markdown ngược lên Confluence page, đã thử và chạy được nhưng không dùng vì nó sửa wiki của đội dự án.</p></div>
     <div class="pcard reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.5 3.2 8 7.5 9.5 4.300-1.5 7.5-5 7.5-9.5V6L12 3Z"/><path d="m9 12 2.2 2.2L15.200 10"/></svg><h3>Kho tri thức ở trong một Region</h3><p>File, text document, Knowledge Base, search và vision model đều nằm trong AWS project của công ty, ở một Region, không có xử lý cross-Region. Ngoại lệ có chủ đích: để viết câu trả lời, câu hỏi và các passage liên quan được gửi tới Claude API.</p></div>
     <div class="pcard reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.900"/><path d="M20 4.500V9h-4.500"/></svg><h3>Tự cập nhật, tự phục hồi</h3><p>File đổi version thì text document được tạo lại. File bị gỡ thì text document bị xoá. Một file không xử lý được sau ba lần thử vẫn có trong KB như trước, kèm cảnh báo cho người vận hành.</p></div>
-    <div class="pcard reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.200"/><path d="M3 19c.6-3 3-4.800 6-4.800s5.400 1.800 6 4.800"/><path d="M16.500 11.500 18 13l3-3.200"/></svg><h3>Cùng một bộ quyền</h3><p>Text document thuộc cùng source với file gốc. Ai không được cấp source đó thì không nhận được passage của cả hai, trên web cũng như qua MCP.</p></div>
+    <div class="pcard reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.200"/><path d="M3 19c.6-3 3-4.800 6-4.800s5.400 1.800 6 4.800"/><path d="M16.500 11.500 18 13l3-3.200"/></svg><h3>Quyền lấy từ nguồn</h3><p>Hệ thống áp dụng lại grant theo source và restriction của Confluence, Jira (Phần 10). Text document mang cùng link với file gốc nên chịu cùng quyền. Ai không được đọc file gốc thì không nhận được passage của cả hai, trên web cũng như qua MCP.</p></div>
   </div>
 </section>
 
-<section id="s9">
-  <div class="num">Phần 9</div>
+<section id="s12">
+  <div class="num">Phần 12</div>
   <h2>Giới hạn còn lại</h2>
   <div class="prose"><p>Kết quả trên chứng minh cơ chế hoạt động. Những điểm sau cần được biết trước khi dùng với dữ liệu thật.</p></div>
   <ul class="limits">
-    <li><b>Dữ liệu thử nghiệm nhỏ và giả lập</b><span>23 file và 38 câu hỏi, nội dung tiếng Việt tự tạo. Đủ để so sánh các phương án, chưa đủ để cam kết con số trên tài liệu thật của một dự án.</span></li>
-    <li><b>Phân quyền theo source, không theo từng file</b><span>Một grant mở cả một Confluence space hoặc Jira project. Kiểm tra phạm vi truy cập đạt 4/5: một source đang được cấu hình trùng space với source khác, nên người được cấp source này đọc được nội dung của source kia. Đây là lỗi cấu hình, phải sửa trước khi có dữ liệu thật.</span></li>
+    <li><b>Dữ liệu thử nghiệm nhỏ và giả lập</b><span>23 file và 38 câu hỏi về file đính kèm, nội dung tiếng Việt tự tạo. Đủ để so sánh các phương án, chưa đủ để cam kết con số trên tài liệu thật của một dự án.</span></li>
+    <li><b>Đọc restriction thật chưa được thử</b><span>Site Atlassian thử nghiệm dùng gói Free, không có page restriction và không dùng được security level. Phần chặn đã được thử với một bảng restriction ghi tay; phần đọc restriction từ Confluence và Jira thì chưa. Phải chạy lại phép thử trên một site có hai tính năng này trước khi dùng thật.</span></li>
+    <li><b>Điều kiện của phân quyền theo page và issue</b><span>Người dùng được khớp bằng email, nên tài khoản ứng dụng và tài khoản Atlassian phải cùng email; tài khoản ẩn email không được cấp quyền đọc. Một restriction mới mất tối đa 15 phút để có hiệu lực. Câu trả lời đã lưu trước khi có restriction vẫn giữ nội dung trong notebook của người đã hỏi.</span></li>
+    <li><b>Một source đang cấu hình trùng space</b><span>Một source được cấu hình trùng space với source khác, nên người được cấp source này đọc được nội dung của source kia. Đây là lỗi cấu hình, phải sửa trước khi có dữ liệu thật.</span></li>
+    <li><b>Giới hạn của đếm và tính</b><span>query_jira đọc tối đa 2.000 issue mỗi truy vấn và báo khi còn nhiều hơn. query_table chỉ tính trên bảng còn giữ được dạng bảng; bảng mà PDF hoặc trang scan trả về thành văn xuôi thì không tính được. list_documents hiện 300 tài liệu mỗi lần, kèm tổng số chính xác.</span></li>
+    <li><b>Giới hạn của Research mode</b><span>Một báo cáo chạy trong một request 300 giây; mục nào chưa viết xong khi hết giờ được thay bằng một dòng nói rõ điều đó. Báo cáo đầy đủ đến mức tài liệu tìm được cho phép. Chi phí mới được đo trên vài báo cáo.</span></li>
     <li><b>Số source trên mỗi Knowledge Base</b><span>Một KB có tối đa 5 data source. Mỗi Confluence source dùng 2 (connector và text document), nên khi thêm nhiều space sẽ cần thêm KB.</span></li>
     <li><b>File lớn</b><span>File trên 20 MB không đi qua Preparation step. Chúng vẫn ở trong KB, với chất lượng của parser.</span></li>
-    <li><b>Chi phí của bước mới</b><span>Chưa được đo riêng. Vision model chỉ chạy cho ảnh và trang scan, một lần cho mỗi version của file.</span></li>
-    <li><b>Câu hỏi và passage rời khỏi AWS project</b><span>Chat model là Claude Sonnet 5.5 qua Claude API, nên câu hỏi và các passage liên quan được gửi ra ngoài Region để viết câu trả lời. Cần một quyết định về bảo mật dữ liệu trước khi dùng với tài liệu thật. Chế độ fast và deep đổi được về một model trong Region bằng một setting; chế độ agent thì không.</span></li>
-    <li><b>Phép so sánh web UI và MCP</b><span>79 câu hỏi, mỗi câu chạy một lần, và phía MCP chỉ đo với Claude Code. Phần chấm bằng tay do chính AI coding assistant đã xây hệ thống thực hiện, biết câu trả lời đến từ bên nào, nên không phải chấm mù. 76/79 của lần chạy đầu là con số chưa chịu ảnh hưởng của việc chỉnh hướng dẫn. Hai câu được sửa vẫn chưa ổn định: khi chạy lại mỗi câu ba lần, web UI đạt 3/3 và 1/3, Claude Code đạt 3/3 và 2/3. Chênh lệch một hai câu trên 79 nằm trong mức dao động đó.</span></li>
-    <li><b>Nhật ký câu hỏi</b><span>Để có trang KB quality, câu hỏi được lưu 180 ngày, không kèm người hỏi, và admin đọc được. Cần thông báo điều này cho người dùng trước khi dùng thật.</span></li>
+    <li><b>Chi phí hạ tầng</b><span>Phần 9 chỉ nêu chi phí model của từng yêu cầu. Chi phí AWS của hệ thống và chi phí của Preparation step chưa được đo riêng. Vision model chỉ chạy cho ảnh và trang scan, một lần cho mỗi version của file.</span></li>
+    <li><b>Câu hỏi và passage rời khỏi AWS project</b><span>Chat model là Claude Sonnet 5.5 qua Claude API, nên câu hỏi và các passage liên quan được gửi ra ngoài Region để viết câu trả lời. Cần một quyết định về bảo mật dữ liệu trước khi dùng với tài liệu thật. Chế độ Fast và Deep đổi được về một model trong Region bằng một setting; chế độ Agent và Research thì không.</span></li>
+    <li><b>Phép so sánh web UI và MCP</b><span>79 câu hỏi, mỗi câu chạy một lần, và phía MCP chỉ đo với Claude Code. Phần chấm bằng tay do chính AI coding assistant đã xây hệ thống thực hiện, biết câu trả lời đến từ bên nào, nên không phải chấm mù. Trước khi hướng dẫn cho model được chỉnh một dòng, web UI đạt 76/79. Hai câu được sửa vẫn chưa ổn định: khi chạy lại mỗi câu ba lần, web UI đạt 3/3 và 1/3, Claude Code đạt 3/3 và 2/3. Chênh lệch một hai câu trên 79 nằm trong mức dao động đó.</span></li>
+    <li><b>Nhật ký câu hỏi</b><span>Để có trang KB quality, câu hỏi được lưu 180 ngày, không kèm người hỏi, và admin đọc được; trang này cũng cho admin thấy tên các tài liệu được trích. Cần thông báo điều này cho người dùng trước khi dùng thật.</span></li>
   </ul>
 </section>
 
@@ -806,6 +1014,7 @@ thành 14 ngày, cần kế toán xác nhận.</span></div>
 <footer>
   <div class="wrap">Project Notebook là một proof of concept. Số liệu trong tài liệu này được đo ngày 14/11/2026 trên dữ liệu giả lập, không phải tài liệu thật của dự án nào.</div>
 </footer>
+
 
 <div class="tip" id="tip" role="tooltip"></div>
 
@@ -865,11 +1074,11 @@ const hideTip = () => tip.classList.remove('show');
     { id: 'confluence', x: 16, y: 180, w: 140, h: 64, t: 'Confluence', s: 'page + attachment', f: 'ingest',
       d: 'Nơi đội dự án viết tài liệu. Hệ thống chỉ đọc page, blog post và file đính kèm; không ghi ngược lại bất cứ thứ gì.' },
     { id: 'jira', x: 16, y: 266, w: 140, h: 64, t: 'Jira', s: 'issue + attachment', f: 'ingest',
-      d: 'Issue, comment và file đính kèm của issue. Sync Monitor đọc Jira và nạp vào một data source riêng của Knowledge Base.' },
+      d: 'Issue, comment và file đính kèm của issue. Sync Monitor đọc Jira và nạp vào một data source riêng của Knowledge Base. Câu hỏi đếm được trả lời bằng một truy vấn chạy trên Jira ngay lúc hỏi (Phần 7).' },
     { id: 'monitor', x: 250, y: 180, w: 250, h: 150, t: 'Sync Monitor', s: 'AWS Lambda · mỗi 15 phút', f: 'ingest', wrap: true,
-      d: 'Chạy mỗi 15 phút: phát hiện file mới, file đổi version và file bị gỡ; đồng bộ Jira; theo dõi trạng thái từng source và báo khi có source lỗi thời hoặc file không đọc được.' },
+      d: 'Chạy mỗi 15 phút: phát hiện file mới, file đổi version và file bị gỡ; đồng bộ Jira; đọc lại restriction của page và security level của issue; theo dõi trạng thái từng source và báo khi có source lỗi thời hoặc file không đọc được.' },
     { id: 'prep', x: 268, y: 252, w: 214, h: 64, t: 'Preparation step', s: 'file → Markdown', f: 'ingest', isNew: true,
-      d: 'Phần mới. Với pptx, docx, doc, pdf, trang scan và ảnh, bước này viết lại nội dung của file thành một text document dạng Markdown, gồm cả bảng và speaker notes, rồi đặt nó cạnh file gốc trong Knowledge Base.' },
+      d: 'Với pptx, docx, doc, pdf, trang scan và ảnh, bước này viết lại nội dung của file thành một text document dạng Markdown, gồm cả bảng và speaker notes, rồi đặt nó cạnh file gốc trong Knowledge Base.' },
     { id: 'vision', x: 250, y: 410, w: 119, h: 60, t: 'Vision model', s: 'Qwen3 VL', f: 'ingest',
       d: 'Model có khả năng đọc ảnh, chạy trên Amazon Bedrock trong cùng Region. Chỉ dùng cho ảnh và trang scan, nơi không có text để trích. Đổi model bằng một setting.' },
     { id: 'bucket', x: 381, y: 410, w: 119, h: 60, t: 'S3 bucket', s: 'text document', f: 'ingest',
@@ -879,15 +1088,15 @@ const hideTip = () => tip.classList.remove('show');
     { id: 'cloudwatch', x: 596, y: 410, w: 190, h: 60, t: 'CloudWatch', s: 'metrics, alarms', f: 'ingest',
       d: 'Metrics, alarms và dashboard cho việc đồng bộ. Người vận hành biết ngay khi một source không còn mới hoặc một file không được index.' },
     { id: 'web', x: 832, y: 50, w: 144, h: 60, t: 'Web UI', s: 'qua CloudFront', f: 'query',
-      d: 'Ứng dụng web cho đội dự án: chat có citation với ba chế độ trả lời, evidence pane và reader để kiểm chứng, library dùng chung, notebook theo chủ đề, studio tạo briefing, FAQ, mind map; trang monitoring, KB quality và chi phí cho admin.' },
+      d: 'Ứng dụng web cho đội dự án: chat có citation với bốn chế độ trả lời, báo cáo Research, evidence pane và reader để kiểm chứng, library dùng chung, notebook theo chủ đề, studio tạo briefing, FAQ, mind map; trang monitoring, KB quality và chi phí cho admin.' },
     { id: 'agents', x: 988, y: 50, w: 144, h: 60, t: 'Coding agents', s: 'qua MCP', f: 'query',
       d: 'Các AI coding agent trong code editor của kỹ sư truy vấn cùng kho tri thức qua MCP, bằng personal access token và với cùng bộ quyền như trên web. Agent tự điều khiển việc tìm kiếm nhiều bước; server chỉ thực hiện từng tool.' },
     { id: 'api', x: 882, y: 185, w: 200, h: 70, t: 'API + MCP', s: 'AWS Lambda · streaming', f: 'query',
-      d: 'Một điểm vào duy nhất cho web app và cho AI coding agents. Mọi request đều được kiểm tra quyền trước khi tìm kiếm; câu trả lời được trả về dạng streaming.' },
+      d: 'Một điểm vào duy nhất cho web app và cho AI coding agents. Mọi request đều được kiểm tra quyền trước khi tìm, đọc hoặc đếm; câu trả lời được trả về dạng streaming.' },
     { id: 'model', x: 832, y: 340, w: 144, h: 60, t: 'Chat model', s: 'Claude Sonnet 5.5', f: 'query',
-      d: 'Claude Sonnet 5.5, gọi qua Claude API, viết câu trả lời từ các passage tìm được và gắn citation cho từng dữ kiện. Có ba chế độ: fast, deep và agent (Phần 7). Câu hỏi và các passage liên quan được gửi ra ngoài AWS project để model xử lý. Chế độ fast và deep đổi được về một model trên Amazon Bedrock trong Region bằng một setting; chế độ agent cần Claude.' },
+      d: 'Claude Sonnet 5.5, gọi qua Claude API, viết câu trả lời từ các passage tìm được và gắn citation cho từng dữ kiện. Có bốn chế độ: Fast, Deep, Agent và Research (Phần 6 và Phần 8). Câu hỏi và các passage liên quan được gửi ra ngoài AWS project để model xử lý. Chế độ Fast và Deep đổi được về một model trên Amazon Bedrock trong Region bằng một setting; chế độ Agent và Research cần Claude.' },
     { id: 'auth', x: 988, y: 340, w: 144, h: 60, t: 'Access control', s: 'Cognito, DynamoDB', f: 'query',
-      d: 'Người dùng đăng ký qua Amazon Cognito, admin duyệt và cấp quyền theo từng source; grant lưu trong DynamoDB. Mỗi người chỉ nhận passage từ những source mình được cấp, kể cả với text document.' },
+      d: 'Người dùng đăng ký qua Amazon Cognito, admin duyệt và cấp quyền theo từng source; grant lưu trong DynamoDB. Trong mỗi source, page có read restriction và issue có security level chỉ hiện với người được đọc chúng (Phần 10). Text document chịu cùng quyền với file gốc.' },
   ];
   const EDGES = [
     { id: 'e1', d: 'M86,180 V136 Q86,124 98,124 H596', f: 'ingest', l: 'Confluence connector · page + file gốc', lx: 345, ly: 114, dots: 2 },
@@ -936,11 +1145,6 @@ const hideTip = () => tip.classList.remove('show');
     const cx = n.x + n.w / 2, ty = stacked ? n.y + 30 : n.y + n.h / 2 - 3;
     g.append(sv('text', { class: 'nt', x: cx, y: ty, 'text-anchor': 'middle' }, n.t));
     g.append(sv('text', { class: 'ns', x: cx, y: ty + 20, 'text-anchor': 'middle' }, n.s));
-    if (n.isNew) {
-      const b = sv('g', { class: 'badge' });
-      b.append(sv('rect', { x: n.x + n.w - 44, y: n.y - 9, width: 38, height: 18, rx: 9 }), sv('text', { x: n.x + n.w - 25, y: n.y + 4, 'text-anchor': 'middle' }, 'MỚI'));
-      g.append(b);
-    }
     if (n.id === 'kb') {
       [['File gốc', 182, ''], ['Text document', 240, ' new']].forEach(([t, y, c]) => {
         const chip = sv('g', { class: 'chip' + c });
@@ -1087,7 +1291,7 @@ function player(fig, STEPS) {
 
   const table = $('#dbtable');
   const head = h('tr');
-  ['Định dạng', 'Tất cả từ: trước', 'sau', 'Từ có dấu: trước', 'sau'].forEach((t, i) => head.append(h('th', i ? 'n' : '', t)));
+  ['Định dạng', 'Tất cả từ: KB đọc trực tiếp', 'có Preparation step', 'Từ có dấu: KB đọc trực tiếp', 'có Preparation step'].forEach((t, i) => head.append(h('th', i ? 'n' : '', t)));
   table.append(head);
   DATA.forEach((d) => { const tr = h('tr'); tr.append(h('td', '', d[0])); [d[1][0], d[1][1], d[2][0], d[2][1]].forEach((v) => tr.append(h('td', 'n', v + '%'))); table.append(tr); });
 })();
@@ -1225,8 +1429,8 @@ function player(fig, STEPS) {
     { id: 'ui', x: 216, y: 30, w: 170, t: 'Web UI', s: 'chat, evidence, library', f: 'web' },
     { id: 'loop', x: 490, y: 30, w: 200, t: 'Agent loop', s: 'trên server', f: 'web', loop: true },
     { id: 'claude', x: 866, y: 30, w: 150, t: 'Claude API', s: 'Claude Sonnet 5.5', f: 'web' },
-    { id: 'tools', x: 490, y: 158, w: 200, t: 'Bộ tool dùng chung', s: 'search, list, get_document', f: 'web mcp', shared: true },
-    { id: 'acl', x: 800, y: 158, w: 130, t: 'Access control', s: 'theo từng source', f: 'web mcp', shared: true },
+    { id: 'tools', x: 490, y: 158, w: 200, t: 'Bộ tool dùng chung', s: 'tìm, đọc, liệt kê, đếm', f: 'web mcp', shared: true },
+    { id: 'acl', x: 800, y: 158, w: 130, t: 'Access control', s: 'source, page, issue', f: 'web mcp', shared: true },
     { id: 'kb', x: 1000, y: 158, w: 144, t: 'Knowledge Bases', s: 'Amazon Bedrock', f: 'web mcp', shared: true },
     { id: 'eng', x: 16, y: 296, w: 140, t: 'Kỹ sư', s: 'trong code editor', f: 'mcp' },
     { id: 'agent', x: 216, y: 296, w: 170, t: 'Coding agent', s: 'ví dụ: Claude Code', f: 'mcp', loop: true },
@@ -1280,7 +1484,7 @@ function player(fig, STEPS) {
     web: [
       ['Dành cho', 'Cả đội dự án, kể cả người không viết code. Chỉ cần trình duyệt.'],
       ['Đăng nhập', 'Tài khoản do admin duyệt và cấp quyền theo từng source.'],
-      ['Ai điều khiển việc tìm', 'Server, bằng Claude Sonnet 5.5. Ở chế độ Agent, model tự tìm và đọc nhiều bước rồi mới trả lời.'],
+      ['Ai điều khiển việc tìm', 'Server, bằng Claude Sonnet 5.5. Ở chế độ Agent và Research, model tự tìm và đọc nhiều bước rồi mới trả lời.'],
       ['Nhận được', 'Câu trả lời có citation để đọc, kiểm chứng trên tài liệu gốc và chia sẻ lại cho cả đội.'],
     ],
     mcp: [
@@ -1291,7 +1495,7 @@ function player(fig, STEPS) {
     ],
     both: [
       ['Một hệ thống', 'Một API, một bộ tool, cùng các Knowledge Base. Không có bản sao dữ liệu riêng cho từng cách dùng.'],
-      ['Một bộ quyền', 'Mỗi người chỉ nhận nội dung từ những source mình được cấp. Quyền được kiểm tra trên server ở mọi request.'],
+      ['Một bộ quyền', 'Mỗi người chỉ nhận nội dung từ những source mình được cấp, và trong đó chỉ những page và issue mình được đọc. Quyền được kiểm tra trên server ở mọi request.'],
       ['Cùng nguồn sự thật', 'Kết quả luôn kèm link về tài liệu gốc trên Confluence hoặc Jira.'],
       ['Chỉ đọc', 'Cả hai cách đều không ghi gì lên Confluence hay Jira.'],
     ],
@@ -1306,6 +1510,14 @@ function player(fig, STEPS) {
 })();
 
 /* ---------- 7a. agent trace ---------- */
+player($('#fig-research'), [
+  ['Đề bài', 'Người dùng nêu một đề bài', 'Người dùng chọn chế độ Research và viết đề bài bằng lời thường. Phạm vi là các source của notebook đang mở, trong quyền của người hỏi.'],
+  ['Dàn ý', 'Lập dàn ý từ những gì tài liệu có', 'Hệ thống tìm một lượt rộng để biết tài liệu có gì về chủ đề, rồi chia đề bài thành ba đến năm mục, mỗi mục kèm các câu hỏi cần trả lời.'],
+  ['Nghiên cứu', 'Mỗi mục được nghiên cứu riêng', 'Mỗi mục có một vòng tìm kiếm riêng với cùng bộ tool của chế độ Agent: tìm, đọc toàn văn, liệt kê, đếm và tính. Các mục chạy cùng lúc, nên thời gian chờ gần bằng mục chậm nhất.'],
+  ['Tổng hợp', 'Tổng hợp và nêu điều còn mở', 'Một lượt cuối đọc các mục và viết phần tóm tắt trả lời thẳng vào đề bài, cùng danh sách những điều tài liệu chưa trả lời. Lượt này không thêm dữ kiện nào ngoài các mục.'],
+  ['Báo cáo', 'Báo cáo có trích dẫn, tải về được', 'Báo cáo hiện dần trên màn hình theo từng mục. Mỗi citation mở đoạn được trích như ở mọi câu trả lời khác, và báo cáo tải về được dạng Markdown kèm danh sách tài liệu được trích.'],
+]);
+
 player($('#fig-agent'), [
   ['Câu hỏi', 'Người dùng hỏi một câu có hai phần', 'Hai dữ kiện cần cho câu trả lời nằm ở hai tài liệu khác nhau. Một lần tìm thường chỉ mang về một trong hai.'],
   ['Tìm lần đầu', 'Model tìm trước khi trả lời', 'Model không trả lời từ trí nhớ. Nó gọi tool search bằng lời của chính nó, đọc các passage trả về và nhận ra còn thiếu thời hạn dành cho khách hàng doanh nghiệp.'],
@@ -1324,8 +1536,7 @@ player($('#fig-agent'), [
   };
   const ARMS = {
     cli: { name: 'Claude Code qua MCP', sub: 'coding agent trên máy kỹ sư', fails: [[], [], ['list']], secs: '6,7 giây', calls: '2,2', lang: '75/79', cost: '0,036' },
-    web1: { name: 'Web UI, lần chạy đầu', sub: 'chế độ Agent, chưa chỉnh gì', fails: [['test', 'test'], [], ['list']], secs: '5,9 giây', calls: '2,4', lang: '79/79', cost: '0,030' },
-    web2: { name: 'Web UI, sau một dòng hướng dẫn', sub: 'chế độ Agent, chạy lại cả 79 câu', fails: [[], [], ['list']], secs: '5,8 giây', calls: '2,4', lang: '79/79', cost: '0,030' },
+    web2: { name: 'Web UI, chế độ Agent', sub: 'vòng tìm kiếm chạy trên server', fails: [[], [], ['list']], secs: '5,8 giây', calls: '2,4', lang: '79/79', cost: '0,030' },
   };
   const total = SETS.reduce((s, c) => s + c[1], 0);
   const passed = (arm) => total - arm.fails.reduce((s, f) => s + f.length, 0);
@@ -1376,7 +1587,7 @@ player($('#fig-agent'), [
   render('web2');
 
   const table = $('#cmptable'), head = h('tr');
-  ['Lần đo', ...SETS.map((s) => s[0]), 'Tổng', 'Thời gian (trung vị)', 'Lần tra cứu', 'Đúng ngôn ngữ', 'USD mỗi câu'].forEach((t, i) => head.append(h('th', i ? 'n' : '', t)));
+  ['Cách dùng', ...SETS.map((s) => s[0]), 'Tổng', 'Thời gian (trung vị)', 'Lần tra cứu', 'Đúng ngôn ngữ', 'USD mỗi câu'].forEach((t, i) => head.append(h('th', i ? 'n' : '', t)));
   table.append(head);
   Object.values(ARMS).forEach((arm) => {
     const tr = h('tr');
