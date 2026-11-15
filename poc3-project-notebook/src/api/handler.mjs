@@ -4,12 +4,18 @@
 import { config } from '../lib/config.mjs';
 import { caller, isAdmin, grantedSourceIds, hashToken, newToken, HttpError } from '../lib/auth.mjs';
 import { get, put, del, query, deleteAll, now, newId } from '../lib/store.mjs';
-import { listSources, sourceDetail, jobs, startSync, documents, docKey } from '../lib/kb.mjs';
+import { listSources, sourceDetail, jobs, startSync, documents, withTextDocuments, docKey, search, documentText, mayRead, visible } from '../lib/kb.mjs';
+import { aclStatus } from '../lib/acl.mjs';
 import { answer } from '../lib/answer.mjs';
+import { claudeError } from '../lib/claude.mjs';
 import { studio, sourceGuide, OUTPUTS } from '../lib/studio.mjs';
 import { handleMcp } from '../lib/mcp.mjs';
 import { importPermissions, applyImported } from '../lib/permissions.mjs';
 import { monthUsage } from '../lib/usage.mjs';
+import { logQuestion, feedback, insights, resolve, share, library, verify, remove, REASONS } from '../lib/insights.mjs';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
+
+const lambda = new LambdaClient({ region: config.region });
 
 // ---------- responses
 
@@ -120,10 +126,13 @@ route('POST', '/api/access-request', async ({ user, event }) => {
 route('GET', '/api/sources', async ({ user }) => sourceViews(user), { auth: 'any' });
 
 // The document list, from the monitor's copy (live when there is none), with the documents that failed to index.
+// A Jira source is always read live: its list carries each document's own state (INDEXED, PENDING or FAILED).
 route('GET', '/api/sources/:id/documents', async ({ user, params }) => {
   const s = await readable(user, params.id);
+  // A document restricted to other people is left out; one this reader is let into is marked restricted.
+  if (s.type === 'JIRA') return visible(user.email, s, await documents(s));
   const saved = await get(`SOURCE#${s.id}`, 'CATALOG');
-  const docs = saved?.documents || (await documents(s));
+  const docs = await visible(user.email, s, saved?.documents ? await withTextDocuments(s, saved.documents) : await documents(s));
   const failed = new Map(((await get(`SOURCE#${s.id}`, 'LATEST'))?.failedDocuments || []).map((f) => [docKey(f.uri), f.reason]));
   return docs.map((d) => ({ ...d, status: failed.has(docKey(d.uri)) ? 'FAILED' : 'INDEXED', reason: failed.get(docKey(d.uri)) }));
 });
@@ -131,13 +140,18 @@ route('GET', '/api/sources/:id/documents', async ({ user, params }) => {
 route('GET', '/api/sources/:id', async ({ user, params }) => {
   const s = await readable(user, params.id);
   const history = (await query(`SOURCE#${s.id}`, 'JOB#', { forward: false, limit: 30 })).map((j) => j.job);
-  return { ...s, ...(await sourceDetail(s)), history: history.length ? history : await jobs(s) };
+  return { ...s, ...(await sourceDetail(s)), history: history.length || s.type === 'JIRA' ? history : await jobs(s) };
 });
 
 route('POST', '/api/sources/:id/sync', async ({ user, params }) => {
   requireAdmin(user);
   const s = (await listSources()).find((x) => x.id === params.id);
   if (!s) throw new HttpError(404, 'No such source');
+  // A Jira source has no ingestion job: the monitor function reads Jira and sends the documents (lib/jira.mjs).
+  if (s.type === 'JIRA') {
+    await lambda.send(new InvokeCommand({ FunctionName: config.monitorFunction, InvocationType: 'Event', Payload: JSON.stringify({ jira: s.id, full: true }) }));
+    return { jobId: `jira-${now()}`, status: 'STARTING', startedAt: now() };
+  }
   try {
     return await startSync(s);
   } catch (error) {
@@ -146,9 +160,58 @@ route('POST', '/api/sources/:id/sync', async ({ user, params }) => {
 });
 
 route('POST', '/api/documents/guide', async ({ user, event }) => {
-  const { source, uri, docId, title, lang = 'vi' } = body(event);
+  // The document is found from its link; an id sent by the browser is not trusted.
+  const { source, uri, title, lang = 'vi' } = body(event);
+  if (!uri) throw new HttpError(400, 'Which document?');
   const s = await readable(user, source);
-  return sourceGuide(s, { uri, docId, title }, { lang });
+  if (!(await mayRead(user.email, s, String(uri)))) throw new HttpError(404, MISSING);
+  return sourceGuide(s, { uri: String(uri), title }, { lang });
+});
+
+// The full extracted text of one document, for the reader that shows a cited passage in its place. The document
+// is found from its link inside the source the caller may read; an id sent by the browser is not trusted.
+route('POST', '/api/documents/text', async ({ user, event }) => {
+  const { source, uri } = body(event);
+  if (!uri) throw new HttpError(400, 'Which document?');
+  const s = await readable(user, String(source));
+  if (!(await mayRead(user.email, s, String(uri)))) throw new HttpError(404, MISSING);
+  let text;
+  try {
+    text = await documentText(s, { uri: String(uri) });
+  } catch (error) {
+    if (error.constructor === Error) throw new HttpError(404, error.message);
+    throw error;
+  }
+  return { text: text.slice(0, TEXT_MAX), total: text.length, cut: text.length > TEXT_MAX };
+});
+
+// Search as you type: the passages themselves, with no model in between.
+route('POST', '/api/search', async ({ user, event }) => {
+  const b = body(event);
+  const text = String(b.query || '').trim().slice(0, 300);
+  if (text.length < 2) throw new HttpError(400, 'Type at least two characters');
+  const allowed = await scope(user, { notebookId: b.notebookId || undefined, sources: b.sources });
+  if (!allowed.length) return { passages: [], ms: 0 };
+  const began = Date.now();
+  const found = await search(text, allowed, { n: Math.min(Math.max(Number(b.limit) || 12, 1), 20), userId: user.email });
+  return { passages: found.map(({ text: full, ...p }, i) => ({ n: i + 1, ...p, excerpt: full.slice(0, 700) })), ms: Date.now() - began };
+});
+
+// The documents that changed last, over the sources of a notebook (or all the caller's sources).
+route('GET', '/api/recent', async ({ user, event }) => {
+  const notebookId = new URLSearchParams(event.rawQueryString || '').get('notebookId') || undefined;
+  const allowed = new Set(await scope(user, { notebookId }));
+  const sources = (await listSources()).filter((s) => allowed.has(s.id));
+  const lists = await Promise.all(sources.map(async (s) => {
+    try {
+      const docs = await visible(user.email, s, s.type === 'JIRA' ? await documents(s) : (await get(`SOURCE#${s.id}`, 'CATALOG'))?.documents || []);
+      return docs.filter((d) => d.modified).map((d) => ({ title: d.title, uri: d.uri, kind: d.kind, modified: d.modified, sourceId: s.id, sourceTitle: s.title, sourceType: s.type }));
+    } catch (error) {
+      console.error('recent', s.name, error.name, error.message);
+      return [];
+    }
+  }));
+  return lists.flat().sort((a, b) => String(b.modified).localeCompare(String(a.modified))).slice(0, 12);
 });
 
 // Sync status of every source: the latest job, the last 14 days of jobs and the alarm thresholds.
@@ -163,7 +226,7 @@ route('GET', '/api/sync', async ({ user }) => {
       lastSuccessAt: latest?.lastSuccessAt || null, documents: latest?.documents ?? null, failedDocuments: latest?.failedDocuments || [], history };
   }));
   const monitor = await get('MONITOR', 'LAST');
-  return { sources, checkedAt: monitor?.at || null, staleHours: config.staleHours, schedule: 'daily (managed) + monitor every 15 minutes' };
+  return { sources, checkedAt: monitor?.at || null, staleHours: config.staleHours, schedule: 'daily (managed); Jira and the monitor every 15 minutes' };
 });
 
 // Notebooks
@@ -199,7 +262,21 @@ route('DELETE', '/api/notebooks/:id', async ({ user, params }) => {
 
 route('GET', '/api/notebooks/:id/messages', async ({ user, params }) => {
   await notebook(user, params.id);
-  return (await query(`NB#${params.id}`, 'MSG#')).map((m) => ({ id: m.sk.slice(4), role: m.role, content: m.content, citations: m.citations, followups: m.followups, passages: m.passages, mode: m.mode, at: m.at }));
+  return (await query(`NB#${params.id}`, 'MSG#')).map((m) => ({ id: m.sk.slice(4), role: m.role, content: m.content, citations: m.citations, followups: m.followups, passages: m.passages, mode: m.mode, stats: m.stats, at: m.at,
+    steps: m.steps, seconds: m.seconds, feedback: m.feedback, shared: m.shared, focus: m.focus }));
+});
+
+// A vote on one answer. It stays on the message, and goes to the question log without the voter's name.
+route('POST', '/api/notebooks/:id/feedback', async ({ user, params, event }) => {
+  await notebook(user, params.id);
+  const b = body(event);
+  const message = await get(`NB#${params.id}`, `MSG#${b.message}`);
+  if (!message || message.role !== 'assistant') throw new HttpError(404, 'No such answer');
+  const vote = ['up', 'down'].includes(b.vote) ? b.vote : null;
+  const given = vote ? { vote, reason: vote === 'down' && REASONS.includes(b.reason) ? b.reason : undefined, note: vote === 'down' ? String(b.note || '').trim().slice(0, 500) || undefined : undefined } : undefined;
+  await put({ ...message, feedback: given });
+  await feedback(message.log, given || {});
+  return { feedback: given || null };
 });
 
 route('DELETE', '/api/notebooks/:id/messages', async ({ user, params }) => {
@@ -226,7 +303,7 @@ route('DELETE', '/api/notebooks/:id/notes/:note', async ({ user, params }) => {
   return { deleted: true };
 });
 
-// Chat: server-sent events sources, step, delta, done (or error).
+// Chat: server-sent events sources, step, delta, reset (agent and research modes), done (or error).
 route('POST', '/api/chat', async ({ user, event, stream }) => {
   const b = body(event);
   const question = String(b.question || '').trim().slice(0, 4000);
@@ -237,14 +314,32 @@ route('POST', '/api/chat', async ({ user, event, stream }) => {
   const out = sse(stream);
   try {
     const at = now();
-    await put({ pk: `NB#${nb.id}`, sk: `MSG#${at}`, role: 'user', content: question, at, mode: b.mode });
-    const result = await answer({ question, history, allowed, mode: b.mode === 'deep' ? 'deep' : 'fast', lang: ['vi', 'en', 'ja'].includes(b.lang) ? b.lang : undefined,
-      emit: out.emit, userId: user.email });
+    const mode = ['deep', 'agent', 'research'].includes(b.mode) ? b.mode : 'fast';
+    const lang = ['vi', 'en', 'ja'].includes(b.lang) ? b.lang : undefined;
+    // A question about one document: the source must be one the caller may read, and the document is found by its link.
+    const focus = b.focus?.uri ? { source: await readable(user, String(b.focus.source)), uri: String(b.focus.uri), title: String(b.focus.title || '').slice(0, 300) } : undefined;
+    if (focus && !(await mayRead(user.email, focus.source, focus.uri))) throw new HttpError(404, MISSING);
+    await put({ pk: `NB#${nb.id}`, sk: `MSG#${at}`, role: 'user', content: question, at, mode, focus: focus && { title: focus.title, uri: focus.uri, sourceId: focus.source.id } });
+    // The steps go to the browser as they happen and are kept with the answer, so that the trace can be read later.
+    const steps = [];
+    const emit = (name, data) => {
+      if (name === 'step') steps.push({ ...data, text: String(data.text || '').slice(0, 300) });
+      if (name === 'stepdone') Object.assign(steps.find((x) => x.id === data.id) || {}, data, { done: true });
+      out.emit(name, data);
+    };
+    const result = await answer({ question, history: focus ? [] : history, allowed, mode, lang, emit, userId: user.email, syncOf: latestSync, focus });
+    // Agent mode numbers its passages itself (only the cited ones stay, with gaps); the other modes count from 1.
     const passages = result.passages.map(({ text, ...p }, i) => ({ n: i + 1, ...p, excerpt: text.slice(0, 600) }));
     const doneAt = now();
-    await put({ pk: `NB#${nb.id}`, sk: `MSG#${doneAt}`, role: 'assistant', content: result.answer, citations: result.citations, followups: result.followups, passages, at: doneAt, mode: b.mode });
+    const seconds = Math.round((Date.parse(doneAt) - Date.parse(at)) / 100) / 10;
+    const log = await logQuestion({ question, mode, lang, citations: result.citations, stats: result.stats, seconds, focus }).catch((error) => {
+      console.error('question log', error.name, error.message);
+      return undefined;
+    });
+    await put({ pk: `NB#${nb.id}`, sk: `MSG#${doneAt}`, role: 'assistant', content: result.answer, citations: result.citations, followups: result.followups, passages, at: doneAt, mode,
+      stats: result.stats, steps: steps.slice(0, 120), seconds, log });
     await put({ ...nb, updatedAt: doneAt });
-    out.emit('done', { id: doneAt, answer: result.answer, citations: result.citations, followups: result.followups });
+    out.emit('done', { id: doneAt, answer: result.answer, citations: result.citations, followups: result.followups, stats: result.stats, passages, seconds });
   } catch (error) {
     console.error('chat', error.name, error.message);
     out.emit('error', { message: friendly(error) });
@@ -339,11 +434,47 @@ route('GET', '/api/admin/import-permissions', async ({ user }) => {
   return (await get('IMPORT', 'LAST'))?.report || null;
 });
 
+// What the last reading of the page and issue restrictions found, per source (the monitor reads them every run).
+route('GET', '/api/admin/restrictions', async ({ user }) => {
+  requireAdmin(user);
+  return Promise.all((await listSources()).map(async (s) => ({ id: s.id, name: s.name, title: s.title, type: s.type, ...(await aclStatus(s.id)) })));
+});
+
 route('GET', '/api/usage', async ({ user, event }) => {
   requireAdmin(user);
   const month = new URLSearchParams(event.rawQueryString || '').get('month') || undefined;
   return monthUsage(month);
 });
+
+// ---------- library and KB quality
+
+route('GET', '/api/library', async ({ user }) => library(user, await grantedSourceIds(user, await listSources())));
+
+route('POST', '/api/library', async ({ user, event }) => {
+  const b = body(event);
+  const nb = await notebook(user, b.notebookId);
+  return share({ user, nbId: nb.id, messageId: String(b.message || '') });
+});
+
+route('PATCH', '/api/library/:id', async ({ user, params, event }) => {
+  requireAdmin(user);
+  return verify(params.id, user, Boolean(body(event).verified));
+});
+
+route('DELETE', '/api/library/:id', async ({ user, params }) => remove(params.id, user, isAdmin(user)));
+
+route('GET', '/api/admin/insights', async ({ user, event }) => {
+  requireAdmin(user);
+  return insights(new URLSearchParams(event.rawQueryString || '').get('month') || undefined);
+});
+
+route('PATCH', '/api/admin/insights/:month/:id', async ({ user, params, event }) => {
+  requireAdmin(user);
+  return resolve(params.month, params.id, Boolean(body(event).resolved));
+});
+
+const TEXT_MAX = 200_000;
+const MISSING = 'This document is not in the knowledge base (not synced yet, or it failed to index)';
 
 async function readable(user, id) {
   const all = await listSources();
@@ -354,6 +485,8 @@ async function readable(user, id) {
 }
 
 function friendly(error) {
+  const claude = claudeError(error);
+  if (claude) return claude;
   if (/ThrottlingException|TooManyRequests/i.test(error.name)) return 'Hệ thống đang bận (Bedrock throttling), thử lại sau vài giây.';
   if (/AccessDenied/i.test(error.name)) return 'AWS từ chối truy cập (AccessDenied). Kiểm tra quyền của Lambda hoặc spend limit của project.';
   return error.message || 'Có lỗi không mong muốn';

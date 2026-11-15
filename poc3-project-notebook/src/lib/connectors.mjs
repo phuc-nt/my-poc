@@ -22,6 +22,15 @@ export async function confluence(path) {
   return response.json();
 }
 
+// A file attached to a Confluence page, from its download link. The site answers with a redirect to a signed
+// address, which fetch follows without the sign-in.
+export async function confluenceBytes(path) {
+  const { confluence: c } = await credentials();
+  const response = await fetch(`${c.hostUrl}${path}`, { headers: { authorization: `Basic ${Buffer.from(`${c.username}:${c.password}`).toString('base64')}` } });
+  if (!response.ok) throw new Error(`Confluence ${response.status} on a file download`);
+  return Buffer.from(await response.arrayBuffer());
+}
+
 // Every result of a paged Confluence call (v1 and v2 both give _links.next).
 export async function confluencePages(path) {
   const out = [];
@@ -41,7 +50,8 @@ export async function sharepointSite() {
   return { creds, site };
 }
 
-// The documents of a source as the connector crawls them: { uri, title, kind, modified, size, docId? }.
+// The documents of a source as the connector crawls them: { uri, title, kind, modified, size, docId?, parent? }.
+// parent: the title of the page a file is attached to.
 // uri is the link the knowledge base reports as _source_uri; docId is set when the knowledge base id is known.
 export async function catalog(source, detail) {
   if (source.type === 'CONFLUENCE') {
@@ -49,10 +59,11 @@ export async function catalog(source, detail) {
     const out = [];
     for (const key of detail.spaces) {
       const cql = encodeURIComponent(`space="${key}" and type in (page, blogpost, attachment)`);
-      for (const item of await confluencePages(`/wiki/rest/api/content/search?cql=${cql}&limit=100&expand=version`)) {
+      for (const item of await confluencePages(`/wiki/rest/api/content/search?cql=${cql}&limit=100&expand=version,container`)) {
         out.push({
           uri: `${c.hostUrl}/wiki${item._links?.webui || ''}`, title: item.title, kind: item.type,
           modified: item.version?.when, docId: item.type === 'attachment' ? undefined : item.id, space: key,
+          ...(item.type === 'attachment' && item.container?.title ? { parent: item.container.title } : {}),
         });
       }
     }

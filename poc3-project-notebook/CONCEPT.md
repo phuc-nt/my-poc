@@ -1,50 +1,54 @@
 # PoC 3: Project Knowledge Notebook
 
-This document describes a concept that has been built and run end to end. It is written for decision makers: what the concept does for a project team, how it works, what was proven and what was not, how it compares with Atlassian Rovo, what it costs, and what the team must be granted before a pilot with real content.
+This document describes a concept that has been built and run end to end. It is written for decision makers and for teams who consider building the same thing: what the concept does for a project team, how it works, what was verified and what was not, what it costs, how it compares with Atlassian Rovo, and what a team must arrange before a pilot with real content.
 
-It contains no code and needs none to be read. The implementation and its engineering notes are in this folder's [README.md](README.md) (section 11).
+It contains no code and needs none to be read. How to deploy it with your own Atlassian site and AWS project is in the [engineering guide](docs/02-engineering-guide.md), section 7. Every figure here was measured on the PoC's invented test content, not on real project documents.
 
 ## 1. Summary
 
 | | |
 |---|---|
-| **What it does** | A web app in the style of Google's NotebookLM where a project team asks questions about the project's documents in Confluence and SharePoint and gets answers with numbered links to the pages and files they came from. It also writes study material from the documents (briefing, FAQ, glossary, mind map, timeline, onboarding guide), explains one document on request, and gives the same knowledge to the AI assistants on the team's laptops (Claude Code, Kiro) |
+| **What it does** | A web app in the style of Google's NotebookLM. A project team asks questions about the project's pages in Confluence, its issues in Jira and the files attached to both, and gets answers with numbered links to the pages, issues and files they came from. It also writes study material and research reports from the documents, counts and sums exactly where a search cannot, and gives the same knowledge to the AI assistants on the team's machines (Claude Code, Kiro) |
 | **Who it is for** | Business analysts, bridge system engineers and solution architects who must learn a project's business from a large and scattered set of documents |
-| **Access** | People sign up with their email; an administrator approves them. Each person reads only the Confluence spaces and SharePoint folders granted to them, in the web app and from their AI assistant alike. Grants can be imported from who may read each space and folder in Confluence and SharePoint |
-| **Status** | Built and run on 2026-10-25 on AWS, against a real Confluence Cloud site and a real SharePoint Online site filled with invented content: 402 documents in 6 sources, 9 file formats. All 46 checks of an automated end-to-end test passed. Of 48 benchmark questions, 44 were answered correctly or rightly declined, none wrongly, in about 3 seconds each (section 6). Not yet tried with real content or real users |
-| **Running cost** | About 10 USD a month at the POC's size, plus less than one US cent per question. For a team of 30 with 10 GB of documents and 6,000 questions a month, about 100 USD a month (section 8). The same 6,000 questions in Rovo would cost about 590 USD a month in credits beyond the plan's allowance, from December 2026 |
-| **Needed to go further** | A decision on which spaces and folders are indexed and who may read each, a read-only Confluence account, an Entra ID application with administrator consent, and use of Claude models on Amazon Bedrock (section 7) |
-| **What it is not** | A source of truth, and not a replacement for Confluence or SharePoint. The answer is a guide to the documents, with links to check |
+| **Access** | People sign up with their email; an administrator approves them. Each person reads only the Confluence spaces and Jira projects granted to them, and inside those only the pages and issues that Confluence and Jira let them read. The same rules apply in the web app and from an AI assistant |
+| **Status** | Built and run on AWS against a Confluence Cloud and Jira Cloud site filled with invented content. The automated end-to-end test passes (88 of 88 checks). 38 of 38 questions on attached files were answered. The web app's agent answered 78 of 79 questions, the same as a coding agent on the same documents (section 6). Not yet tried with real content or real users |
+| **Running cost** | About 0.03 USD per question in agent mode at the model's list price, 0.21 to 0.26 USD per research report, plus the AWS services, of which the storage of the indexed documents (5 USD per GB a month at list price) is the largest (section 8) |
+| **Needed to go further** | A decision on which spaces and projects are indexed and who may read each, a decision that questions and document passages may be sent to the Claude API, a read-only Atlassian account, and an AWS project in a Region that offers managed knowledge bases (section 7) |
+| **What it is not** | A source of truth, and not a replacement for Confluence or Jira. The answer is a guide to the documents, with links to check. It never writes to Confluence or Jira |
 
 ## 2. The use case
 
-A project team joins a long-running project. The business is described in hundreds of pages and files: requirement specifications, basic and detailed designs, meeting minutes, Q&A sheets with the customer, test reports, release notes, spread over Confluence spaces and SharePoint folders, in Vietnamese, English and Japanese. A business analyst who needs to know how a rule works, or a bridge engineer preparing a question for the customer, must first know which document holds it.
+A project team joins a long-running project. The business is described in hundreds of pages, issues and files: requirement specifications, basic and detailed designs, meeting minutes, Q&A sheets with the customer, test reports, release notes, spread over Confluence spaces and Jira projects, in more than one language. A business analyst who needs to know how a rule works, or a bridge engineer preparing a question for the customer, must first know which document holds it.
 
-The concept answers three needs:
+The concept answers four needs:
 
-1. **Ask and check.** A question in plain language, an answer in the reader's language, and a link to every page and file it relies on.
-2. **Learn a domain.** A notebook groups the sources one person works on. From it the system writes a briefing, an FAQ, a glossary, a mind map, a timeline or an onboarding guide, each citing its documents. A single document can be explained on request.
-3. **Work from the editor.** The same documents, with the same access rules, are a tool for the AI assistant in the code editor.
+1. **Ask and check.** A question in plain language, an answer in the reader's language, and a link to every page, issue and file it relies on.
+2. **Learn a domain.** A notebook groups the sources one person works on. From it the system writes a briefing, an FAQ, a glossary, a mind map, a timeline or an onboarding guide, each citing its documents, or a research report on a topic the person names.
+3. **Count exactly.** "How many issues are open, per assignee?" and "what is the total of this column?" are computed, not estimated from the passages a search returns.
+4. **Work from the editor.** The same documents, with the same access rules, are tools for the AI assistant in the code editor.
 
 | The concept fits when | It does not fit when |
 |---|---|
-| The knowledge is written down in Confluence Cloud and SharePoint Online | It is in people's heads, chat history or a ticket system only |
-| Access can be decided per Confluence space and per SharePoint folder | Access differs page by page or file by file inside one folder, and that must be enforced exactly |
-| A day-old copy of the documents is good enough | Answers must reflect a change made minutes ago |
-| The content may be processed by Amazon Bedrock in the team's own AWS account | The data owner forbids cloud processing |
+| The knowledge is written down in Confluence Cloud and Jira Cloud, in pages, issues and attached files | It is in people's heads or in chat history only |
+| A copy that is minutes old for Jira and up to a day old for Confluence is good enough | Answers must reflect a Confluence change made minutes ago, with nobody pressing "sync now" |
+| The searchable copy may be kept in the team's own AWS project, and questions with the passages they read may be sent to the Claude API | The data owner forbids either |
+| People's emails in the app are the emails of their Atlassian accounts | Accounts cannot be matched by email |
 
 ## 3. What the user sees
 
 | Page | What it offers |
 |---|---|
 | **Notebook** | Left: the sources the person may read, as checkboxes, each with its documents and their state. Centre: the chat. Right: the studio and the person's notes |
-| Chat | Two modes. *Fast* (first words after about 1.5 seconds, the whole answer in about 3): one search, then the answer, streamed. *Deep* (about 5 seconds on a short question, longer on a broad one): the question is split into sub-questions, shown as they run, for broad or multi-part questions. Each answer has numbered citations that open the passage they point to, three suggested follow-up questions, a language choice (Vietnamese, English, Japanese), copy, and "save as note" |
-| Studio | Six outputs written from the notebook's sources, each with citations, saved as notes: briefing, FAQ, glossary, mind map (drawn as a diagram), timeline, onboarding guide. An optional focus narrows any of them, for example "payment flow" |
-| Source guide | For one document: a summary, its key points and questions to ask about it |
-| **Sync** | Each source's last sync, its state, documents indexed and failed, the reason each failed document failed, the history of syncs, and a button to sync now (administrators) |
+| Chat | Four modes. *Fast*: one search, then the answer, streamed. *Deep*: the question is split into sub-questions, shown as they run. *Agent*: the model looks things up in several steps with reading tools, searching again in other words and reading whole documents when passages are not enough; each step is shown. *Research*: an outline, every section researched at the same time, then a report with a summary and the points the documents leave open. Each answer has numbered citations that open the passage beside the answer, follow-up questions, a language choice, copy, export and "save as note" |
+| Checking an answer | A click on a citation shows the passage, when its document changed and when its source last synced. A reader shows the whole extracted document with the cited passage marked. The next questions can be limited to one document |
+| Search palette | Passages as the person types, without a model |
+| Studio | Six outputs written from the notebook's sources, each with citations, saved as notes: briefing, FAQ, glossary, mind map (drawn as a diagram), timeline, onboarding guide |
+| Team library | Answers shared with the team. A person sees an entry only when they may read every source it cites; an administrator marks entries verified |
+| **Sync** | Each source's last sync, its state, documents indexed and failed, the reason each failed document failed, the history, and a button to sync now (administrators) |
 | **MCP** | Personal access tokens for Claude Code and Kiro, with the configuration to paste |
-| **Users** (administrators) | People waiting for approval, their requested sources, roles and grants; the import of permissions from Confluence and SharePoint and its report |
-| **Cost** (administrators) | The month's usage and its cost at list prices: searches, deep searches, model tokens per model |
+| **Users** (administrators) | People waiting for approval, their requested sources, roles and grants; the import of permissions from Confluence and its report |
+| **Quality** (administrators) | From the question log: what was asked, what the documents could not answer, which answers were voted down, which documents are cited most |
+| **Cost** (administrators) | The month's usage and its cost at list prices |
 
 ## 4. How it works
 
@@ -52,210 +56,166 @@ The concept answers three needs:
 
 | Component | What it does |
 |---|---|
-| **Outside** | |
-| Confluence Cloud, SharePoint Online | Where people write. Read, never changed |
+| **Outside the AWS project** | |
+| Confluence Cloud, Jira Cloud | Where people write. Read, never changed |
+| Claude API | Writes the answers. For each answer it receives the question, the notebook's recent messages and the passages and documents the answer reads |
 | **Indexing** | |
-| Knowledge bases | Amazon Bedrock Managed Knowledge Bases. Each holds up to five sources; a source is one Confluence space or one SharePoint folder, read by a managed connector once a day. The service extracts the text of pages, attachments and files, cuts it into passages and makes them searchable by words and by meaning |
+| Knowledge bases | Amazon Bedrock Managed Knowledge Bases. Each holds up to five data sources. The service extracts the text of pages and files, cuts it into passages and makes them searchable by words and by meaning |
+| Confluence sources | One per set of spaces, read by AWS's managed Confluence connector once a day, or at once with "sync now" |
+| Jira sources | One per set of projects. The service has no Jira connector, so the app's monitor reads the issues, comments and attachments changed since its last run, every 15 minutes |
+| The step before the knowledge base | The managed parser keeps about half the words of some file formats in Vietnamese and none of a slide's speaker notes. So for Word, PowerPoint and PDF files, scans and pictures, the monitor adds a second document with the file's full text. Pictures and scanned pages are read by a model with image input, served in the Region. A citation still opens the file |
 | **The app** | |
 | Web app | A single page served by Amazon CloudFront from a private bucket |
 | Sign-in | Amazon Cognito: sign-up with email and a confirmation code, password reset |
-| API | One AWS Lambda function behind CloudFront: notebooks, chat and studio (streamed), documents, sync status, tokens, users, usage. It checks the person's grants on every call |
-| MCP server | The same function at `/mcp`. A personal access token identifies the person; six tools (search, ask, list sources, list documents, read a document, list notebooks) see only that person's sources |
-| Store | One Amazon DynamoDB table: people, grants, notebooks, messages, notes, token hashes, sync history, usage counters |
-| Models | Amazon Bedrock, in the project's Region. Chat, deep mode and studio: GLM 5 (chosen over DeepSeek V3.2 in the benchmark, section 6). Claude models once the account's use case form is submitted (section 7) |
+| API | One AWS Lambda function behind CloudFront: notebooks, chat, research and studio (streamed), documents, sync status, tokens, users, usage. It checks the person's access on every call |
+| MCP server | The same function at `/mcp`. A personal access token identifies the person. Eight tools: search, ask, list sources, list documents, read a document, query Jira, query a table, list notebooks |
+| Store | One Amazon DynamoDB table: people, grants, notebooks, messages, notes, token hashes, sync history, the restriction index, the question log, usage counters |
 | **Operations** | |
-| Monitor | A Lambda function every 15 minutes: reads each source's sync jobs and why documents failed, refreshes the document lists, publishes metrics, and once a day imports permissions |
+| Monitor | A Lambda function every 15 minutes: the Jira sync, the text documents, each source's sync jobs and why documents failed, the page and issue restrictions, metrics; once a day the permission import |
 | Alarms | Amazon CloudWatch: a source not synced for 30 hours, a failed sync, a monitor error; email through Amazon SNS. A dashboard of the same |
-| Secrets | AWS Secrets Manager: the Confluence token, the SharePoint certificate's password, the app's own SharePoint credentials |
+| Secrets | AWS Secrets Manager: the Atlassian API tokens and the Claude API key |
+
+Everything on AWS is in one AWS project (one AWS account) and one Region, is described as code, and is created or removed with two commands.
 
 ### 4.2 Who sees what
 
-1. A person signs up and confirms their email. They can sign in but read nothing; they can ask for sources.
-2. An administrator approves them and ticks the sources they may read. Or the permission import has already done it: it reads who may read each Confluence space (people and groups) and each SharePoint folder (people, SharePoint groups, Microsoft 365 groups), and gives those grants to the matching emails, now or when the person signs up.
-3. Every search, in the web app and from the AI assistant, is limited to the person's sources and, inside a notebook, to the sources ticked there. The model never sees a passage from another source.
+Access has two layers.
 
-A grant covers a whole space or folder. Restrictions on single pages or files inside it are not carried over (section 9).
+1. **The source.** A person signs up and confirms their email. They can sign in but read nothing; they can ask for sources. An administrator approves them and ticks the sources they may read. Or the permission import has already done it: it reads who may read each Confluence space (people and groups) and gives those grants to the matching emails, now or when the person signs up. Grants on a Jira source are given by an administrator.
+2. **The page and the issue.** Inside a granted source, a Confluence page with a read restriction, the pages and files below it, and a Jira issue on a security level, are shown only to the people the restriction names, matched by email. The monitor reads the restrictions every 15 minutes. Administrators of the app are checked like anyone else.
+
+Every reading path applies both layers: search, all four chat modes, document lists, the reader, the library, the counts and the MCP tools. A hidden document answers as if it did not exist. It fails closed: a source whose restrictions have not been read yet shows nothing, and when Confluence or Jira cannot be read the last restrictions stay in force.
 
 ### 4.3 One question
 
-| Step | What happens |
-|---|---|
-| 1. Ask | The person types in a notebook. If it follows earlier questions ("and on mobile?"), the model first rewrites it to stand alone |
-| 2. Search | One search in each knowledge base that holds one of the person's sources, filtered to those sources. The best passages are merged by score |
-| 3. Write | The question and the numbered passages go to the model with fixed rules: answer only from the documents, cite each fact, keep names and numbers as written, say so when the documents do not cover it, answer in the chosen language |
-| 4. Stream | The passages appear first, then the answer as it is written, then the follow-up questions. The exchange is kept in the notebook |
+| Step | Fast mode | Agent mode |
+|---|---|---|
+| 1. Ask | The person types in a notebook. A follow-up ("and on mobile?") is first rewritten to stand alone | The same |
+| 2. Find | One search in each knowledge base that holds one of the person's sources, filtered to those sources and to what the person may read | The model chooses among six reading tools, several times: search, list sources, list documents, read a document, query Jira, query a table. At most 8 rounds, 24 tool calls and 3 minutes |
+| 3. Write | The question and the numbered passages go to the model with fixed rules: answer only from the documents, cite each fact, keep names and numbers as written, say so when the documents do not cover it | The same rules, on the passages the model chose to use |
+| 4. Stream | The passages appear first, then the answer as it is written, then follow-up questions. The exchange is kept in the notebook | Each tool call is shown as a step while it runs and kept with the answer |
 
-In deep mode, step 2 is Bedrock's agentic retrieval: a planning model splits the question, runs several searches and keeps the passages that matter.
+Deep mode uses Bedrock's agentic retrieval for step 2: a planning model splits the question, runs several searches and keeps the passages that matter. Research mode runs one tool loop per section of the report, all at once.
+
+**Exact counts.** A search returns the closest passages, never "all of them". So `query_jira` runs a query in Jira at that moment, inside the projects of the person's sources, and returns the exact total and the counts per status, assignee and so on. `query_table` filters, counts and sums the rows of a table in one document.
 
 ## 5. Security
 
 | Concern | Answer |
 |---|---|
-| A person reads a source not granted to them | Grants are checked on the server on every call, for the web app and MCP alike. Tested with four accounts with different grants (section 6) |
+| A person reads a source not granted to them | Grants are checked on the server on every call, for the web app and MCP alike. Tested with accounts holding different grants (section 6) |
+| A person reads a restricted page or issue inside a granted source | The restriction index is applied on every reading path. The blocking was tested; reading real restrictions from a site was not (section 9) |
 | A stranger signs up | They get an account with no source until an administrator approves them |
-| An MCP token leaks | It reads only its owner's sources, expires (90 days by default, 365 at most), can be revoked, and is stored only as a hash |
+| An MCP token leaks | It reads only what its owner may read, expires (90 days by default, 365 at most), can be revoked, and is stored only as a hash |
 | The API is called around CloudFront | The function refuses any request without the secret header that CloudFront adds |
-| The source credentials leak | They are in Secrets Manager. The knowledge base's role reads the connectors' secrets; the app's functions read only the app's own secret. The SharePoint app signs in with a certificate and can only read |
-| Text inside a document tries to instruct the model | Passages are data; the model writes text and has no tool that changes anything |
-| Questions and answers are personal data | They stay in the team's AWS account, in the project's Region. Messages are kept until the person clears them or deletes the notebook |
+| The source credentials or the Claude API key leak | They are in Secrets Manager. The knowledge base's role reads the connector's secret; the app's functions read only their own secrets. The Atlassian account only needs to read |
+| Text inside a document tries to instruct the model | Passages are data. The model's tools only read, and only what the person may read |
+| Content leaves the AWS project | The searchable copy, the search and the store stay in the AWS project, in one Region. With a Claude model, each question and the passages and documents its answer reads are sent to the Claude API. This is a deliberate exception: fast and deep mode can be set to a model served by Amazon Bedrock in the Region; agent and research mode cannot |
+| Questions are personal data | Messages are kept until the person clears them or deletes the notebook. The question log for the quality page holds no name or email and expires after 180 days |
 
 ## 6. What was verified
 
-### 6.1 The content
+The test content is invented: wiki pages and blog posts, issues with comments, and 23 files in Vietnamese of ten formats, on a Confluence Cloud and Jira Cloud test site. The detail of every test is in the [README](README.md).
 
-The same invented content the AIPF benchmark uses, plus the company content of the earlier chatbot.
+| Test | Result |
+|---|---|
+| **End to end.** An automated test signs in as five accounts (an administrator, members with different grants, a person not yet approved) and checks the deployed app through its public address, the web routes and the MCP server alike | 88 of 88 checks passed |
+| **Attached files.** 38 questions, each answered from one part of one file (a sheet, a slide, a table, speaker notes, a scanned page, a picture), attached to Jira issues and to Confluence pages | 38 of 38. On the files alone, without the step before the knowledge base: 34 of 38 |
+| **Words kept from a file.** How much of a file's true text reaches the knowledge base | With the file's text document: 96 to 100%. The managed parser alone, on Word, PowerPoint and PDF files in Vietnamese: 47 to 62% |
+| **A file attached or removed later** | Answered from after the next sync, and gone from the answers after it was removed |
+| **The web app's agent against a coding agent.** The same 79 questions, the same model, through the web app's agent mode and through Claude Code with the MCP server | 78 of 79 each. The web app's first run scored 76; one line was then added to its instructions, so 76 is the unbiased number |
+| **Page and issue restrictions.** Lists, search, reader, source guide, MCP and agent mode, against a restriction index written by hand | 12 of 12 checks. Reading real restrictions from Confluence and Jira was not tested: the test site had neither feature |
+| **Research mode.** Three reports | 3 to 5 sections, 29 to 43 seconds, 10 or 11 lookups each |
+| **Speed of an agent answer** | 5.8 seconds median over the 79 questions, with 2.4 tool calls per question |
 
-| Source | Content | Indexed | Failed |
-|---|---|---|---|
-| Confluence, engineering space | Pages, blog posts and attachments of two invented products | 68 | 0 |
-| Confluence, company space | Pages, blog posts and attachments of an invented company | 206 | 0 |
-| SharePoint, three project folders | Word, Excel, PowerPoint, PDF, web, Markdown, text and CSV files of three invented products | 32 | 1 |
-| SharePoint, company folders | Word, Excel, PDF, web, Markdown, text and CSV files | 95 | 0 |
-| **Total** | | **401** | **1** |
+What the tests do not show: behaviour on real project documents, at real volume, with real users. The comparison's hand review was not blind, and one answer per question was taken, so a difference of one or two questions is within the noise.
 
-The one failure is a PowerPoint file the managed parser could not read; the sync page shows it with the parser's reason. Three other PowerPoint files were indexed.
-
-### 6.2 The functions
-
-An automated test signs in as five accounts (an administrator, three members with different sources, one person not yet approved) and checks, through the public address:
-
-| Area | Checks | What is checked |
-|---|---|---|
-| Accounts and access | 13 | Sign-in of the five accounts; approval with sources; each member holds exactly its grants; a person not yet approved opens nothing and can ask for sources; a member cannot use the administrator functions; a call without a token is refused |
-| Chat | 6 | A fast answer with citations and follow-up questions; its passages come only from granted sources; a deep answer with its steps; history is kept; a member granted one product gets no passage from another |
-| Studio | 4 | The six outputs are offered; a briefing and a mind map are written and saved as notes |
-| Documents | 5 | A source's documents with their state, including the failed one; a source not granted is refused; the source guide of a Confluence page and of a Word file |
-| Sync | 4 | The state of the six sources; a member sees only its own; a failed document is named with its reason; a member cannot start a sync |
-| MCP | 11 | A token is created; the protocol handshake; the six tools; each tool sees only the owner's sources and refuses others; a revoked token is refused |
-| Other | 3 | The permission import runs; the month's usage and cost; the web page is served |
-| **Total** | **46** | **All passed on the final deployment** |
-
-### 6.3 Answer quality: the 48 benchmark questions
-
-The benchmark has 48 questions with reference answers, half in Vietnamese and half in English: 20 whose answer is in a Confluence page, 24 in a SharePoint file, and 4 whose answer is in no document, where the right answer is to say so. They were asked in a notebook holding the four project sources, each question on its own.
-
-Four answer sets were graded: the concept's fast mode with each of the two candidate models, its deep mode, and, as a baseline, the knowledge-base answer path of AIPF, the team's AI platform under construction, on the same documents. A separate model (Claude Sonnet) graded every answer against the reference without knowing which system wrote it; the four answers to each question were shuffled.
-
-| | Fast, GLM 5 (chosen) | Fast, DeepSeek V3.2 | Deep, GLM 5 | AIPF baseline |
-|---|---|---|---|---|
-| **Right: correct, or rightly declined** | **44 (92%)** | 45 (94%) | 45 (94%) | 40 (83%) |
-| Wrong | 0 | 2 | 0 | 3 |
-| Partly right | 0 | 0 | 1 | 3 |
-| Declined although a document holds the answer | 4 | 1 | 2 | 2 |
-| Added a claim no document supports | 0 | 2 | 0 | 2 |
-| Answered in the question's language | 48 | 46 | 48 | 46 |
-| Right, Confluence (of 20) | 16 | 17 | 17 | 15 |
-| Right, SharePoint (of 24) | 24 | 24 | 24 | 21 |
-| Rightly declined, no document (of 4) | 4 | 4 | 4 | 4 |
-| Whole answer, median | 3.1 s | 8.4 s | 4.8 s | 3.2 s |
-
-What the numbers say:
-
-- **No wrong answers with GLM 5.** DeepSeek scored one question more but gave two wrong answers with invented detail (a number of facts per group, a retry schedule from another feature). GLM 5 declined those instead, and was more than twice as fast. That is why it was chosen.
-- **The misses are search misses.** All four questions GLM 5 declined are Confluence questions whose page did not come back among the passages; the model then said the documents do not cover it, as instructed. The same search found the right document for 89% of the questions in every system. Deep mode found one of the four (a port number) by searching again.
-- **SharePoint was answered fully**, from Word, Excel, PowerPoint, PDF, web and text files alike.
-- **The model keeps to the documents.** Every question whose answer is in no document was declined, in every system.
-
-### 6.4 Speed
-
-Measured on the 48 benchmark questions, three at a time, from a laptop in UTC+7 to the AWS Region. The answer streams, so the person reads the passages and the first words well before the end.
-
-| | Passages shown | First words | Whole answer |
-|---|---|---|---|
-| Fast, GLM 5 | 1.0 s (1.6 s) | 1.6 s (2.4 s) | 3.1 s (5.4 s) |
-| Fast, DeepSeek V3.2 | 1.0 s (1.3 s) | 5.6 s (16.3 s) | 8.4 s (17.6 s) |
-| Deep, GLM 5 | 2.7 s (4.8 s) | 3.4 s (5.4 s) | 4.8 s (6.6 s) |
-
-Median, with the 90th percentile in brackets. A studio output takes 15 to 22 seconds, streamed as it is written.
-
-## 7. What the team needs to be granted
+## 7. What a team needs before a pilot
 
 | # | What | From whom | Notes |
 |---|---|---|---|
-| 1 | Which Confluence spaces and SharePoint folders are indexed, and who may read each | Data owners, with the project leads | A grant covers a whole space or folder. Content with narrower access belongs in its own space or folder |
-| 2 | A decision that this content and the questions may be processed by Amazon Bedrock | Data owner | Everything stays in the team's AWS account, in one Region |
-| 3 | A dedicated Confluence Cloud account that can read the chosen spaces, and its API token | Confluence administrator | It may count as a paid user. It must be able to read space permissions for the import |
-| 4 | An application in Microsoft Entra ID with read access to the chosen SharePoint sites, and administrator consent | Entra ID administrator | A certificate, no password. Reading the members of Microsoft 365 groups for the import needs one more read permission (`GroupMember.Read.All`); without it, nested groups are not expanded |
-| 5 | Use of Claude models on Amazon Bedrock | Cloud team | The account's one-time Anthropic use case form in the Bedrock console. Until then the POC uses GLM 5, which needs no form |
-| 6 | An AWS account in a Region where managed knowledge bases are offered | Cloud team | The POC used one Region for everything |
+| 1 | Which Confluence spaces and Jira projects are indexed, and who may read each | Data owners, with the project leads | Each source is a grant. Name a space in one source only |
+| 2 | A decision that the content may be indexed by Amazon Bedrock in the team's AWS project, and that questions with the passages they read may be sent to the Claude API | Data owner | Without the second, fast and deep mode can run on a Bedrock model in the Region; agent and research mode are then not available |
+| 3 | A dedicated Atlassian account that can read the chosen spaces and projects, and its API token | Confluence and Jira administrator | It may count as a paid user. It must be able to read space permissions, page restrictions and issue security levels |
+| 4 | A Claude API key | Whoever holds the organisation's Claude Console | With a spend limit on its workspace |
+| 5 | An AWS project in a Region where managed knowledge bases and their Confluence connector are offered | Cloud team | One Region holds everything |
+| 6 | The same email for each person in the app and in Atlassian | Project leads | Restrictions are matched by email. An account that hides its email gets no access to restricted content |
 | 7 | Named people | Leadership | An administrator who approves people and grants, an owner for each source's content, an owner for the deployment |
 
 ## 8. Cost
 
-AWS list prices in the POC's Region, read on 2026-10-25. The cost per use was measured: questions and studio outputs were run with the app's usage counters read before and after.
+List prices; a team's own contract and Region change them. The cost per request was measured on the running system from its token and search counters.
 
-**Per use**
+**Per request, model at the Claude API's list price (Claude Sonnet 5.5)**
 
-| Use | Cost | Made of |
+| Request | Cost | Made of |
 |---|---|---|
-| A fast question | 0.004 USD | One search (0.001 USD) and about 2,300 input and 130 output tokens of GLM 5 |
-| A deep question | 0.009 USD | One agentic search (0.004 USD), about 1.3 searches beneath it, and about 2,800 input and 150 output tokens |
-| A studio output | 0.015 USD | Four searches and about 6,000 input and 1,500 output tokens |
-| An MCP search or question | 0.001 or 0.004 USD | As a search or a fast question |
+| A question in agent mode | 0.03 USD | About 12,200 input and 530 output tokens, 2.4 tool calls |
+| A question that works on a table | 0.08 USD | Measured on the test questions |
+| A count in Jira | 0.10 USD | Measured on the test questions |
+| A research report | 0.21 to 0.26 USD | 3 to 5 sections, 10 or 11 lookups |
 
-Everything asked while building and testing the POC, about 260 questions plus studio outputs and MCP calls, came to 1.31 USD.
+The cost of a fast-mode question and of a studio output with Claude Sonnet 5.5 was not measured.
 
-**Per month**
-
-| Item | POC (6 sources, 10 MB) | Team of 30 (10 sources, 10 GB) |
-|---|---|---|
-| Knowledge base storage, 5 USD per GB | 0.05 | 50 |
-| Fast questions | a few cents | 4,800 questions: 19 |
-| Deep questions | a few cents | 1,200 questions: 11 |
-| Studio outputs | a few cents | 300 outputs: 5 |
-| Sync monitoring: metrics, alarms, dashboard | 8 | 10 |
-| Secrets | 1.2 | 1.2 |
-| Functions, table, sign-in, CDN, logs | under 1 | about 5 |
-| **Total** | **about 10 USD** | **about 100 USD** |
-
-Storage dominates as the documents grow; the model's share stays small. With Claude models (section 7), chat on Claude Haiku would cost about the same per question and studio on Claude Sonnet about four times as much, still a few USD a month at this size.
-
-**Outside AWS**
+**AWS, at the list prices of the PoC's Region (read 2026-10-25)**
 
 | Item | Cost |
 |---|---|
-| The Confluence account the connector reads with | One Confluence user licence at the site's price, if the site counts it as a paid user |
-| The Entra ID application for SharePoint | None |
-| Rovo for comparison | See section 10 |
+| Knowledge base storage | 5 USD per GB a month |
+| A search | 0.001 USD |
+| An agentic search (deep mode) | 0.004 USD |
+| Each custom CloudWatch metric | about 0.30 USD a month |
+
+An earlier build of the same size cost about 10 USD a month in AWS services, most of it monitoring. The AWS cost of the current build was not measured again: it adds the 15-minute Jira sync and the reading of pictures and scanned pages, one model call per page for each new file version.
+
+**A worked example.** 30 people asking 6,000 questions a month in agent mode: about 180 USD for the model. 10 GB of indexed documents: 50 USD for storage. Add the fixed AWS services. Storage grows with the documents, the model cost with the questions.
+
+**Outside AWS and the model.** The Atlassian account the connector reads with may count as one paid user.
 
 ## 9. Limits and risks
 
 | Limit or risk | Effect | What would address it |
 |---|---|---|
-| A grant covers a whole space or folder | A page or file restricted inside a granted space or folder is readable through the app | Keep restricted content in its own space or folder; the managed service's per-document access control is a later step |
-| The permission import expands groups one level | A member of a group inside a group is not found; Confluence users who hide their email are skipped (counted in the report) | The `GroupMember.Read.All` permission for Microsoft 365 groups; the administrator grants the rest by hand |
-| The copy is up to a day old | A page changed this morning answers with yesterday's text | An administrator can start a sync at any time from the sync page |
-| Some files cannot be parsed | One PowerPoint file of four failed; it is listed with the reason on the sync page | Save it again in another format |
-| Search misses | One Confluence question in four did not find its page in fast mode; the answer then says the documents do not cover it | Deep mode; tuning the passage size and count with real content |
-| Five sources per knowledge base | More spaces and folders need more knowledge bases, searched together | Already handled by the design; it is a quota of the service |
-| No per-person rate limit | One person or a script could run up the model cost | A daily quota per person before a wider pilot |
-| Claude models not yet enabled | GLM 5 writes well but has not been compared with Claude here | Submit the use case form and rerun the benchmark |
-| Not tried with real users | Usefulness for real project work is unproven | A pilot with one project team |
+| Tested on small, invented content | Usefulness and accuracy on real project documents are unproven | A pilot with one project team |
+| Real restrictions were not read in the test | The blocking works against a hand-written index; whether the index is built correctly from a real site's restrictions is untested | Run `scripts/restrict-test.mjs` on a site with page restrictions and issue security before real use |
+| People are matched by email | A person whose app email differs from their Atlassian email, or who hides it, does not see restricted content they may read | The same email in both; the administrator checks the import's report |
+| A new restriction takes up to 15 minutes | A page restricted now is still readable through the app until the next monitor run | An administrator can run the monitor at once |
+| A space named in two sources | It is indexed in both, and a grant on either reads it | Name a space in one source only |
+| The Confluence copy is up to a day old | A page changed this morning answers with yesterday's text | "Sync now" on the sync page |
+| Exact counts have ceilings | `query_jira` reads at most 2,000 issues per query and says so when there are more; a document list shows 300 documents with the exact total; a table that a PDF or scan gave as running text cannot be computed | Narrow the query |
+| A research report runs inside 300 seconds | A section still writing near the end is replaced by a line saying so | A narrower topic |
+| Five data sources per knowledge base | More spaces and projects need more knowledge bases, searched together | Already handled by the design; it is a quota of the service |
+| A file over 20 MB gets no text document | It is answered from what the managed parser reads | Split the file |
+| Content is sent to the Claude API | Questions and the passages they read leave the AWS project | A data owner's decision (section 7), or a Bedrock model in the Region for fast and deep mode |
+| No per-person rate limit | One person or a script could run up the model cost | A daily quota per person before a wider pilot; a spend limit on the Claude API workspace |
+| The question log | Administrators read every question asked in the web app; a question's own words can point to a person | Tell the users; items expire after 180 days |
+| No backup of the table | Notebooks and notes would be lost with the deployment. The documents stay in Confluence and Jira | Export the table before a teardown |
 
 ## 10. Compared with Atlassian Rovo
 
-Rovo is Atlassian's AI built into Confluence and Jira. It was not run in this POC; the comparison is from Atlassian's published documentation, read on 2026-10-25.
+Rovo is Atlassian's AI built into Confluence and Jira. It was not run in this PoC; the comparison is from Atlassian's published documentation, read on 2026-10-25. Check the current documentation before deciding.
 
 | | This concept | Rovo |
 |---|---|---|
 | Where it lives | A separate web app and an MCP server | Inside Confluence and Jira, no separate app |
-| Sources | Confluence and SharePoint, through AWS managed connectors | Atlassian products plus many connectors, SharePoint and OneDrive among them |
-| Access control | Per space and per folder, imported from Confluence and SharePoint, checked on every call | Per page and per file, taken from the source at query time; each person also connects their own SharePoint account |
-| SharePoint setup | An Entra ID application with read access to the chosen sites | A SharePoint global administrator connects it; it also indexes people's profiles from Entra ID (department, email, hire date), with no option yet to turn that off |
-| Learning a domain | Notebooks over chosen sources, six study outputs, a guide per document, notes | Chat, search, agents that can be built for a task |
+| Sources | Confluence and Jira with their attached files | Atlassian products plus many connectors |
+| Access control | Per space and project, then per page and issue, read from the source every 15 minutes and matched by email | Per page and issue, taken from the source at query time |
+| Attached files | A second document with the file's full text, measured per format | Not measured here |
+| Learning a domain | Notebooks over chosen sources, six study outputs, research reports, a guide per document, notes | Chat, search, agents that can be built for a task |
 | Writing back | None; it only reads | Writes and edits pages and work items |
-| Local AI assistants | MCP server over Confluence and SharePoint, with the same grants | Rovo MCP server, over Atlassian data |
+| Local AI assistants | MCP server with the same access rules | Rovo MCP server, over Atlassian data |
 | Sync visibility | Each source's state, failed documents and reasons, alarms | Managed by Atlassian, not shown in this detail |
-| Data location | The team's AWS account, one Region | Atlassian's cloud |
-| Models | Chosen by the team, in its own account | Chosen by Atlassian |
+| Data location | The searchable copy in the team's AWS project, one Region; questions and passages to the Claude API | Atlassian's cloud |
+| Models | Chosen by the team | Chosen by Atlassian |
 | Running it | The team deploys and operates it | Nothing to operate |
 
-**Cost.** Rovo gives each user a monthly allowance of credits, pooled across the organisation: 25 on Standard, 70 on Premium and 150 on Enterprise. A quick chat answer costs 10 credits; a "think deeper" answer costs more, by an amount not published. Beyond the allowance, credits cost 0.01 USD each from 3 December 2026. Rovo Search stays free.
+**Cost.** Rovo gives each user a monthly allowance of credits, pooled across the organisation: 25 on Standard, 70 on Premium and 150 on Enterprise. A quick chat answer costs 10 credits. Beyond the allowance, credits cost 0.01 USD each from 3 December 2026. For 30 Standard users asking 6,000 quick questions a month, that is 60,000 credits less 750 included, about 590 USD a month. The same 6,000 questions in this concept's agent mode cost about 180 USD for the model plus the AWS services (section 8). The two are not the same kind of answer, so this is an order of magnitude, not a like-for-like price.
 
-For 30 Standard users asking 6,000 quick questions a month: 60,000 credits, less 750 included, is about 590 USD a month, against about 100 USD for this concept with storage included. On Premium the allowance is 2,100 credits and the cost about the same.
-
-**In short.** Rovo is the better choice for working inside Confluence and Jira, with page-level permissions and nothing to run. This concept is the better choice for a team that must learn a project from Confluence and SharePoint together, wants study material and the same knowledge in its code editor, needs to see that every source is in sync, and wants the cost and the data in its own account.
+**In short.** Rovo is the better choice for working inside Confluence and Jira, with permissions taken at query time, writing back, and nothing to run. This concept is the better choice for a team that must learn a project from its documents, wants study material, research reports and the same knowledge in its code editor, needs to see that every source is in sync, and wants the searchable copy and the choice of model in its own hands.
 
 ## 11. Where the detail is
 
-The implementation, how to deploy and test it, and what was learned building it are in the repository: [README.md](README.md). The managed knowledge base service itself is introduced in [PoC 1 doc 09, Amazon Bedrock Managed Knowledge Base](../poc1-slack-platform/docs/09-bedrock-managed-knowledge-base.md), and the earlier Slack chatbot on the same service in [PoC 1, use case 3](../poc1-slack-platform/docs/concepts/03-knowledge-base-chatbot.md).
+- [docs/01-executive-overview.md](docs/01-executive-overview.md): the short version for leadership.
+- [docs/02-engineering-guide.md](docs/02-engineering-guide.md): the architecture, every AWS resource, the permissions, and how to deploy it in your own environment (section 7).
+- [README.md](README.md): the layout of the code, the test results in full, and what was learned building it.
+- [BACKLOG.md](BACKLOG.md): what is not built yet (in Vietnamese).

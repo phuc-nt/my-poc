@@ -5,6 +5,8 @@
 //   SOURCE#<id>    JOB#<started at>         (sync history, written by the monitor)
 //   DOC#<hash>     GUIDE                    (cached source guide of one document)
 //   USAGE#<yyyy-mm> <yyyy-mm-dd>            (counters for the cost page)
+//   QLOG#<yyyy-mm> <time>~<random>          (the question log, without the asker; lib/insights.mjs)
+//   LIB            ANS#<time>~<random>      (answers shared with the team)
 // gsi1 lists the users (gsi1pk USERS).
 
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';

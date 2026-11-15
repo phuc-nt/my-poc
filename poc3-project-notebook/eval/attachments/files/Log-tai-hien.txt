@@ -1,0 +1,4 @@
+2027-01-18 02:14:58 INFO  glossary-sync start source=export-2026-11
+2027-01-18 02:15:07 WARN  glossary-sync overwrite table=MED-GLOSS rows=3120 actor=svc-nightly-07
+2027-01-18 02:15:09 INFO  glossary-sync done duration_ms=11042
+2027-01-18 08:31:44 ERROR translate term=tachycardia expected='nhịp tim nhanh' got='nhịp tim chậm' request=req-58b1c

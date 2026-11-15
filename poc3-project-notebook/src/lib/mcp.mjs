@@ -3,22 +3,21 @@
 // access token, and every tool only sees the sources that user may read.
 
 import { answer } from './answer.mjs';
-import { search, listSources, documents, documentText } from './kb.mjs';
+import { listSources } from './kb.mjs';
+import { READ_TOOLS, readTool } from './tools.mjs';
 import { record } from './usage.mjs';
 
 const PROTOCOL = '2025-06-18';
 
+const [SEARCH, ...READ] = READ_TOOLS;
+
 const TOOLS = [
-  {
-    name: 'search',
-    description: 'Search the project documents (Confluence and SharePoint) the user may read. Returns the best passages with their document title, link and source. Use it to find facts, requirements, specs or decisions.',
-    inputSchema: { type: 'object', properties: {
-      query: { type: 'string', description: 'What to look for, in any language' },
-      notebook: { type: 'string', description: 'Optional notebook id or name: search only its sources' },
-      sources: { type: 'array', items: { type: 'string' }, description: 'Optional source names from list_sources' },
-      limit: { type: 'integer', minimum: 1, maximum: 20, default: 8 },
-    }, required: ['query'] },
-  },
+  { ...SEARCH, inputSchema: { ...SEARCH.inputSchema, properties: {
+    query: SEARCH.inputSchema.properties.query,
+    notebook: { type: 'string', description: 'Optional notebook id or name: search only its sources' },
+    sources: SEARCH.inputSchema.properties.sources,
+    limit: SEARCH.inputSchema.properties.limit,
+  } } },
   {
     name: 'ask',
     description: 'Ask a question about the project and get an answer written from the documents, with numbered citations. mode "deep" runs agentic retrieval for broad or multi-part questions (slower).',
@@ -30,24 +29,7 @@ const TOOLS = [
       lang: { type: 'string', enum: ['vi', 'en', 'ja'], description: 'Answer language; by default the question\'s language' },
     }, required: ['question'] },
   },
-  {
-    name: 'list_sources',
-    description: 'List the document sources (Confluence spaces, SharePoint folders) the user may read, with their last sync.',
-    inputSchema: { type: 'object', properties: {} },
-  },
-  {
-    name: 'list_documents',
-    description: 'List the documents of one source: title, kind, last change and link. Pass the link to get_document.',
-    inputSchema: { type: 'object', properties: { source: { type: 'string', description: 'A source name from list_sources' } }, required: ['source'] },
-  },
-  {
-    name: 'get_document',
-    description: 'Read the full text of one document, as the knowledge base extracted it. Long documents are cut at max_chars.',
-    inputSchema: { type: 'object', properties: {
-      source: { type: 'string' }, link: { type: 'string', description: 'The document link from list_documents or search' },
-      max_chars: { type: 'integer', default: 30000, maximum: 100000 },
-    }, required: ['source', 'link'] },
-  },
+  ...READ,
   {
     name: 'list_notebooks',
     description: 'List the user\'s notebooks (named groups of sources) to scope search and ask.',
@@ -60,16 +42,13 @@ const text = (value) => ({ content: [{ type: 'text', text: typeof value === 'str
 // ctx: { user, allowed(): ids, scope({ notebook, sources }): ids, notebooks(), syncOf(id) }
 async function callTool(name, args, ctx) {
   await record({ mcpCalls: 1 });
-  const sources = await listSources();
-  const allowed = await ctx.allowed();
-  const readable = sources.filter((s) => allowed.includes(s.id));
-  const sourceByName = (n) => readable.find((s) => s.name === n || s.id === n || s.title === n);
+  const read = (ids, input = args) => readTool(name, input, { ids, userId: ctx.user.email, syncOf: ctx.syncOf });
   switch (name) {
     case 'search': {
-      const ids = await ctx.scope(args);
-      const found = await search(String(args.query || ''), ids, { n: Math.min(Number(args.limit) || 8, 20), userId: ctx.user.email });
-      if (!found.length) return text('No passage matched. Try other words, or check list_sources.');
-      return text(found.map((p, i) => `[${i + 1}] ${p.title} — ${p.sourceTitle}${p.page ? `, page ${p.page}` : ''}\n${p.uri}\n${p.text.trim()}`).join('\n\n---\n\n'));
+      // scope() has already narrowed the sources to the notebook and to the names asked for.
+      const { passages } = await read(await ctx.scope(args), { query: args.query, limit: args.limit });
+      if (!passages.length) return text('No passage matched. Try other words, or check list_sources.');
+      return text(passages.map((p, i) => `[${i + 1}] ${p.title} — ${p.sourceTitle}${p.page ? `, page ${p.page}` : ''}\n${p.uri}\n${p.text.trim()}`).join('\n\n---\n\n'));
     }
     case 'ask': {
       const ids = await ctx.scope(args);
@@ -78,21 +57,21 @@ async function callTool(name, args, ctx) {
       return text(`${result.answer}\n\nSources:\n${refs || '(none)'}`);
     }
     case 'list_sources':
-      return text(await Promise.all(readable.map(async (s) => ({ name: s.name, title: s.title, type: s.type, lastSync: await ctx.syncOf(s.id) }))));
-    case 'list_documents': {
-      const s = sourceByName(args.source);
-      if (!s) throw new Error('Unknown source, or you may not read it. See list_sources.');
-      return text((await documents(s)).map((d) => ({ title: d.title, kind: d.kind, modified: d.modified, link: d.uri })));
-    }
+    case 'list_documents':
+      return text((await read(await ctx.allowed())).value);
     case 'get_document': {
-      const s = sourceByName(args.source);
-      if (!s) throw new Error('Unknown source, or you may not read it. See list_sources.');
-      const body = await documentText(s, { uri: String(args.link) });
-      const max = Math.min(Number(args.max_chars) || 30000, 100000);
-      return text(body.length > max ? `${body.slice(0, max)}\n\n[cut at ${max} of ${body.length} characters]` : body);
+      const { document: d } = await read(await ctx.allowed());
+      return text(d.cut ? `${d.text}\n\n[cut at ${d.cut} of ${d.total} characters]` : d.text);
     }
-    case 'list_notebooks':
+    case 'query_jira':
+    case 'query_table': {
+      const { records } = await read(await ctx.allowed());
+      return text(records.map((r) => `${r.title} — ${r.source.title}\n${r.uri}\n\n${r.text}`).join('\n\n---\n\n'));
+    }
+    case 'list_notebooks': {
+      const sources = await listSources();
       return text((await ctx.notebooks()).map((n) => ({ id: n.id, name: n.name, sources: n.sources.map((id) => sources.find((s) => s.id === id)?.name).filter(Boolean) })));
+    }
     default:
       throw Object.assign(new Error(`Unknown tool ${name}`), { code: -32602 });
   }
@@ -109,7 +88,7 @@ async function one(message, ctx) {
           protocolVersion: params.protocolVersion || PROTOCOL,
           capabilities: { tools: { listChanged: false } },
           serverInfo: { name: 'project-notebook', title: 'Project Notebook', version: '0.1.0' },
-          instructions: 'Search and ask the project\'s Confluence and SharePoint documents. Start with list_sources or search; use ask for a written answer with citations.',
+          instructions: 'Search and ask the project\'s Confluence and Jira documents. Start with list_sources or search; use ask for a written answer with citations.',
         });
       case 'ping':
         return reply({});

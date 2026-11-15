@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Asks the AIPF knowledge-base benchmark's 48 questions through the deployed chat API, as the admin test account, in
-// a notebook limited to the project sources (Confluence ENGDOCS and the three SharePoint project folders). History is
+// a notebook limited to the project sources (Confluence ENGDOCS and the Jira project). History is
 // cleared before each question, so each one is answered on its own. Rows go to eval/out/<arm>.jsonl in the shape of
 // the benchmark's runs (bench/kb/projects/score.py reads them); the summary checks the source document, the key facts
 // in the answer, the absent questions and the answer language.
@@ -23,7 +23,7 @@ const OUT = join(ROOT, 'eval', 'out');
 const BENCH = process.env.POC3_QUESTIONS ? dirname(process.env.POC3_QUESTIONS) : join(homedir(), 'workspace', 'aipf-sdlc', 'bench', 'kb', 'projects');
 const QUESTIONS = JSON.parse(readFileSync(join(BENCH, 'questions.json'), 'utf8'));
 const DOCUMENTS = JSON.parse(readFileSync(join(BENCH, 'out', 'documents.json'), 'utf8'));
-const PROJECT_SOURCES = ['confluence-engdocs', 'sp-my-db-mate', 'sp-my-translator', 'sp-my-translator-mobile'];
+const PROJECT_SOURCES = ['confluence-engdocs', 'jira-scrum'];
 const WORKERS = 3;
 
 // The benchmark's folding: no accents, đ as d, single spaces, lower case.

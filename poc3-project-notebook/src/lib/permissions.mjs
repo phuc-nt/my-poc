@@ -12,7 +12,7 @@ import { listSources, sourceDetail } from './kb.mjs';
 import { get, put, query, del, now } from './store.mjs';
 
 const emailCache = new Map();
-async function accountEmail(accountId) {
+export async function accountEmail(accountId) {
   if (!emailCache.has(accountId)) {
     const user = await confluence(`/wiki/rest/api/user?accountId=${encodeURIComponent(accountId)}`).catch(() => null);
     emailCache.set(accountId, user?.email ? user.email.toLowerCase() : null);

@@ -6,6 +6,7 @@
 //   node infra/deploy.mjs users            create the test accounts (emails under .invalid, no email is sent)
 //   node infra/deploy.mjs make-admin EMAIL make a signed-up person an active admin
 //   node infra/deploy.mjs monitor          run the sync monitor once now
+//   node infra/deploy.mjs claude-key       ask for the Claude API key (not shown) and save it in the secret poc3-kb/anthropic
 //   node infra/deploy.mjs down             delete the stack, the web files and the code zips
 //
 // Local state (the origin secret, the site address, the test passwords) goes to infra/deploy.local.json, which
@@ -16,7 +17,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { createHash, randomBytes } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { aws, env, file, dataBucket, PREFIX, LOG_GROUP } from './kb.mjs';
+import { aws, env, file, dataBucket, putSecret, PREFIX, LOG_GROUP } from './kb.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const STACK = `${PREFIX}-app`;
@@ -28,9 +29,9 @@ const save = () => writeFileSync(STATE, `${JSON.stringify(state, null, 2)}\n`, {
 // The test accounts: one admin and members with different grants, to check that each sees only its sources.
 const TEST_USERS = [
   { email: `admin@${PREFIX}.invalid`, role: 'admin' },
-  { email: `ba-translator@${PREFIX}.invalid`, grants: ['confluence-engdocs', 'sp-my-translator', 'sp-my-translator-mobile'] },
-  { email: `sa-dbmate@${PREFIX}.invalid`, grants: ['sp-my-db-mate'] },
-  { email: `brse-company@${PREFIX}.invalid`, grants: ['confluence-company', 'sp-company'] },
+  { email: `ba-translator@${PREFIX}.invalid`, grants: ['confluence-engdocs', 'jira-scrum'] },
+  { email: `sa-dbmate@${PREFIX}.invalid`, grants: ['confluence-engdocs'] },
+  { email: `brse-company@${PREFIX}.invalid`, grants: ['confluence-company'] },
   { email: `pending@${PREFIX}.invalid` },
 ];
 
@@ -70,8 +71,10 @@ function up() {
     AlertEmail: env.POC3_ALERT_EMAIL || '',
     KbLogGroup: LOG_GROUP,
     // Passed every time: deploy would otherwise keep the previous values.
-    ChatModel: env.POC3_CHAT_MODEL || 'zai.glm-5',
-    StudioModel: env.POC3_STUDIO_MODEL || 'zai.glm-5',
+    ChatModel: env.POC3_CHAT_MODEL || 'claude-sonnet-5-5',
+    StudioModel: env.POC3_STUDIO_MODEL || 'claude-sonnet-5-5',
+    AgentModel: env.POC3_AGENT_MODEL || 'claude-sonnet-5-5',
+    ReadModel: env.POC3_READ_MODEL || 'qwen.qwen3-vl-235b-a22b',
     CachingDisabledPolicyId: managedPolicyId('cache', 'Managed-CachingDisabled'),
     CachingOptimizedPolicyId: managedPolicyId('cache', 'Managed-CachingOptimized'),
     AllViewerExceptHostPolicyId: managedPolicyId('origin-request', 'Managed-AllViewerExceptHostHeader'),
@@ -157,7 +160,66 @@ function down() {
 }
 
 const [command, ...rest] = process.argv.slice(2);
-const commands = { up, web, users, 'make-admin': () => makeAdmin(rest[0]), monitor, down };
+// What a terminal adds around a pasted secret, taken off: the bracketed-paste marks (ESC[200~ ... ESC[201~), other
+// escape sequences, quotes, line breaks and any other blank or control character.
+const pasted = (raw) => raw.replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, '').replace(/[\s\u0000-\u001f\u007f-\u009f\u200b\ufeff]/g, '').replace(/^["'`]+|["'`]+$/g, '');
+
+// Reads one line without showing it; a piped input is read whole.
+async function hidden(prompt) {
+  const input = process.stdin;
+  if (!input.isTTY) {
+    let all = '';
+    for await (const chunk of input) all += chunk;
+    return pasted(all);
+  }
+  process.stdout.write(prompt);
+  input.setRawMode(true);
+  input.setEncoding('utf8');
+  input.resume();
+  return new Promise((resolve, reject) => {
+    let value = '';
+    const stop = () => {
+      input.setRawMode(false);
+      input.pause();
+      input.off('data', onData);
+      process.stdout.write('\n');
+    };
+    const onData = (chunk) => {
+      for (const c of chunk) {
+        if (c === '\r' || c === '\n' || c === '\u0004') {
+          // A paste may start with a line break, or carry its end mark after one: an empty line does not end the input.
+          if (!pasted(value)) continue;
+          stop();
+          return resolve(pasted(value));
+        }
+        if (c === '\u0003') { stop(); return reject(new Error('cancelled')); }
+        if (c === '\u007f' || c === '\b') value = value.slice(0, -1);
+        else value += c;
+      }
+    };
+    input.on('data', onData);
+  });
+}
+
+// The key of the claude-* models. It is typed or piped here and goes straight to Secrets Manager: never an
+// argument, never an environment variable of this project, never printed.
+async function claudeKey() {
+  const apiKey = await hidden('Claude API key (not shown): ');
+  // Says what arrived without showing it. The Claude API is the judge of the key itself.
+  const shape = `${apiKey.length} characters, ${apiKey.startsWith('sk-ant-') ? 'starts' : 'does not start'} with sk-ant-`;
+  if (apiKey.length < 20) throw new Error(`nothing usable was read (${shape}): paste the key, then press Enter`);
+  const { default: Anthropic } = await import('@anthropic-ai/sdk');
+  const model = env.POC3_CHAT_MODEL || 'claude-sonnet-5-5';
+  try {
+    await new Anthropic({ apiKey }).models.retrieve(model);
+  } catch (error) {
+    throw new Error(`the Claude API did not accept the key for ${model}: ${error.status || ''} ${error.name} (read ${shape})`);
+  }
+  putSecret(`${PREFIX}/anthropic`, JSON.stringify({ apiKey }));
+  console.log(`key accepted for ${model} and saved in the secret ${PREFIX}/anthropic`);
+}
+
+const commands = { up, web, users, 'make-admin': () => makeAdmin(rest[0]), monitor, 'claude-key': claudeKey, down };
 if (!commands[command]) {
   console.error(`usage: node infra/deploy.mjs ${Object.keys(commands).join('|')}`);
   process.exit(1);

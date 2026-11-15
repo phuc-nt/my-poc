@@ -1,0 +1,692 @@
+{
+  "_comment": "The attachment test. containers: the Jira issues and Confluence pages scripts/attach-fixtures.mjs creates, each with files from files/ (built by make.py). cases: one question per fact. A fact is written in one file only (or, for the two jira-* formats, only in the issue's description or comment), so a right answer proves that part was read. expect is a list of groups; the answer must hold one alternative of every group. Everything is invented.",
+  "label": "poc3-attach",
+  "containers": [
+    {
+      "id": "A",
+      "system": "jira",
+      "type": "Story",
+      "title": "Lập kế hoạch release my-translator 3.2 (đợt Hải Âu)",
+      "body": "Ticket theo dõi kế hoạch release my-translator 3.2. Lịch và rủi ro nằm trong file Excel đính kèm, nội dung buổi kickoff nằm trong file PowerPoint đính kèm. Người duyệt cuối của kế hoạch này là ông Giang Bảo Lâm, phòng PMO.",
+      "comments": [
+        "Cập nhật sau họp điều phối: mốc code freeze lùi 2 ngày so với dự kiến ban đầu vì trùng lịch kiểm toán ISO 27001 của công ty."
+      ],
+      "files": [
+        "Ke-hoach-release-3.2.xlsx",
+        "Kickoff-release-3.2.pptx",
+        "Ghi-chu-phat-hanh-3.2.md"
+      ]
+    },
+    {
+      "id": "B",
+      "system": "jira",
+      "type": "Bug",
+      "title": "Dịch sai thuật ngữ y khoa ở bản my-translator 3.1.4",
+      "body": "Khách hàng báo bản dịch tài liệu y khoa sai nghĩa từ sáng 18/01. Báo cáo phân tích, log tái hiện, số liệu đo lường và ảnh chụp màn hình nằm trong các file đính kèm.",
+      "comments": [],
+      "files": [
+        "Bao-cao-phan-tich-loi.docx",
+        "Log-tai-hien.txt",
+        "Ket-qua-do-luong.csv",
+        "Anh-chup-man-hinh-loi.png"
+      ]
+    },
+    {
+      "id": "C",
+      "system": "jira",
+      "type": "Task",
+      "title": "Nghiệm thu hợp đồng bảo trì my-translator năm 2027",
+      "body": "Tập hợp hồ sơ nghiệm thu và gia hạn hợp đồng bảo trì: biên bản nghiệm thu, phụ lục hợp đồng (bản scan), bảng giá và công văn đề nghị, tất cả là file đính kèm.",
+      "comments": [],
+      "files": [
+        "Bien-ban-nghiem-thu.pdf",
+        "Phu-luc-hop-dong-scan.pdf",
+        "Bang-gia-bao-tri.xls",
+        "Cong-van-de-nghi.doc"
+      ]
+    },
+    {
+      "id": "D",
+      "system": "confluence",
+      "type": "page",
+      "title": "my-db-mate 2.0 — Hồ sơ thiết kế (file đính kèm)",
+      "body": "Trang này chỉ giữ các file của hồ sơ thiết kế my-db-mate 2.0: thiết kế cơ sở dữ liệu (Word), ma trận phân quyền (Excel), kiến trúc tổng quan (PowerPoint), báo cáo hiệu năng (PDF) và sơ đồ triển khai (ảnh). Nội dung nằm trong file, không chép lại ở đây.",
+      "files": [
+        "Thiet-ke-co-so-du-lieu.docx",
+        "Ma-tran-phan-quyen.xlsx",
+        "Kien-truc-tong-quan.pptx",
+        "Bao-cao-hieu-nang.pdf",
+        "So-do-trien-khai.png",
+        "Huong-dan-van-hanh.md"
+      ]
+    },
+    {
+      "id": "E",
+      "system": "confluence",
+      "type": "page",
+      "title": "my-db-mate 2.0 — Tài liệu cũ và bản scan (file đính kèm)",
+      "body": "Trang này giữ các tài liệu vận hành ở định dạng cũ (Word 97, Excel 97), một bản scan và một file CSV. Nội dung nằm trong file, không chép lại ở đây.",
+      "files": [
+        "Quy-trinh-sao-luu.doc",
+        "Danh-muc-may-chu.xls",
+        "Bien-ban-ban-giao-scan.pdf",
+        "Lich-bao-tri.csv"
+      ]
+    },
+    {
+      "id": "F",
+      "system": "confluence",
+      "type": "blogpost",
+      "title": "Tổng kết sprint 42 (file đính kèm)",
+      "body": "Slide tổng kết sprint 42 của nhóm my-db-mate nằm trong file PowerPoint đính kèm.",
+      "files": [
+        "Tong-ket-sprint-42.pptx",
+        "Retro-sprint-42.md"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "A-desc",
+      "container": "A",
+      "file": null,
+      "format": "jira-description",
+      "part": "issue description",
+      "question": "Ai là người duyệt cuối của kế hoạch release my-translator 3.2?",
+      "expect": [
+        [
+          "Giang Bảo Lâm",
+          "Bảo Lâm"
+        ]
+      ]
+    },
+    {
+      "id": "A-comment",
+      "container": "A",
+      "file": null,
+      "format": "jira-comment",
+      "part": "issue comment",
+      "question": "Vì sao mốc code freeze của release my-translator 3.2 bị lùi 2 ngày?",
+      "expect": [
+        [
+          "kiểm toán ISO",
+          "ISO 27001"
+        ]
+      ]
+    },
+    {
+      "id": "A-xlsx-1",
+      "container": "A",
+      "file": "Ke-hoach-release-3.2.xlsx",
+      "format": "xlsx",
+      "part": "first sheet",
+      "question": "Release my-translator 3.2 go-live ngày nào và ai phụ trách mốc go-live?",
+      "expect": [
+        [
+          "2027-03-29",
+          "29/03/2027",
+          "29/3/2027",
+          "29 tháng 3"
+        ],
+        [
+          "Trịnh Hữu Khoa",
+          "Hữu Khoa"
+        ]
+      ]
+    },
+    {
+      "id": "A-xlsx-2",
+      "container": "A",
+      "file": "Ke-hoach-release-3.2.xlsx",
+      "format": "xlsx",
+      "part": "second sheet",
+      "question": "Rủi ro R-07 của release my-translator 3.2 là gì và phương án dự phòng là gì?",
+      "expect": [
+        [
+          "Kiyomi"
+        ],
+        [
+          "Tessera"
+        ]
+      ]
+    },
+    {
+      "id": "A-pptx-1",
+      "container": "A",
+      "file": "Kickoff-release-3.2.pptx",
+      "format": "pptx",
+      "part": "slide bullets",
+      "question": "Release my-translator 3.2 đặt mục tiêu giảm thời gian dịch một trang A4 xuống còn bao nhiêu giây?",
+      "expect": [
+        [
+          "2,8",
+          "2.8"
+        ]
+      ]
+    },
+    {
+      "id": "A-pptx-2",
+      "container": "A",
+      "file": "Kickoff-release-3.2.pptx",
+      "format": "pptx",
+      "part": "slide table",
+      "question": "Địa chỉ nội bộ của môi trường staging trong đợt Hải Âu là gì?",
+      "expect": [
+        [
+          "staging-haiau.mytranslator.example"
+        ]
+      ]
+    },
+    {
+      "id": "A-pptx-3",
+      "container": "A",
+      "file": "Kickoff-release-3.2.pptx",
+      "format": "pptx",
+      "part": "speaker notes",
+      "question": "Ngân sách đợt Hải Âu được ban điều hành duyệt là bao nhiêu?",
+      "expect": [
+        [
+          "1,35 tỷ",
+          "1.35 tỷ",
+          "1350000000",
+          "1,35 tỉ",
+          "1.35 tỉ"
+        ]
+      ]
+    },
+    {
+      "id": "A-md-1",
+      "container": "A",
+      "file": "Ghi-chu-phat-hanh-3.2.md",
+      "format": "md",
+      "part": "bullet list",
+      "question": "Bản my-translator 3.2 nâng giới hạn bộ nhớ dịch (translation memory) lên bao nhiêu cặp câu cho mỗi dự án?",
+      "expect": [
+        [
+          "250000",
+          "250.000",
+          "250 nghìn",
+          "250 ngàn"
+        ]
+      ]
+    },
+    {
+      "id": "A-md-2",
+      "container": "A",
+      "file": "Ghi-chu-phat-hanh-3.2.md",
+      "format": "md",
+      "part": "table",
+      "question": "Theo ghi chú phát hành my-translator 3.2, bản mobile ngoại tuyến cần iOS tối thiểu phiên bản nào?",
+      "expect": [
+        [
+          "16.4",
+          "16,4"
+        ]
+      ]
+    },
+    {
+      "id": "A-md-3",
+      "container": "A",
+      "file": "Ghi-chu-phat-hanh-3.2.md",
+      "format": "md",
+      "part": "code block",
+      "question": "Lệnh nâng cấp my-translator lên 3.2.0 dùng kênh (channel) nào?",
+      "expect": [
+        [
+          "haiau-stable"
+        ]
+      ]
+    },
+    {
+      "id": "B-docx-1",
+      "container": "B",
+      "file": "Bao-cao-phan-tich-loi.docx",
+      "format": "docx",
+      "part": "paragraphs",
+      "question": "Nguyên nhân gốc của lỗi dịch sai thuật ngữ y khoa ở bản my-translator 3.1.4 là gì, job chạy lúc mấy giờ?",
+      "expect": [
+        [
+          "MED-GLOSS"
+        ],
+        [
+          "02:15",
+          "2:15",
+          "2 giờ 15",
+          "2h15"
+        ]
+      ]
+    },
+    {
+      "id": "B-docx-2",
+      "container": "B",
+      "file": "Bao-cao-phan-tich-loi.docx",
+      "format": "docx",
+      "part": "table",
+      "question": "Ở bản my-translator 3.1.4, thuật ngữ hypoglycemia bị dịch sai thành gì?",
+      "expect": [
+        [
+          "tăng đường huyết"
+        ]
+      ]
+    },
+    {
+      "id": "B-txt",
+      "container": "B",
+      "file": "Log-tai-hien.txt",
+      "format": "txt",
+      "part": "log lines",
+      "question": "Theo log tái hiện, tài khoản (actor) nào đã ghi đè bảng MED-GLOSS và ghi đè bao nhiêu dòng?",
+      "expect": [
+        [
+          "svc-nightly-07"
+        ],
+        [
+          "3120",
+          "3.120",
+          "3,120"
+        ]
+      ]
+    },
+    {
+      "id": "B-csv",
+      "container": "B",
+      "file": "Ket-qua-do-luong.csv",
+      "format": "csv",
+      "part": "rows",
+      "question": "Theo kết quả đo lường lỗi dịch thuật ngữ, ngày 2027-01-19 có bao nhiêu văn bản lỗi?",
+      "expect": [
+        [
+          "655"
+        ]
+      ]
+    },
+    {
+      "id": "B-png",
+      "container": "B",
+      "file": "Anh-chup-man-hinh-loi.png",
+      "format": "png",
+      "part": "text in a picture",
+      "question": "Mã lỗi hiện trên màn hình khi my-translator 3.1.4 không thể hoàn tất bản dịch là gì?",
+      "expect": [
+        [
+          "ERR-GLS-4471"
+        ]
+      ]
+    },
+    {
+      "id": "C-pdf",
+      "container": "C",
+      "file": "Bien-ban-nghiem-thu.pdf",
+      "format": "pdf",
+      "part": "text",
+      "question": "Biên bản nghiệm thu dịch vụ bảo trì my-translator có số biên bản là gì và giá trị nghiệm thu bao nhiêu?",
+      "expect": [
+        [
+          "BBNT-2027-0142"
+        ],
+        [
+          "486500000",
+          "486,5 triệu"
+        ]
+      ]
+    },
+    {
+      "id": "C-scan",
+      "container": "C",
+      "file": "Phu-luc-hop-dong-scan.pdf",
+      "format": "pdf-scan",
+      "part": "scanned page, no text layer",
+      "question": "Theo Phụ lục 03 cam kết mức dịch vụ của hợp đồng bảo trì my-translator 2027, mức phạt chậm trễ là bao nhiêu và thời gian khắc phục sự cố mức 1 là bao lâu?",
+      "expect": [
+        [
+          "0,15%",
+          "0.15%",
+          "0,15 %"
+        ],
+        [
+          "6 giờ",
+          "6 tiếng",
+          "sáu giờ"
+        ]
+      ]
+    },
+    {
+      "id": "C-xls",
+      "container": "C",
+      "file": "Bang-gia-bao-tri.xls",
+      "format": "xls",
+      "part": "rows",
+      "question": "Giá mỗi tháng của Gói Vàng bảo trì my-translator là bao nhiêu và gồm bao nhiêu giờ hỗ trợ?",
+      "expect": [
+        [
+          "27900000",
+          "27,9 triệu"
+        ],
+        [
+          "45 giờ",
+          "45"
+        ]
+      ]
+    },
+    {
+      "id": "C-doc",
+      "container": "C",
+      "file": "Cong-van-de-nghi.doc",
+      "format": "doc",
+      "part": "paragraphs",
+      "question": "Công văn 87/CV-MT đề nghị gia hạn dịch vụ bảo trì thêm bao lâu và đến hết ngày nào?",
+      "expect": [
+        [
+          "18 tháng"
+        ],
+        [
+          "30/09/2028",
+          "30/9/2028",
+          "2028-09-30",
+          "30 tháng 9"
+        ]
+      ]
+    },
+    {
+      "id": "D-docx-1",
+      "container": "D",
+      "file": "Thiet-ke-co-so-du-lieu.docx",
+      "format": "docx",
+      "part": "paragraphs",
+      "question": "Trong thiết kế my-db-mate 2.0, bảng audit_trail được giữ bao nhiêu tháng?",
+      "expect": [
+        [
+          "26 tháng"
+        ]
+      ]
+    },
+    {
+      "id": "D-docx-2",
+      "container": "D",
+      "file": "Thiet-ke-co-so-du-lieu.docx",
+      "format": "docx",
+      "part": "table",
+      "question": "Khoá chính của bảng saved_query trong my-db-mate 2.0 là gì?",
+      "expect": [
+        [
+          "sq_id"
+        ],
+        [
+          "UUID"
+        ]
+      ]
+    },
+    {
+      "id": "D-xlsx-1",
+      "container": "D",
+      "file": "Ma-tran-phan-quyen.xlsx",
+      "format": "xlsx",
+      "part": "first sheet",
+      "question": "Trong ma trận phân quyền my-db-mate 2.0, vai trò Analyst-L2 bị giới hạn bao nhiêu dòng mỗi truy vấn?",
+      "expect": [
+        [
+          "75000",
+          "75 nghìn",
+          "75 ngàn"
+        ]
+      ]
+    },
+    {
+      "id": "D-xlsx-2",
+      "container": "D",
+      "file": "Ma-tran-phan-quyen.xlsx",
+      "format": "xlsx",
+      "part": "second sheet",
+      "question": "Nhóm nào có ngoại lệ được xuất dữ liệu trong ma trận phân quyền my-db-mate 2.0, và được xuất đến mấy giờ?",
+      "expect": [
+        [
+          "Biên Hoà",
+          "Biên Hòa"
+        ],
+        [
+          "23:00",
+          "23 giờ",
+          "23h"
+        ]
+      ]
+    },
+    {
+      "id": "D-pptx-1",
+      "container": "D",
+      "file": "Kien-truc-tong-quan.pptx",
+      "format": "pptx",
+      "part": "slide bullets",
+      "question": "Bộ lập lịch Kestrel-Scheduler của my-db-mate 2.0 xử lý những truy vấn dài hơn bao nhiêu giây?",
+      "expect": [
+        [
+          "90 giây",
+          "90s",
+          "90 s"
+        ]
+      ]
+    },
+    {
+      "id": "D-pptx-2",
+      "container": "D",
+      "file": "Kien-truc-tong-quan.pptx",
+      "format": "pptx",
+      "part": "speaker notes",
+      "question": "Quyết định ADR-031 của my-db-mate 2.0 nói gì?",
+      "expect": [
+        [
+          "Redis"
+        ]
+      ]
+    },
+    {
+      "id": "D-pdf-1",
+      "container": "D",
+      "file": "Bao-cao-hieu-nang.pdf",
+      "format": "pdf",
+      "part": "text",
+      "question": "Báo cáo kiểm thử hiệu năng my-db-mate 2.0 thử trên cụm nào và vào ngày nào?",
+      "expect": [
+        [
+          "perf-c7"
+        ],
+        [
+          "2027-02-11",
+          "11/02/2027",
+          "11/2/2027",
+          "11 tháng 2"
+        ]
+      ]
+    },
+    {
+      "id": "D-pdf-2",
+      "container": "D",
+      "file": "Bao-cao-hieu-nang.pdf",
+      "format": "pdf",
+      "part": "table",
+      "question": "Trong báo cáo hiệu năng my-db-mate 2.0, p99 ở tải 1.800 truy vấn mỗi giây là bao nhiêu ms?",
+      "expect": [
+        [
+          "902"
+        ]
+      ]
+    },
+    {
+      "id": "D-png",
+      "container": "D",
+      "file": "So-do-trien-khai.png",
+      "format": "png",
+      "part": "text in a picture",
+      "question": "Theo sơ đồ triển khai my-db-mate 2.0, độ trễ sao chép giữa hai vùng là bao nhiêu ms?",
+      "expect": [
+        [
+          "340"
+        ]
+      ]
+    },
+    {
+      "id": "D-md-1",
+      "container": "D",
+      "file": "Huong-dan-van-hanh.md",
+      "format": "md",
+      "part": "paragraph",
+      "question": "Theo hướng dẫn vận hành my-db-mate 2.0, kỹ sư trực phải phản hồi cảnh báo mức P1 trong bao nhiêu phút?",
+      "expect": [
+        [
+          "12 phút"
+        ]
+      ]
+    },
+    {
+      "id": "D-md-2",
+      "container": "D",
+      "file": "Huong-dan-van-hanh.md",
+      "format": "md",
+      "part": "table",
+      "question": "Ngưỡng cảnh báo dung lượng đĩa WAL của my-db-mate 2.0 là bao nhiêu phần trăm?",
+      "expect": [
+        [
+          "82%",
+          "82 %",
+          "82 phần trăm"
+        ]
+      ]
+    },
+    {
+      "id": "D-md-3",
+      "container": "D",
+      "file": "Huong-dan-van-hanh.md",
+      "format": "md",
+      "part": "code block",
+      "question": "Khi khởi động lại cổng truy vấn my-db-mate 2.0, tham số drain-timeout được đặt là bao nhiêu?",
+      "expect": [
+        [
+          "45s",
+          "45 giây",
+          "45 s"
+        ]
+      ]
+    },
+    {
+      "id": "E-doc",
+      "container": "E",
+      "file": "Quy-trinh-sao-luu.doc",
+      "format": "doc",
+      "part": "paragraphs",
+      "question": "Theo quy trình sao lưu my-db-mate, sao lưu đầy đủ chạy lúc mấy giờ và giữ bao nhiêu bản?",
+      "expect": [
+        [
+          "01:40",
+          "1:40",
+          "1 giờ 40",
+          "1h40"
+        ],
+        [
+          "9 bản",
+          "chín bản"
+        ]
+      ]
+    },
+    {
+      "id": "E-xls",
+      "container": "E",
+      "file": "Danh-muc-may-chu.xls",
+      "format": "xls",
+      "part": "rows",
+      "question": "Máy chủ dbm-prd-ha-04 của my-db-mate có vai trò gì và bao nhiêu RAM?",
+      "expect": [
+        [
+          "replica"
+        ],
+        [
+          "384"
+        ]
+      ]
+    },
+    {
+      "id": "E-scan",
+      "container": "E",
+      "file": "Bien-ban-ban-giao-scan.pdf",
+      "format": "pdf-scan",
+      "part": "scanned page, no text layer",
+      "question": "Biên bản bàn giao BG-55/2027 bàn giao bao nhiêu máy chủ và thời hạn bảo hành phần cứng đến ngày nào?",
+      "expect": [
+        [
+          "12 máy"
+        ],
+        [
+          "31/12/2029",
+          "2029-12-31",
+          "31 tháng 12"
+        ]
+      ]
+    },
+    {
+      "id": "E-csv",
+      "container": "E",
+      "file": "Lich-bao-tri.csv",
+      "format": "csv",
+      "part": "rows",
+      "question": "Theo lịch bảo trì, cửa sổ bảo trì my-db-mate ngày 2027-05-22 là mấy giờ và ai trực?",
+      "expect": [
+        [
+          "23:00"
+        ],
+        [
+          "Thạch"
+        ]
+      ]
+    },
+    {
+      "id": "F-pptx-1",
+      "container": "F",
+      "file": "Tong-ket-sprint-42.pptx",
+      "format": "pptx",
+      "part": "slide bullets",
+      "question": "Velocity của sprint 42 nhóm my-db-mate là bao nhiêu điểm và mục tiêu sprint 43 là bao nhiêu?",
+      "expect": [
+        [
+          "67"
+        ],
+        [
+          "72"
+        ]
+      ]
+    },
+    {
+      "id": "F-pptx-2",
+      "container": "F",
+      "file": "Tong-ket-sprint-42.pptx",
+      "format": "pptx",
+      "part": "speaker notes",
+      "question": "Buổi demo cho khách hàng sau sprint 42 dời sang ngày nào?",
+      "expect": [
+        [
+          "08/04/2027",
+          "8/4/2027",
+          "2027-04-08",
+          "8 tháng 4"
+        ]
+      ]
+    },
+    {
+      "id": "F-md",
+      "container": "F",
+      "file": "Retro-sprint-42.md",
+      "format": "md",
+      "part": "task list",
+      "question": "Sau buổi retro sprint 42 của nhóm my-db-mate, ai nhận việc tách bộ test tích hợp và hạn là ngày nào?",
+      "expect": [
+        [
+          "Phan Minh Triết",
+          "Minh Triết"
+        ],
+        [
+          "2027-04-02",
+          "02/04/2027",
+          "2/4/2027",
+          "2 tháng 4"
+        ]
+      ]
+    }
+  ]
+}

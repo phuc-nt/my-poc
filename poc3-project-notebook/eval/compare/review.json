@@ -1,0 +1,101 @@
+{
+  "_comment": "Answers read by a person where the matcher looks for a phrase the answer words differently. Per arm and question id.",
+  "cli": {
+    "q01": {
+      "pass": true,
+      "note": "says it waits 0,1 giây between two chunks; the matcher wants the phrase \"giữa các chunk\""
+    },
+    "q06": {
+      "pass": true,
+      "note": "says plain text and 4 096 ký tự; the matcher wants \"văn bản thuần\""
+    },
+    "q10": {
+      "pass": true,
+      "note": "says 40 lines per group and the rest is counted, in other words"
+    },
+    "q14": {
+      "pass": true,
+      "note": "says the score is multiplied by 0.5 and that only the ordering changes; the matcher wants \"0.5x\""
+    },
+    "q16": {
+      "pass": true,
+      "note": "says the score was 1 - norm and the fix is score = norm"
+    },
+    "q20": {
+      "pass": true,
+      "note": "lists every step in order; the matcher wants \"routing in cli.ts\""
+    },
+    "q47": {
+      "pass": true,
+      "note": "answers iOS 16.4 from the 3.2 release notes of the attachment test, with the caveat that the page of the mobile app is not a source; the fact came into the documents after the benchmark was written"
+    }
+  },
+  "web-agent": {
+    "q01": {
+      "pass": true,
+      "note": "says it waits 0,1 giây between two chunks; the matcher wants the phrase \"giữa các chunk\""
+    },
+    "q06": {
+      "pass": true,
+      "note": "says plain text in pieces of 4 096 ký tự; the matcher wants \"văn bản thuần\""
+    },
+    "q14": {
+      "pass": true,
+      "note": "says the score is multiplied by 0.5 and that only the ordering changes; the matcher wants \"0.5x\""
+    },
+    "q16": {
+      "pass": true,
+      "note": "says the score was 1 - norm and the fix is score = norm"
+    },
+    "q20": {
+      "pass": true,
+      "note": "lists every step in order; the matcher wants \"routing in cli.ts\""
+    },
+    "q47": {
+      "pass": true,
+      "note": "answers iOS 16.4 from the 3.2 release notes of the attachment test, with the caveat that the page of the mobile app is not a source; same answer as the CLI arm"
+    },
+    "q48": {
+      "pass": true,
+      "note": "says the documents do not mention a Redis cache for the project and gives no Redis port; the matcher wants another wording"
+    },
+    "M14": {
+      "pass": true,
+      "note": "gives 1024 MB and says the documents do not mention Redis, so there is no port"
+    }
+  },
+  "web-agent-run1": {
+    "q01": {
+      "pass": true,
+      "note": "says it waits 0,1 giây between two chunks; the matcher wants the phrase \"giữa các chunk\""
+    },
+    "q06": {
+      "pass": true,
+      "note": "says plain text in pieces of 4 096 ký tự; the matcher wants \"văn bản thuần\""
+    },
+    "q14": {
+      "pass": true,
+      "note": "says the score is multiplied by 0.5 and that only the ordering changes; the matcher wants \"0.5x\""
+    },
+    "q16": {
+      "pass": true,
+      "note": "says the score was 1 - norm and the fix is score = norm"
+    },
+    "q20": {
+      "pass": true,
+      "note": "lists every step in order; the matcher wants \"routing in cli.ts\""
+    },
+    "q47": {
+      "pass": true,
+      "note": "answers iOS 16.4 from the 3.2 release notes of the attachment test, with the caveat that the page of the mobile app is not a source; same answer as the CLI arm"
+    },
+    "q48": {
+      "pass": true,
+      "note": "says the documents do not mention a Redis cache and gives no Redis port; the matcher wants another wording"
+    },
+    "M14": {
+      "pass": true,
+      "note": "gives 1024 MB and says the documents do not mention Redis, so there is no port"
+    }
+  }
+}

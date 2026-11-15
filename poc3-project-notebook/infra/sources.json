@@ -1,10 +1,11 @@
 {
-  "_comment": "One knowledge base data source per Confluence space and per SharePoint folder: a user's grants are a list of these, and every search is filtered to them. A knowledge base holds at most 5 data sources (a fixed quota), so each source names its knowledge base; the app searches every poc3-kb* knowledge base the user has a grant in. A $NAME value is read from infra/local.env.",
+  "_comment": "One knowledge base data source per Confluence space and per group of Jira projects (a Jira source is a custom data source that the app's monitor fills with the issues, their comments and their attachments): a user's grants are a list of these, and every search is filtered to them. A knowledge base holds at most 5 data sources (a fixed quota), so each source names its knowledge base; the app searches every poc3-kb* knowledge base the user has a grant in. A Confluence source with \"text\": true gets a second data source, <name>-text, that the monitor fills with the text of the attachments the knowledge base's parser reads badly (pptx, docx, doc, pdf, scans, pictures); the app shows the two as one source. A $NAME value is read from infra/local.env. SharePoint folders are no longer a source here (removed 2026-11-14); a \"sharepoint\" list of { name: \"sp-...\", kb, title, folders } still works.",
   "confluence": [
     {
       "name": "confluence-engdocs",
       "kb": "poc3-kb",
       "title": "Confluence · Engineering — Tài liệu dự án",
+      "text": true,
       "spaces": [
         "ENGDOCS"
       ]
@@ -13,51 +14,19 @@
       "name": "confluence-company",
       "kb": "poc3-kb-company",
       "title": "Confluence · Wiki công ty Mộc Lan",
+      "text": true,
       "spaces": [
         "$CONFLUENCE_SPACE_KEYS"
       ]
     }
   ],
-  "sharepoint": [
+  "jira": [
     {
-      "name": "sp-my-db-mate",
+      "name": "jira-scrum",
       "kb": "poc3-kb",
-      "title": "SharePoint · Tai-lieu-du-an/my-db-mate",
-      "folders": [
-        "Tai-lieu-du-an/my-db-mate"
-      ]
-    },
-    {
-      "name": "sp-my-translator",
-      "kb": "poc3-kb",
-      "title": "SharePoint · Tai-lieu-du-an/my-translator",
-      "folders": [
-        "Tai-lieu-du-an/my-translator"
-      ]
-    },
-    {
-      "name": "sp-my-translator-mobile",
-      "kb": "poc3-kb",
-      "title": "SharePoint · Tai-lieu-du-an/my-translator-mobile",
-      "folders": [
-        "Tai-lieu-du-an/my-translator-mobile"
-      ]
-    },
-    {
-      "name": "sp-company",
-      "kb": "poc3-kb-company",
-      "title": "SharePoint · Tài liệu công ty Mộc Lan",
-      "folders": [
-        "bang-gia",
-        "bao-cao",
-        "chinh-sach",
-        "dich-vu",
-        "huong-dan",
-        "khac",
-        "khuyen-mai",
-        "ky-thuat",
-        "noi-bo",
-        "san-pham"
+      "title": "Jira · Dự án SCRUM",
+      "projects": [
+        "$JIRA_PROJECT_KEY"
       ]
     }
   ]

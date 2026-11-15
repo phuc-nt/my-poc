@@ -1,19 +1,24 @@
 #!/usr/bin/env node
-// PoC 3 knowledge bases: Amazon Bedrock Managed Knowledge Bases with one data source per Confluence space and
-// per SharePoint folder (infra/sources.json). A knowledge base holds at most 5 data sources, so the sources are
-// spread over poc3-kb, poc3-kb-company and so on. Every resource is named poc3-kb... and tagged Project=poc3-kb,
+// PoC 3 knowledge bases: Amazon Bedrock Managed Knowledge Bases with one data source per Confluence space and per
+// group of Jira projects (infra/sources.json). There is no Jira connector: a Jira source is a custom data source
+// that the app's monitor function fills (src/lib/jira.mjs), so it has no sync job here. A Confluence source with
+// "text": true gets a second custom data source, "<name>-text", for the text documents the monitor makes of its
+// attachments (src/lib/confluence-text.mjs). A knowledge base holds at
+// most 5 data sources, so the sources are spread over poc3-kb, poc3-kb-company and so on. Every resource is named poc3-kb... and tagged Project=poc3-kb,
 // separate from the AIPF and the earlier chatbot. Nothing here prints a secret, an account number or a host.
 //
-//   node infra/kb.mjs up [name...]       role, bucket, secrets, certificate, knowledge bases, data sources
+//   node infra/kb.mjs up [name...]       role, bucket, secrets, knowledge bases, data sources; removes data sources
+//                                        that infra/sources.json no longer names
 //   node infra/kb.mjs sync [name...]     start a sync of every (or the named) data source
 //   node infra/kb.mjs status             data sources and their last sync
 //   node infra/kb.mjs wait               wait until no sync is running, then print the status
 //   node infra/kb.mjs bucket             the data bucket only (infra/redeploy.mjs makes it before the rest)
 //   node infra/kb.mjs down               delete everything above
 //
-// PoC 3 reuses PoC 1's Confluence and SharePoint test settings. It reads ../poc1-slack-platform/infra/local.env
-// (Region, SharePoint tenant, client and site, Confluence space keys) and ../poc1-slack-platform/.env
-// (Confluence site, account and API token), and the SharePoint certificate in ../poc1-slack-platform/infra/kb-cert/.
+// PoC 3 reuses PoC 1's Atlassian test settings. It reads ../poc1-slack-platform/infra/local.env (Region,
+// Confluence space keys, Jira project key) and ../poc1-slack-platform/.env (Confluence and Jira site, account and
+// API token). SharePoint sources are no longer in infra/sources.json; if a "sharepoint" list is put back, the
+// SharePoint tenant, client, site and the certificate in ../poc1-slack-platform/infra/kb-cert/ are read as before.
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
@@ -82,7 +87,10 @@ export function sourcesConfig() {
   const expand = (v) => v.flatMap((x) => (x.startsWith('$') ? String(env[x.slice(1)] || '').split(',').map((s) => s.trim()).filter(Boolean) : [x]));
   return {
     confluence: raw.confluence.map((s) => ({ ...s, kind: 'confluence', spaces: expand(s.spaces) })),
-    sharepoint: raw.sharepoint.map((s) => ({ ...s, kind: 'sharepoint' })),
+    sharepoint: (raw.sharepoint || []).map((s) => ({ ...s, kind: 'sharepoint' })),
+    jira: (raw.jira || []).map((s) => ({ ...s, kind: 'jira', projects: expand(s.projects) })),
+    // The text documents of a Confluence source's attachments: a custom data source next to it, in its knowledge base.
+    text: raw.confluence.filter((s) => s.text).map((s) => ({ name: `${s.name}-text`, kb: s.kb, kind: 'text', title: `${s.title} — văn bản của file đính kèm` })),
   };
 }
 
@@ -130,6 +138,8 @@ export function putSecret(name, value) {
 }
 
 const certDir = join(POC1, 'infra', 'kb-cert');
+// A data source the monitor function fills, not a connector: no ingestion job to start or to wait for.
+const isCustom = (ds) => /^jira|-text$/i.test(ds.name);
 
 function secrets(bucket) {
   const host = String(env.CONFLUENCE_BASE_URL || env.JIRA_BASE_URL || '').replace(/\/+$/, '').replace(/\/wiki$/, '');
@@ -137,20 +147,34 @@ function secrets(bucket) {
   const password = env.CONFLUENCE_API_TOKEN || env.JIRA_API_TOKEN;
   if (!host || !username || !password) throw new Error('The Confluence site, account or API token is missing from .env');
   const confluence = putSecret(`${PREFIX}/confluence`, { username, password, hostUrl: host });
-  if (!existsSync(join(certDir, 'certificate.p12'))) throw new Error('poc1-slack-platform/infra/kb-cert/certificate.p12 is missing');
-  const certificatePassword = readFileSync(join(certDir, 'p12-password'), 'utf8').trim();
-  const sharepoint = putSecret(`${PREFIX}/sharepoint`, { clientId: env.SHAREPOINT_CLIENT_ID, certificatePassword });
-  // The app's own copy for Microsoft Graph (folder permissions, the converted mirror): the PEM key and certificate.
+  // SharePoint is set up only while infra/sources.json names a SharePoint source; without one, what an earlier
+  // deployment left (the connector's secret, the certificate in the bucket) is removed.
+  const { sharepoint: sharepointSources, jira: jiraSources } = sourcesConfig();
+  let sharepoint = null;
+  let graph = {};
+  if (sharepointSources.length) {
+    if (!existsSync(join(certDir, 'certificate.p12'))) throw new Error('poc1-slack-platform/infra/kb-cert/certificate.p12 is missing');
+    const certificatePassword = readFileSync(join(certDir, 'p12-password'), 'utf8').trim();
+    sharepoint = putSecret(`${PREFIX}/sharepoint`, { clientId: env.SHAREPOINT_CLIENT_ID, certificatePassword });
+    // The app's own copy for Microsoft Graph (folder permissions, the converted mirror): the PEM key and certificate.
+    graph = { tenantId: env.SHAREPOINT_TENANT_ID, clientId: env.SHAREPOINT_CLIENT_ID, siteUrl: String(env.SHAREPOINT_SITE_URLS || '').split(',')[0].trim(),
+      certificatePem: readFileSync(join(certDir, 'certificate.cer'), 'utf8'), privateKeyPem: readFileSync(join(certDir, 'private_key.pem'), 'utf8') };
+    aws(['s3', 'cp', join(certDir, 'certificate.p12'), `s3://${bucket}/${CERT_KEY}`, '--sse', 'AES256', '--only-show-errors'], { json: false });
+  } else {
+    aws(['secretsmanager', 'delete-secret', '--secret-id', `${PREFIX}/sharepoint`, '--force-delete-without-recovery'], { quiet: true });
+    aws(['s3', 'rm', `s3://${bucket}/${CERT_KEY}`, '--only-show-errors'], { json: false, quiet: true });
+  }
+  // Jira can be on another site than Confluence. Each Jira source's projects go with the account.
+  const jiraHost = String(env.JIRA_BASE_URL || '').replace(/\/+$/, '');
+  if (jiraSources.length && !(jiraHost && env.JIRA_EMAIL && env.JIRA_API_TOKEN)) throw new Error('The Jira site, account or API token is missing from .env');
+  // The app's own copy of the source systems' sign-ins (the name graph is from the SharePoint days).
   putSecret(`${PREFIX}/graph`, {
-    tenantId: env.SHAREPOINT_TENANT_ID,
-    clientId: env.SHAREPOINT_CLIENT_ID,
-    siteUrl: String(env.SHAREPOINT_SITE_URLS || '').split(',')[0].trim(),
-    certificatePem: readFileSync(join(certDir, 'certificate.cer'), 'utf8'),
-    privateKeyPem: readFileSync(join(certDir, 'private_key.pem'), 'utf8'),
+    ...graph,
     confluence: { hostUrl: host, username, password },
+    ...(jiraSources.length ? { jira: { hostUrl: jiraHost, username: env.JIRA_EMAIL, password: env.JIRA_API_TOKEN,
+      sources: Object.fromEntries(jiraSources.map((s) => [s.name, { projects: s.projects }])) } } : {}),
   });
-  aws(['s3', 'cp', join(certDir, 'certificate.p12'), `s3://${bucket}/${CERT_KEY}`, '--sse', 'AES256', '--only-show-errors'], { json: false });
-  console.log('secrets and certificate ready');
+  console.log(sharepointSources.length ? 'secrets and certificate ready' : 'secrets ready');
   return { host, confluence, sharepoint };
 }
 
@@ -160,7 +184,7 @@ function putKb(name, roleArn) {
     for (let attempt = 0; ; attempt++) {
       try {
         id = aws(['bedrock-agent', 'create-knowledge-base', '--name', name, '--role-arn', roleArn,
-          '--description', 'PoC 3 project notebook: Confluence spaces and SharePoint folders',
+          '--description', 'PoC 3 project notebook: Confluence spaces and Jira projects',
           '--knowledge-base-configuration', JSON.stringify({ type: 'MANAGED', managedKnowledgeBaseConfiguration: { embeddingModelType: 'MANAGED' } }),
           '--tags', JSON.stringify({ Project: PREFIX })]).knowledgeBase.knowledgeBaseId;
         break;
@@ -185,6 +209,11 @@ async function waitFor(what, read, wanted) {
 
 export function sourceConfiguration(source, { host, confluence, sharepoint, bucket }) {
   let parameters;
+  if (source.kind === 'jira' || source.kind === 'text') {
+    // Documents arrive through IngestKnowledgeBaseDocuments; nothing is crawled, so there is no schedule.
+    return { type: 'MANAGED_KNOWLEDGE_BASE_CONNECTOR',
+      managedKnowledgeBaseConnectorConfiguration: { connectorParameters: { type: 'CUSTOM', version: '1', aclEnabled: false } } };
+  }
   if (source.kind === 'confluence') {
     parameters = {
       type: 'CONFLUENCE', version: '1', aclEnabled: false,
@@ -229,15 +258,15 @@ async function up(only) {
   const bucket = putBucket();
   const roleArn = putRole(acct);
   const context = { ...secrets(bucket), bucket };
-  const { confluence, sharepoint } = sourcesConfig();
-  const sources = [...confluence, ...sharepoint].filter((s) => !only.length || only.includes(s.name));
+  const { confluence, sharepoint, jira, text } = sourcesConfig();
+  const sources = [...confluence, ...sharepoint, ...jira, ...text].filter((s) => !only.length || only.includes(s.name));
   for (const name of [...new Set(sources.map((s) => s.kb))]) {
     const kb = putKb(name, roleArn);
     await waitFor(`knowledge base ${name}`, () => aws(['bedrock-agent', 'get-knowledge-base', '--knowledge-base-id', kb]).knowledgeBase.status, 'ACTIVE');
     for (const source of sources.filter((s) => s.kb === name)) await putSource(kb, source, context);
   }
   // A source moved to another knowledge base leaves its old data source behind: remove it.
-  const wanted = new Map([...confluence, ...sharepoint].map((s) => [s.name, s.kb]));
+  const wanted = new Map([...confluence, ...sharepoint, ...jira, ...text].map((s) => [s.name, s.kb]));
   for (const kb of knowledgeBases()) {
     for (const ds of dataSources(kb.id)) if (wanted.get(ds.name) !== kb.name) await removeSource(kb.id, ds);
   }
@@ -252,13 +281,18 @@ function putLogDelivery(acct) {
     aws(['logs', 'create-log-group', '--log-group-name', LOG_GROUP, '--tags', `Project=${PREFIX}`], { json: false });
   }
   aws(['logs', 'put-retention-policy', '--log-group-name', LOG_GROUP, '--retention-in-days', '30'], { json: false });
-  const destination = aws(['logs', 'put-delivery-destination', '--name', `${PREFIX}-logs`,
-    '--delivery-destination-configuration', `destinationResourceArn=arn:aws:logs:${REGION}:${acct}:log-group:${LOG_GROUP}`, '--tags', `Project=${PREFIX}`]).deliveryDestination.arn;
+  // Tags are accepted only when a delivery destination or source is created, so an existing one is left as it is.
+  const destination = (aws(['logs', 'describe-delivery-destinations']).deliveryDestinations || []).find((d) => d.name === `${PREFIX}-logs`)?.arn
+    || aws(['logs', 'put-delivery-destination', '--name', `${PREFIX}-logs`,
+      '--delivery-destination-configuration', `destinationResourceArn=arn:aws:logs:${REGION}:${acct}:log-group:${LOG_GROUP}`, '--tags', `Project=${PREFIX}`]).deliveryDestination.arn;
   const deliveries = aws(['logs', 'describe-deliveries']).deliveries || [];
+  const have = new Set((aws(['logs', 'describe-delivery-sources']).deliverySources || []).map((d) => d.name));
   for (const kb of knowledgeBases()) {
     const source = `${kb.name}-logs`;
-    aws(['logs', 'put-delivery-source', '--name', source, '--resource-arn', `arn:aws:bedrock:${REGION}:${acct}:knowledge-base/${kb.id}`,
-      '--log-type', 'APPLICATION_LOGS', '--tags', `Project=${PREFIX}`]);
+    if (!have.has(source)) {
+      aws(['logs', 'put-delivery-source', '--name', source, '--resource-arn', `arn:aws:bedrock:${REGION}:${acct}:knowledge-base/${kb.id}`,
+        '--log-type', 'APPLICATION_LOGS', '--tags', `Project=${PREFIX}`]);
+    }
     if (!deliveries.some((d) => d.deliverySourceName === source)) {
       aws(['logs', 'create-delivery', '--delivery-source-name', source, '--delivery-destination-arn', destination, '--tags', `Project=${PREFIX}`]);
     }
@@ -287,6 +321,10 @@ function sync(only) {
   for (const kb of knowledgeBases()) {
     for (const ds of dataSources(kb.id)) {
       if (only.length && !only.includes(ds.name)) continue;
+      if (isCustom(ds)) {
+        console.log(`${ds.name}: synced by the monitor function (node infra/deploy.mjs monitor)`);
+        continue;
+      }
       const job = aws(['bedrock-agent', 'start-ingestion-job', '--knowledge-base-id', kb.id, '--data-source-id', ds.dataSourceId], { quiet: true });
       console.log(`${ds.name}: ${job ? job.ingestionJob.status : 'not started (a sync is probably running)'}`);
     }
@@ -299,6 +337,10 @@ function status() {
   for (const { id: kb, name } of kbs) {
   console.log(name);
   for (const ds of dataSources(kb)) {
+    if (isCustom(ds)) {
+      console.log(`  ${ds.name.padEnd(26)} ${ds.status.padEnd(10)} synced by the monitor function; its runs are on the app's sync page`);
+      continue;
+    }
     const jobs = aws(['bedrock-agent', 'list-ingestion-jobs', '--knowledge-base-id', kb, '--data-source-id', ds.dataSourceId,
       '--sort-by', 'attribute=STARTED_AT,order=DESCENDING', '--max-results', '1']).ingestionJobSummaries || [];
     const j = jobs[0];
@@ -314,6 +356,7 @@ async function wait() {
     const running = [];
     for (const kb of knowledgeBases()) {
       for (const ds of dataSources(kb.id)) {
+        if (isCustom(ds)) continue;
         const job = aws(['bedrock-agent', 'list-ingestion-jobs', '--knowledge-base-id', kb.id, '--data-source-id', ds.dataSourceId,
           '--sort-by', 'attribute=STARTED_AT,order=DESCENDING', '--max-results', '1']).ingestionJobSummaries?.[0];
         if (['STARTING', 'IN_PROGRESS', 'STOPPING'].includes(job?.status)) running.push(ds.name);
@@ -334,7 +377,7 @@ async function down() {
     aws(['bedrock-agent', 'delete-knowledge-base', '--knowledge-base-id', kb]);
     console.log(`knowledge base ${name} deleted`);
   }
-  for (const name of ['confluence', 'sharepoint', 'graph']) {
+  for (const name of ['confluence', 'sharepoint', 'graph', 'anthropic']) {
     aws(['secretsmanager', 'delete-secret', '--secret-id', `${PREFIX}/${name}`, '--force-delete-without-recovery'], { quiet: true });
   }
   if (aws(['s3api', 'head-bucket', '--bucket', dataBucket()], { quiet: true })) aws(['s3', 'rb', `s3://${dataBucket()}`, '--force'], { json: false });
