@@ -72,7 +72,7 @@ flowchart LR
 | Part | What it is | Why this choice |
 |---|---|---|
 | Search index | Amazon Bedrock Managed Knowledge Bases, with AWS's own Confluence connector and the application's own reader for Jira | AWS parses and indexes the documents, so little of that is built or run by the team |
-| Attached files | Before indexing, the full text of each Word, PowerPoint and PDF file, scan and picture is extracted and indexed next to the file | Measured: the managed service alone kept about half the words of such files in Vietnamese; with this step, 96 to 100% |
+| Attached files | Before indexing, the full text of each Word, Excel, PowerPoint and PDF file, scan and picture is extracted, including the text in pictures placed inside the files, and indexed next to the file | Measured: the managed service alone kept about half the words of such files in Vietnamese; with this step, 96 to 100% |
 | Application | A serverless web application: pay per use, nothing to patch, scales to zero when unused | Low running cost and little to operate |
 | AI model | Claude Sonnet 5.5 through the Claude API | It can look things up in several steps, which the harder questions need. The quick modes can run on a model inside the AWS Region instead |
 | Sign-in and access | Email accounts approved by an administrator, with each person's access checked on every request | The same rules apply in the web app and in the code editor |
@@ -94,11 +94,13 @@ List prices. The model's cost per request was measured on the running system.
 On the AWS side:
 
 - **Storage of the searchable copy** is 5 USD per GB a month and is the item that grows with the documents. Indexing only the spaces and projects a team needs keeps it down.
-- **The fixed services** (monitoring, sign-in, the application) cost about 10 USD a month in an earlier build of the proof of concept. They were not measured again for the current build.
+- **The fixed services** (monitoring, sign-in, the application) cost about 9 USD a month at list price, and about 1 USD while the AWS free tier covers them. The proof of concept's two test days cost 1.84 and 3.53 USD in AWS.
 
 As an example, 30 people asking 6,000 questions a month over 10 GB of documents come to about 180 USD for the model and 50 USD for storage, plus the fixed services.
 
 Outside AWS, the connector needs one Atlassian account, which may count as a paid user.
+
+The full estimate, with scenarios for 10, 30 and 100 people, is in [04-cost-estimate.md](04-cost-estimate.md).
 
 ## 6. Compared with Atlassian Rovo
 
@@ -123,6 +125,7 @@ Rovo is the better choice for teams that work mainly inside Confluence and Jira 
 | Questions and passages are sent to the Claude API | A decision for the data owner. The quick modes can stay inside the AWS Region; the multi-step and research modes cannot |
 | The copy is out of date | Jira every 15 minutes, Confluence daily; alarms fire after 30 hours without a refresh, and an administrator can refresh at once |
 | Costs grow unnoticed | The cost page shows usage. A daily limit per person should be added before a wide rollout |
+| Text inside pictures (screen designs, flow charts, tables pasted as pictures) is missed | A vision model reads the pictures inside Excel, PowerPoint, Word and PDF files. It read four invented Japanese files word for word; real design documents must be checked in the pilot |
 | It was tested on small, invented content only | That is what the pilot is for |
 
 For a pilot, the following must be granted:

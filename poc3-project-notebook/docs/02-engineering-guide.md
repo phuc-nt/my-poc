@@ -130,9 +130,10 @@ Content reaches the knowledge bases on three paths.
 - Document ids are the Jira links, so a citation opens the issue or the file.
 - A run reads the issues changed since the last run, and all of them once a day. It sends new and changed issues and attachments with `IngestKnowledgeBaseDocuments`, skips what has not changed, and removes the documents of deleted issues and attachments with `DeleteKnowledgeBaseDocuments`.
 
-**Text documents (the step before the knowledge base).** A managed knowledge base has no parser setting. Its parser kept about half the words of a Vietnamese pptx, docx, doc or pdf, and no speaker notes. So for each attachment of those formats, and for scans and pictures, the monitor makes a second document ([prepare.mjs](../src/lib/prepare.mjs)):
+**Text documents (the step before the knowledge base).** A managed knowledge base has no parser setting. Its parser kept about half the words of a Vietnamese pptx, docx, doc or pdf, and no speaker notes. So for each attachment of those formats, for xlsx, and for scans and pictures, the monitor makes a second document ([prepare.mjs](../src/lib/prepare.mjs), [extract.mjs](../src/lib/extract.mjs)):
 
 - It is the file's text as Markdown, read from the file itself or, for a picture or a scanned page, by a Bedrock model with image input (the reader model, `ReadModel`).
+- A picture inside a pptx, docx, xlsx or pdf is read by the same model, and its text is placed where the picture stands (its slide, its paragraph, its row, its page). Small pictures, repeats, full-page backgrounds and formats the model does not take (emf, wmf, tiff, svg) are skipped; at most 40 per file (`MAX_READ_PICTURES`), four at a time.
 - It is stored in the data bucket and sent to a `CUSTOM` data source with the id `<file link>#text`. The file itself stays indexed as it is.
 - For Jira it goes into the Jira data source. For Confluence it goes into a second data source, `<source>-text`, because the connector's own data source takes no document from the app.
 - The app treats the pair as one source: it searches both and shows a text document's passages under the file's link.
@@ -568,6 +569,7 @@ The scripts under `scripts/` were written against the PoC's own sources and inve
 | Model | Set `POC3_CHAT_MODEL`, `POC3_STUDIO_MODEL` and `POC3_AGENT_MODEL`, then `deploy.mjs up`. The deploy passes the models every time, because CloudFormation would otherwise keep the previous values |
 | A new space or Jira project | Add it to `sources.json` and give it a knowledge base with fewer than five sources (or a new `poc3-kb-<name>`). Then run `kb.mjs up <name>`, `kb.mjs sync <name>`, and grant it to people. The app finds new `poc3-kb*` knowledge bases by name, with no redeploy |
 | Connector credentials | Set the new values in the environment, then `kb.mjs up` (it rewrites the secrets) |
+| The preparation step | `deploy.mjs up`. Raise `PREP` in `src/lib/custom.mjs` when files already prepared must be prepared again, as when the reading of pictures inside files was added (`PREP` 2). The next syncs then prepare every file once more, and every picture goes to the reader model again |
 
 ### 7.8 Removal
 
@@ -588,13 +590,14 @@ What a teardown loses, and what it keeps:
 | Is every source in sync? | The app's **Sync** page: last job, documents indexed and failed, the reason for each failure, history, and "sync now" for admins. In AWS: the `poc3-kb` dashboard and the three alarms |
 | Why did a document fail? | The sync page. It reads the knowledge base application logs in `/aws/vendedlogs/bedrock/poc3-kb`. Typical case: a PowerPoint file the managed parser cannot read |
 | Why does a file have no text document? | The monitor's log, `/aws/lambda/poc3-kb-monitor`: a failed text document is a warning there |
+| Were a file's pictures read? | The sync state the monitor keeps for each file says how its text document was made, for example "text of the xlsx file, 3 pictures in it read by a model, 1 picture not read" |
 | API errors or slowness | The dashboard (invocations, errors, throttles, p90 duration) and `/aws/lambda/poc3-kb-api`. A Bedrock throttling error is returned to the user as "busy, retry". Errors are logged with their name and message only, never with a token |
 | Cost | The app's **Cost** page (admins): searches, agentic searches and tokens per model at the list prices in [src/lib/config.mjs](../src/lib/config.mjs). In AWS: Cost Explorer filtered on the tag `Project=poc3-kb`, once the tag is activated as a cost allocation tag |
 | Who can read what | The **Users** page: grants per person, pending requests, and the permission import with its report of unresolved entries. The state of the restriction index: `GET /api/admin/restrictions` |
 | A new restriction must apply now | `node infra/deploy.mjs monitor` runs the monitor at once |
 | A leaked MCP token | The owner revokes it on the **MCP** page, or an admin removes the person's grants. A token never reads beyond its owner's grants |
 
-Measured costs per request are in [CONCEPT.md](../CONCEPT.md), section 8. The list prices behind the cost page are those of the PoC's Region; set the ones of your Region in `PRICES` in [src/lib/config.mjs](../src/lib/config.mjs).
+Measured costs per request are in [CONCEPT.md](../CONCEPT.md), section 8, and the full estimate of use and running cost in [04-cost-estimate.md](04-cost-estimate.md). The list prices behind the cost page are those of the PoC's Region; set the ones of your Region in `PRICES` in [src/lib/config.mjs](../src/lib/config.mjs).
 
 ## 9. Known limits and lessons
 
@@ -632,16 +635,16 @@ Measured costs per request are in [CONCEPT.md](../CONCEPT.md), section 8. The li
 
 | Topic | Detail |
 |---|---|
-| What is covered | Word, Excel, PowerPoint, PDF (text and scanned), Markdown, text, CSV and picture files attached to Jira issues and Confluence pages are indexed and answered from (38 of 38 questions) |
+| What is covered | Word, Excel, PowerPoint, PDF (text and scanned), Markdown, text, CSV and picture files attached to Jira issues and Confluence pages are indexed and answered from (38 of 38 questions). Text in pictures inside xlsx, pptx, docx and pdf files is read into the text document; this was tested on the preparation step with four Japanese files, not yet through the knowledge base |
 | The managed parser alone | It keeps about half the words of a Vietnamese pptx, docx, doc or pdf, indexes no speaker notes, and gave no passage for a picture attached to a Confluence page. None of it is reported as a failure. The text documents (section 2.2) cover these. Results and the options that were measured are in the [README](../README.md), "Attachment test" and "The step before the knowledge base: what was tried" |
-| Text documents | A file over 20 MB gets none. Only the first scanned pages of a PDF are read by the model (`MAX_READ_PAGES` in `prepare.mjs`). Each picture or scanned page is one model call per new file version. Raising `PREP` in `custom.mjs` makes every sync prepare its files again |
+| Text documents | A file over 50 MB gets none. Only the first scanned pages of a PDF are read by the model (`MAX_READ_PAGES` in `prepare.mjs`), and at most 40 pictures inside one file (`MAX_READ_PICTURES`). A picture in emf, wmf, tiff or svg, or over 3.5 MB, is not read; the document's header counts it. Each picture or scanned page is one model call per new file version. Raising `PREP` in `custom.mjs` makes every sync prepare its files again |
 
 **Where the data goes**
 
 | Topic | Detail |
 |---|---|
 | Claude API | With a `claude-*` model, the question, the notebook's recent messages and the passages and documents the answer reads go to the Claude API, outside the project's Region and outside AWS. Indexing, search and the store stay in the Region. Setting the three model settings to a Bedrock model id keeps the answers in the Region too, without agent and research mode |
-| Text documents | For this step a file's content leaves the knowledge base's own path: it is read in the monitor function and, for a picture or scan, by the reader model in the Region |
+| Text documents | For this step a file's content leaves the knowledge base's own path: it is read in the monitor function and, for a picture or scan, by the reader model in the Region, which also reads the pictures inside the file |
 | Question log | Admins can read every question asked in the web UI on the quality page. The log stores no name or email, but a question's own words can point to a person, and the saved answer in the asker's notebook keeps the reference to its log item (that is how a vote reaches it). Questions through MCP are not logged. Items expire after 180 days |
 
 **Not built yet**

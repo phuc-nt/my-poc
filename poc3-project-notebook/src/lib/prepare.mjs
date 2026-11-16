@@ -1,38 +1,50 @@
 // The step between a source system and the knowledge base. A managed knowledge base has no parser setting, and its
 // parser loses part of some formats: measured in scripts/preprocess-lab.mjs, it keeps about half the words of a
-// Vietnamese pptx, docx, doc or pdf (the accents come out wrong), reads a scanned pdf the same way, and never
-// reads a deck's speaker notes. So for those formats the sync sends a second document next to the file: the
-// file's text as Markdown, made here.
+// Vietnamese pptx, docx, doc or pdf (the accents come out wrong), reads a scanned pdf the same way, never reads a
+// deck's speaker notes, and does not read the pictures inside a file (a screenshot pasted into a sheet, a diagram on
+// a slide). So for those formats the sync sends a second document next to the file: the file's text as Markdown,
+// made here.
 //
 //   pptx, docx   the text in the file's own XML (extract.mjs): exact, with the tables and the speaker notes
+//   xlsx         each sheet's cells row by row and its text boxes (extract.mjs)
 //   pdf          the text layer, page by page (pdfjs-dist); a page that is only a picture (a scan) is read by a model
 //   doc          the text of the binary Word file (word-extractor)
 //   png, jpg...  the picture read by a model: its text, then what it shows
 //
+// The pictures inside a pptx, docx, xlsx or pdf are read by the model too, and their text goes where the picture
+// stands: on its slide, after its paragraph, at its row, on its page. Icons and other small pictures are left out,
+// a picture that stands twice is read once, and formats the model does not take (emf, wmf, tiff, svg) are skipped.
+//
 // The model is one with image input that runs in the app's own Region (config.readModel). Without one, pictures
-// and scanned pages get no text document and the knowledge base's own reading of the file is all there is.
+// and scanned pages get no text and the knowledge base's own reading of the file is all there is.
 
+import { createHash } from 'node:crypto';
 import { deflateSync } from 'node:zlib';
 import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime';
 import { extract, toMarkdown } from './extract.mjs';
 
 const PICTURE = /\.(png|jpe?g|gif|webp)$/i;
 const MAX_READ_PAGES = 30; // scanned pages read by the model per file
+const MAX_READ_PICTURES = 40; // pictures inside a file read by the model per file (scanned pages not counted)
 const MAX_PICTURE_BYTES = 3_500_000; // an image block of Converse takes 3.75 MB
 const MAX_PIXELS = 6_000_000;
+const MAX_SIDE = 8000; // the longest side an image block takes
 const SCAN_TEXT = 30; // a page with fewer characters than this in its text layer, and a picture, is a scan
+const READ_AT_ONCE = 4; // model calls in flight per file
+// A picture smaller than this (an icon, a bullet, a small logo) holds nothing worth a model call.
+const small = (w, h) => Math.min(w, h) < 48 || w * h < 40_000;
 
-export const READ_PICTURE = 'Transcribe every piece of text in this picture exactly as written, keeping its language and its accents, one line per line of text. '
+export const READ_PICTURE = 'Transcribe every piece of text in this picture exactly as written, keeping its language and its accents, one line per line of text, a table as a Markdown table. '
   + 'Then, under the heading "Description", describe in two or three sentences what the picture shows (a screen, a diagram, its parts and how they connect). '
   + 'Write nothing that is not in the picture.';
 export const READ_PAGE = 'This is one scanned page of a document. Transcribe all of its text exactly as written, keeping its language and its accents, '
   + 'one line per line of text, a table as a Markdown table. Write only the transcription, nothing that is not on the page.';
 
-// What kind of text document a file gets: 'pptx', 'docx', 'pdf', 'doc', 'picture', or null for a file the
-// knowledge base reads well as it is (xlsx, xls, csv, md, txt, html).
+// What kind of text document a file gets: 'pptx', 'docx', 'xlsx', 'pdf', 'doc', 'picture', or null for a file the
+// knowledge base reads well as it is (xls, csv, md, txt, html).
 export function kindOf(name) {
   const ext = String(name).toLowerCase().match(/\.([a-z0-9]+)$/)?.[1];
-  if (['pptx', 'docx', 'pdf', 'doc'].includes(ext)) return ext;
+  if (['pptx', 'docx', 'xlsx', 'pdf', 'doc'].includes(ext)) return ext;
   return PICTURE.test(name) ? 'picture' : null;
 }
 
@@ -45,6 +57,78 @@ export function reader(model, region) {
       inferenceConfig: { maxTokens: 4000, temperature: 0 } }));
     return (response.output?.message?.content || []).map((b) => b.text || '').join('').trim();
   };
+}
+
+// The format and size of a picture, from its first bytes: { format, width, height } for png, jpeg, gif and webp,
+// the formats an image block takes, or null for any other.
+export function pictureInfo(bytes) {
+  const b = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.length);
+  if (b.length < 30) return null;
+  if (b.readUInt32BE(0) === 0x89504e47) return { format: 'png', width: b.readUInt32BE(16), height: b.readUInt32BE(20) };
+  if (b.toString('latin1', 0, 4) === 'GIF8') return { format: 'gif', width: b.readUInt16LE(6), height: b.readUInt16LE(8) };
+  if (b.toString('latin1', 0, 4) === 'RIFF' && b.toString('latin1', 8, 12) === 'WEBP') {
+    const chunk = b.toString('latin1', 12, 16);
+    if (chunk === 'VP8 ') return { format: 'webp', width: b.readUInt16LE(26) & 0x3fff, height: b.readUInt16LE(28) & 0x3fff };
+    if (chunk === 'VP8L') {
+      const bits = b.readUInt32LE(21);
+      return { format: 'webp', width: (bits & 0x3fff) + 1, height: ((bits >> 14) & 0x3fff) + 1 };
+    }
+    if (chunk === 'VP8X') return { format: 'webp', width: b.readUIntLE(24, 3) + 1, height: b.readUIntLE(27, 3) + 1 };
+    return null;
+  }
+  if (b[0] === 0xff && b[1] === 0xd8) {
+    // The size is in the first start-of-frame marker (C0-CF, except C4, C8 and CC).
+    for (let i = 2; i + 9 < b.length;) {
+      if (b[i] !== 0xff) {
+        i++;
+        continue;
+      }
+      const marker = b[i + 1];
+      if (marker === 0xff) i++; // fill byte
+      else if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) i += 2; // markers without a length
+      else if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) return { format: 'jpeg', width: b.readUInt16BE(i + 7), height: b.readUInt16BE(i + 5) };
+      else i += 2 + b.readUInt16BE(i + 2);
+    }
+  }
+  return null;
+}
+
+// Reads many pictures, READ_AT_ONCE at a time. jobs: [{ bytes, format, prompt }]; returns their texts in order.
+async function readAll(jobs, read) {
+  const texts = [];
+  for (let i = 0; i < jobs.length; i += READ_AT_ONCE) {
+    texts.push(...await Promise.all(jobs.slice(i, i + READ_AT_ONCE).map((j) => read(j.bytes, j.format, j.prompt))));
+  }
+  return texts;
+}
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+// The pictures of an extracted pptx, docx or xlsx, read by the model: each picture block gets its text. Returns
+// { read, skipped } counts for the "how" of the text document; small pictures are left out without a count.
+async function readPictures(extracted, read) {
+  const firstOf = new Map(); // a picture part -> its first block
+  const jobs = [];
+  let skipped = 0;
+  for (const block of extracted.blocks) {
+    if (block.type !== 'picture' || !block.part) continue;
+    if (firstOf.has(block.part)) {
+      block.same = true;
+      continue;
+    }
+    firstOf.set(block.part, block);
+    const bytes = extracted.media(block.part);
+    const info = bytes && pictureInfo(bytes);
+    if (info && small(info.width, info.height)) continue;
+    if (!info || bytes.length > MAX_PICTURE_BYTES || Math.max(info.width, info.height) > MAX_SIDE || jobs.length >= MAX_READ_PICTURES) {
+      skipped++;
+      continue;
+    }
+    jobs.push({ block, bytes, format: info.format, prompt: READ_PICTURE });
+  }
+  const texts = await readAll(jobs, read);
+  jobs.forEach((job, i) => (job.block.text = texts[i]));
+  return { read: jobs.length, skipped };
 }
 
 // ---------- pdf
@@ -141,30 +225,69 @@ function pagePicture(image) {
   }
 }
 
-// The pages of a pdf: [{ text, pictures }] where pictures (png buffers) are given only for a page without a
-// text layer, a scan, and only for the first maxScans of those (a picture of a page takes memory).
-export async function pdfPages(bytes, { maxScans = MAX_READ_PAGES } = {}) {
+// The pages of a pdf: [{ text, pictures, figures }] (png buffers).
+//   pictures  for a page without a text layer, a scan: its images, for the first maxScans of those pages
+//   figures   for a page with a text layer: the images drawn on it (a screenshot, a diagram), for the first
+//             maxFigures of those in the file; an image that covers most of the page is its background or the
+//             scan under a text layer made by OCR, and is left out, as is an image already taken on an earlier page
+export async function pdfPages(bytes, { maxScans = MAX_READ_PAGES, maxFigures = 0 } = {}) {
   const lib = await pdfLibrary();
+  const { OPS } = lib;
   const task = lib.getDocument({ data: new Uint8Array(bytes), isOffscreenCanvasSupported: false, useSystemFonts: false, verbosity: 0 });
   const doc = await task.promise;
   const pages = [];
+  const seen = new Set();
   let scans = 0;
+  let figures = 0;
   try {
     for (let n = 1; n <= doc.numPages; n++) {
       const page = await doc.getPage(n);
       const text = pageText((await page.getTextContent()).items);
-      const pictures = [];
-      if (text.replace(/\s/g, '').length < SCAN_TEXT && scans < maxScans) {
+      const short = text.replace(/\s/g, '').length < SCAN_TEXT;
+      const found = { pictures: [], figures: [] };
+      if ((short && scans < maxScans) || figures < maxFigures) {
+        // The page's images and the share of the page each covers.
+        const images = [];
+        const [x0, y0, x1, y1] = page.view;
+        const pageArea = Math.abs((x1 - x0) * (y1 - y0)) || 1;
+        // The area an image covers is the determinant of the transformation in force when it is drawn.
+        let ctm = [1, 0, 0, 1, 0, 0];
+        const stack = [];
+        const times = (m, t) => [t[0] * m[0] + t[1] * m[2], t[0] * m[1] + t[1] * m[3], t[2] * m[0] + t[3] * m[2], t[2] * m[1] + t[3] * m[3],
+          t[4] * m[0] + t[5] * m[2] + m[4], t[4] * m[1] + t[5] * m[3] + m[5]];
         const ops = await page.getOperatorList();
         for (let i = 0; i < ops.fnArray.length; i++) {
-          if (ops.fnArray[i] !== lib.OPS.paintImageXObject && ops.fnArray[i] !== lib.OPS.paintInlineImageXObject) continue;
-          const arg = ops.argsArray[i][0];
+          const fn = ops.fnArray[i];
+          const args = ops.argsArray[i];
+          if (fn === OPS.save) stack.push(ctm);
+          else if (fn === OPS.restore) ctm = stack.pop() || ctm;
+          else if (fn === OPS.transform) ctm = times(ctm, args);
+          else if (fn === OPS.paintFormXObjectBegin) {
+            stack.push(ctm);
+            if (Array.isArray(args?.[0]) || ArrayBuffer.isView(args?.[0])) ctm = times(ctm, [...args[0]]);
+          } else if (fn === OPS.paintFormXObjectEnd) ctm = stack.pop() || ctm;
+          if (fn !== OPS.paintImageXObject && fn !== OPS.paintInlineImageXObject) continue;
+          const arg = args[0];
           const image = typeof arg === 'string' ? await new Promise((resolve) => (arg.startsWith('g_') ? page.commonObjs : page.objs).get(arg, resolve)) : arg;
-          if (image?.data && image.width >= 200 && image.height >= 200) pictures.push(pagePicture(image));
+          if (image?.data) images.push({ image, share: Math.abs(ctm[0] * ctm[3] - ctm[1] * ctm[2]) / pageArea });
+        }
+        // A scan: little text and an image over half the page or more. Its images are read as the page.
+        if (short && scans < maxScans && images.some((x) => x.share > 0.5)) {
+          for (const { image } of images) if (image.width >= 200 && image.height >= 200) found.pictures.push(pagePicture(image));
+        } else {
+          for (const { image, share } of images) {
+            if (small(image.width, image.height) || share > 0.8 || share < 0.01 || figures + found.figures.length >= maxFigures) continue;
+            const png = pagePicture(image);
+            const key = createHash('sha1').update(png).digest('hex');
+            if (seen.has(key)) continue;
+            seen.add(key);
+            found.figures.push(png);
+          }
         }
       }
-      if (pictures.length) scans++;
-      pages.push({ text, pictures: pictures.slice(0, 4) });
+      if (found.pictures.length) scans++;
+      figures += found.figures.length;
+      pages.push({ text, pictures: found.pictures.slice(0, 4), figures: found.figures });
       page.cleanup();
     }
   } finally {
@@ -174,23 +297,30 @@ export async function pdfPages(bytes, { maxScans = MAX_READ_PAGES } = {}) {
 }
 
 async function pdfText(name, bytes, read) {
-  const pages = await pdfPages(bytes, { maxScans: read ? MAX_READ_PAGES : 0 });
-  const scans = pages.filter((page) => page.pictures.length);
-  // Four scanned pages at a time.
-  for (let i = 0; i < scans.length; i += 4) {
-    await Promise.all(scans.slice(i, i + 4).map(async (page) => {
-      const texts = [];
-      for (const picture of page.pictures) texts.push(await read(picture, 'png', READ_PAGE));
-      page.text = texts.join('\n\n');
-    }));
+  const pages = await pdfPages(bytes, { maxScans: read ? MAX_READ_PAGES : 0, maxFigures: read ? MAX_READ_PICTURES : 0 });
+  const jobs = [];
+  for (const page of pages) {
+    for (const picture of page.pictures) jobs.push({ page, scan: true, bytes: picture, format: 'png', prompt: READ_PAGE });
+    for (const picture of page.figures) jobs.push({ page, bytes: picture, format: 'png', prompt: READ_PICTURE });
   }
-  const scanned = scans.length;
+  const texts = await readAll(jobs, read);
+  for (const page of pages) {
+    page.scanText = [];
+    page.figureText = [];
+  }
+  jobs.forEach((job, i) => (job.scan ? job.page.scanText : job.page.figureText).push(texts[i]));
+  const scanned = pages.filter((page) => page.pictures.length).length;
+  const figures = jobs.filter((job) => !job.scan).length;
   const parts = [];
   for (const [i, page] of pages.entries()) {
-    if (page.text.trim()) parts.push(pages.length > 1 ? `## Page ${i + 1}\n\n${page.text.trim()}` : page.text.trim());
+    const body = [page.pictures.length ? page.scanText.join('\n\n') : page.text.trim(),
+      ...page.figureText.filter(Boolean).map((t) => `Picture, read by a model:\n\n${t.trim()}\n\n(End of picture)`)].filter((t) => t.trim()).join('\n\n');
+    if (body) parts.push(pages.length > 1 ? `## Page ${i + 1}\n\n${body}` : body);
   }
   if (!parts.length) return null;
-  return { text: `# ${name}\n\n${parts.join('\n\n')}\n`, how: scanned ? `text of ${pages.length} page(s), ${scanned} read from the scan by a model` : `text layer of ${pages.length} page(s)` };
+  const how = [scanned ? `text of ${plural(pages.length, 'page')}, ${scanned} read from the scan by a model` : `text layer of ${plural(pages.length, 'page')}`];
+  if (figures) how.push(`${plural(figures, 'picture')} on the pages read by a model`);
+  return { text: `# ${name}\n\n${parts.join('\n\n')}\n`, how: how.join(', ') };
 }
 
 // ---------- doc
@@ -212,10 +342,18 @@ async function docText(name, bytes) {
 // knowledge base reads well, an empty file, a picture and no model). read: see reader().
 export async function prepare(name, bytes, { read } = {}) {
   const kind = kindOf(name);
-  if (kind === 'pptx' || kind === 'docx') {
+  if (kind === 'pptx' || kind === 'docx' || kind === 'xlsx') {
     const extracted = extract(name, bytes);
-    const text = extracted && toMarkdown(extracted.blocks);
-    return text?.trim() ? { text, how: `text of the ${kind} file${extracted.notes?.length ? ', with its speaker notes' : ''}` } : null;
+    if (!extracted) return null;
+    const pictures = read ? await readPictures(extracted, read) : { read: 0, skipped: 0 };
+    // Headings alone are no text.
+    if (!extracted.blocks.some((block) => block.type !== 'heading' && toMarkdown([block]).trim())) return null;
+    const text = toMarkdown(extracted.blocks);
+    const how = [`text of the ${kind} file`];
+    if (extracted.notes?.length) how.push('with its speaker notes');
+    if (pictures.read) how.push(`${plural(pictures.read, 'picture')} in it read by a model`);
+    if (pictures.skipped) how.push(`${plural(pictures.skipped, 'picture')} not read (a format the model does not take, too large, or over ${MAX_READ_PICTURES})`);
+    return { text, how: how.join(', ') };
   }
   if (kind === 'pdf') return pdfText(name, bytes, read);
   if (kind === 'doc') return docText(name, bytes);

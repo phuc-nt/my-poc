@@ -14,11 +14,11 @@ import { prepare, reader, kindOf } from './prepare.mjs';
 const agent = new BedrockAgentClient({ region: config.region, maxAttempts: 6 });
 const s3 = new S3Client({ region: config.region });
 const BATCH = 10; // documents per IngestKnowledgeBaseDocuments or DeleteKnowledgeBaseDocuments call
-const MAX_PREPARE_BYTES = 20 << 20;
+const MAX_PREPARE_BYTES = 50 << 20; // a file with many pictures in it is large
 
 // The version of the preparation step. A sync keeps it with each file it has prepared; raising it makes every
 // sync prepare its files again.
-export const PREP = 1;
+export const PREP = 2;
 export const TEXT_MARK = '#text';
 // A file gets at most this many tries at its text document; after that it stays as the knowledge base reads it.
 export const PREP_TRIES = 3;

@@ -512,6 +512,7 @@ footer{margin:56px 0 0;padding:26px 0 46px;border-top:1px solid var(--grid);font
     <h3 class="sub">Preparation step trước Knowledge Base</h3>
     <p>Vì không chỉnh được parser, hệ thống đưa cho nó thứ mà nó đọc tốt. KB giữ 100% nội dung của file Markdown. Vậy với mỗi file đính kèm thuộc định dạng parser đọc kém, hệ thống tạo thêm một <b>text document</b>: nội dung của chính file đó, viết lại thành Markdown, đặt cạnh file gốc trong KB.</p>
     <p>File gốc không bị thay thế. Text document mang cùng link với file gốc, nên citation trong câu trả lời vẫn mở đúng file trên Jira hoặc Confluence.</p>
+    <p><b>Ảnh nằm trong file.</b> Dự án, nhất là dự án Nhật, hay dán thiết kế màn hình, flow và bảng vào Excel, PowerPoint, Word và PDF dưới dạng ảnh. Parser của KB không đọc chữ trong ảnh. Preparation step gửi từng ảnh cho vision model trong Region và đặt chữ đọc được đúng chỗ của ảnh: dòng của sheet, slide, đoạn văn, trang PDF. Bảng trong ảnh thành bảng. Icon, ảnh lặp lại và ảnh nền được bỏ qua. Thử trên bốn file tiếng Nhật tự tạo, mọi chữ trong ảnh được chép đúng.</p>
   </div>
 
   <figure class="fig reveal" id="fig-steps">
@@ -527,7 +528,7 @@ footer{margin:56px 0 0;padding:26px 0 46px;border-top:1px solid var(--grid);font
       <div class="stage-view">
         <div class="pane" data-p="0">
           <div class="card hl" style="--i:0"><span class="ext">PPTX</span><div><b>Chính sách hoàn tiền.pptx</b><small>đính kèm trên một Jira issue · version 2</small></div><span class="pill">có thay đổi</span></div>
-          <div class="card dim" style="--i:1"><span class="ext">XLSX</span><div><b>Bảng giá.xlsx</b><small>định dạng KB đã đọc tốt</small></div><span class="pill ghost">bỏ qua</span></div>
+          <div class="card dim" style="--i:1"><span class="ext">CSV</span><div><b>Bảng giá.csv</b><small>định dạng KB đã đọc tốt</small></div><span class="pill ghost">bỏ qua</span></div>
           <div class="card dim" style="--i:2"><span class="ext">PDF</span><div><b>Hợp đồng mẫu.pdf</b><small>version không đổi</small></div><span class="pill ghost">đã xử lý</span></div>
         </div>
         <div class="pane" data-p="1">
@@ -595,7 +596,7 @@ thành 14 ngày, cần kế toán xác nhận.</span></div>
       <summary>Xem dạng bảng</summary>
       <table class="data" id="dbtable"></table>
     </details>
-    <figcaption>Excel, Markdown, text và CSV không có trong biểu đồ: KB đã giữ 100% nội dung của chúng, nên hệ thống để nguyên. 4% còn thiếu của docx là ba từ trong một dòng code, không phải tiếng Việt.</figcaption>
+    <figcaption>Excel, Markdown, text và CSV không có trong biểu đồ: KB đã giữ 100% chữ trong ô của chúng. Excel vẫn đi qua Preparation step để đọc ảnh đặt trong sheet. 4% còn thiếu của docx là ba từ trong một dòng code, không phải tiếng Việt.</figcaption>
   </figure>
 
   <figure class="fig reveal" id="fig-score">
@@ -906,7 +907,7 @@ trưởng nhóm vắng mặt.</span></div>
     <div class="fig-head">
       <div>
         <h3>Chi phí model theo loại yêu cầu</h3>
-        <p class="fig-sub">Theo giá niêm yết của Claude Sonnet 5.5, đo trên dữ liệu thử nghiệm. Chưa gồm chi phí hạ tầng AWS.</p>
+        <p class="fig-sub">Theo giá niêm yết của Claude Sonnet 5.5, đo trên dữ liệu thử nghiệm. Chi phí AWS nằm ở bảng tiếp theo.</p>
       </div>
     </div>
     <div class="tscroll"><table class="data">
@@ -917,6 +918,26 @@ trưởng nhóm vắng mặt.</span></div>
       <tr><td>Báo cáo nghiên cứu</td><td>Research: 10–11 lần tra cứu</td><td class="n">0,21–0,26</td></tr>
     </table></div>
     <figcaption>Dòng đầu là trung bình của 79 câu hỏi. Các dòng còn lại đo trên một vài lần hỏi, nên chỉ cho biết cỡ của chi phí. Trang chi phí trong web UI cộng mức dùng thật theo tháng cho admin.</figcaption>
+  </figure>
+  <figure class="fig reveal" id="fig-run">
+    <div class="fig-head">
+      <div>
+        <h3>Chi phí sử dụng và vận hành theo tháng</h3>
+        <p class="fig-sub">Ước tính theo giá niêm yết. Giả định 80% câu hỏi thông thường, 20% câu hỏi tính trên bảng hoặc đếm trên Jira, báo cáo nghiên cứu tính riêng.</p>
+      </div>
+    </div>
+    <div class="tscroll"><table class="data">
+      <tr><th>Quy mô</th><th>Mức dùng mỗi tháng</th><th class="n">Model</th><th class="n">Lưu trữ KB</th><th class="n">AWS và tra cứu</th><th class="n">Tổng USD/tháng</th></tr>
+      <tr><td>Nhóm 10 người</td><td>1.000 câu, 20 báo cáo, 2 GB</td><td class="n">47</td><td class="n">10</td><td class="n">13</td><td class="n">≈ 70</td></tr>
+      <tr><td>Đơn vị 30 người</td><td>6.000 câu, 100 báo cáo, 10 GB</td><td class="n">276</td><td class="n">50</td><td class="n">36</td><td class="n">≈ 360</td></tr>
+      <tr><td>Triển khai 100 người</td><td>20.000 câu, 300 báo cáo, 30 GB</td><td class="n">912</td><td class="n">150</td><td class="n">96</td><td class="n">≈ 1.160</td></tr>
+    </table></div>
+    <div class="readout">
+      <div><div class="rv">65–80%</div><div class="rl">tổng chi phí là model, tăng theo số câu hỏi</div></div>
+      <div><div class="rv">≈ 9 USD</div><div class="rl">dịch vụ AWS cố định mỗi tháng (≈ 1 USD trong free tier)</div></div>
+      <div><div class="rv">5,4 USD</div><div class="rl">chi phí AWS thực tế của hai ngày thử nghiệm, đọc từ Cost Explorer</div></div>
+    </div>
+    <figcaption>Lưu trữ KB tính 5 USD mỗi GB tài liệu mỗi tháng. Dịch vụ cố định gồm monitoring, đăng nhập, ứng dụng và secret, gần như không đổi theo quy mô. Đọc ảnh và trang scan bằng vision model tốn khoảng 0,002–0,005 USD mỗi ảnh và chỉ trả một lần cho mỗi version của file. Claude API do Anthropic tính tiền riêng, ngoài hóa đơn AWS. Tài khoản Atlassian mà connector dùng có thể tính là một user trả phí. Công vận hành ước khoảng 2–4 giờ mỗi tháng. Chi tiết trong docs/04-cost-estimate.md của repo.</figcaption>
   </figure>
 </section>
 
@@ -1001,8 +1022,8 @@ trưởng nhóm vắng mặt.</span></div>
     <li><b>Giới hạn của đếm và tính</b><span>query_jira đọc tối đa 2.000 issue mỗi truy vấn và báo khi còn nhiều hơn. query_table chỉ tính trên bảng còn giữ được dạng bảng; bảng mà PDF hoặc trang scan trả về thành văn xuôi thì không tính được. list_documents hiện 300 tài liệu mỗi lần, kèm tổng số chính xác.</span></li>
     <li><b>Giới hạn của Research mode</b><span>Một báo cáo chạy trong một request 300 giây; mục nào chưa viết xong khi hết giờ được thay bằng một dòng nói rõ điều đó. Báo cáo đầy đủ đến mức tài liệu tìm được cho phép. Chi phí mới được đo trên vài báo cáo.</span></li>
     <li><b>Số source trên mỗi Knowledge Base</b><span>Một KB có tối đa 5 data source. Mỗi Confluence source dùng 2 (connector và text document), nên khi thêm nhiều space sẽ cần thêm KB.</span></li>
-    <li><b>File lớn</b><span>File trên 20 MB không đi qua Preparation step. Chúng vẫn ở trong KB, với chất lượng của parser.</span></li>
-    <li><b>Chi phí hạ tầng</b><span>Phần 9 chỉ nêu chi phí model của từng yêu cầu. Chi phí AWS của hệ thống và chi phí của Preparation step chưa được đo riêng. Vision model chỉ chạy cho ảnh và trang scan, một lần cho mỗi version của file.</span></li>
+    <li><b>File lớn</b><span>File trên 50 MB không đi qua Preparation step. Mỗi file chỉ đọc tối đa 40 ảnh bên trong; ảnh dạng emf, wmf, tiff, svg không được đọc. Chúng vẫn ở trong KB, với chất lượng của parser.</span></li>
+    <li><b>Chi phí là ước tính</b><span>Chi phí AWS đo được trên hai ngày thử nghiệm nằm gọn trong free tier với CloudWatch và Lambda. Con số theo tháng ở Phần 9 là ước tính theo giá niêm yết, cần đo lại trong pilot với tài liệu thật. Vision model chỉ chạy cho ảnh và trang scan, một lần cho mỗi version của file.</span></li>
     <li><b>Câu hỏi và passage rời khỏi AWS project</b><span>Chat model là Claude Sonnet 5.5 qua Claude API, nên câu hỏi và các passage liên quan được gửi ra ngoài Region để viết câu trả lời. Cần một quyết định về bảo mật dữ liệu trước khi dùng với tài liệu thật. Chế độ Fast và Deep đổi được về một model trong Region bằng một setting; chế độ Agent và Research thì không.</span></li>
     <li><b>Phép so sánh web UI và MCP</b><span>79 câu hỏi, mỗi câu chạy một lần, và phía MCP chỉ đo với Claude Code. Phần chấm bằng tay do chính AI coding assistant đã xây hệ thống thực hiện, biết câu trả lời đến từ bên nào, nên không phải chấm mù. Trước khi hướng dẫn cho model được chỉnh một dòng, web UI đạt 76/79. Hai câu được sửa vẫn chưa ổn định: khi chạy lại mỗi câu ba lần, web UI đạt 3/3 và 1/3, Claude Code đạt 3/3 và 2/3. Chênh lệch một hai câu trên 79 nằm trong mức dao động đó.</span></li>
     <li><b>Nhật ký câu hỏi</b><span>Để có trang KB quality, câu hỏi được lưu 180 ngày, không kèm người hỏi, và admin đọc được; trang này cũng cho admin thấy tên các tài liệu được trích. Cần thông báo điều này cho người dùng trước khi dùng thật.</span></li>
@@ -1012,7 +1033,7 @@ trưởng nhóm vắng mặt.</span></div>
 </main>
 
 <footer>
-  <div class="wrap">Project Notebook là một proof of concept. Số liệu trong tài liệu này được đo ngày 14/11/2026 trên dữ liệu giả lập, không phải tài liệu thật của dự án nào.</div>
+  <div class="wrap">Project Notebook là một proof of concept. Số liệu trong tài liệu này được đo ngày 14/11/2026 trên dữ liệu giả lập, không phải tài liệu thật của dự án nào. Chi phí AWS đọc từ Cost Explorer ngày 16/11/2026.</div>
 </footer>
 
 
@@ -1078,9 +1099,9 @@ const hideTip = () => tip.classList.remove('show');
     { id: 'monitor', x: 250, y: 180, w: 250, h: 150, t: 'Sync Monitor', s: 'AWS Lambda · mỗi 15 phút', f: 'ingest', wrap: true,
       d: 'Chạy mỗi 15 phút: phát hiện file mới, file đổi version và file bị gỡ; đồng bộ Jira; đọc lại restriction của page và security level của issue; theo dõi trạng thái từng source và báo khi có source lỗi thời hoặc file không đọc được.' },
     { id: 'prep', x: 268, y: 252, w: 214, h: 64, t: 'Preparation step', s: 'file → Markdown', f: 'ingest', isNew: true,
-      d: 'Với pptx, docx, doc, pdf, trang scan và ảnh, bước này viết lại nội dung của file thành một text document dạng Markdown, gồm cả bảng và speaker notes, rồi đặt nó cạnh file gốc trong Knowledge Base.' },
+      d: 'Với pptx, docx, xlsx, doc, pdf, trang scan và ảnh, bước này viết lại nội dung của file thành một text document dạng Markdown, gồm cả bảng, speaker notes và chữ trong ảnh đặt bên trong file, rồi đặt nó cạnh file gốc trong Knowledge Base.' },
     { id: 'vision', x: 250, y: 410, w: 119, h: 60, t: 'Vision model', s: 'Qwen3 VL', f: 'ingest',
-      d: 'Model có khả năng đọc ảnh, chạy trên Amazon Bedrock trong cùng Region. Chỉ dùng cho ảnh và trang scan, nơi không có text để trích. Đổi model bằng một setting.' },
+      d: 'Model có khả năng đọc ảnh, chạy trên Amazon Bedrock trong cùng Region. Chỉ dùng cho ảnh, trang scan và ảnh đặt trong file Office hoặc PDF (thiết kế màn hình, flow, bảng dán dạng ảnh), nơi không có text để trích. Đổi model bằng một setting.' },
     { id: 'bucket', x: 381, y: 410, w: 119, h: 60, t: 'S3 bucket', s: 'text document', f: 'ingest',
       d: 'Lưu các text document trong AWS project của công ty. Khi file gốc bị gỡ khỏi Jira hoặc Confluence, text document của nó bị xoá theo.' },
     { id: 'kb', x: 596, y: 100, w: 190, h: 230, t: 'Knowledge Bases', s: 'Amazon Bedrock, managed', f: 'ingest query', top: true,
@@ -1190,7 +1211,7 @@ const hideTip = () => tip.classList.remove('show');
 /* ---------- 3. step player ---------- */
 player($('#fig-steps'), [
     ['Phát hiện', 'Phát hiện file mới hoặc đổi version', 'Mỗi 15 phút, Sync Monitor so version của từng file đính kèm trên Jira và Confluence. Chỉ file mới hoặc file đã đổi version mới được xử lý; định dạng KB đã đọc tốt thì bỏ qua.'],
-    ['Trích nội dung', 'Lấy nội dung từ chính file', 'Text được đọc thẳng từ file: slide, bảng và speaker notes của PowerPoint; đoạn văn và bảng của Word; text layer của PDF. Ảnh và trang scan được một vision model trong Region đọc.'],
+    ['Trích nội dung', 'Lấy nội dung từ chính file', 'Text được đọc thẳng từ file: slide, bảng và speaker notes của PowerPoint; đoạn văn và bảng của Word; từng sheet của Excel; text layer của PDF. Ảnh, trang scan và ảnh đặt trong file được một vision model trong Region đọc, và chữ đọc được nằm đúng chỗ của ảnh.'],
     ['Tạo text document', 'Viết lại thành Markdown', 'Nội dung được viết thành một file Markdown, định dạng mà Knowledge Base giữ được 100%, và lưu vào S3 bucket trong AWS project của công ty.'],
     ['Nạp vào KB', 'Đặt cạnh file gốc trong Knowledge Base', 'Text document được nạp vào cùng source với file gốc và mang cùng link. File gốc ở nguyên chỗ cũ, không bị thay thế.'],
     ['Trả lời', 'Trả lời có citation về file gốc', 'Khi có câu hỏi, passage đến từ cả hai bản. Người dùng chỉ thấy một nguồn duy nhất; bấm citation là mở đúng file gốc trên Jira hoặc Confluence.'],

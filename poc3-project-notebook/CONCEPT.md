@@ -63,7 +63,7 @@ The concept answers four needs:
 | Knowledge bases | Amazon Bedrock Managed Knowledge Bases. Each holds up to five data sources. The service extracts the text of pages and files, cuts it into passages and makes them searchable by words and by meaning |
 | Confluence sources | One per set of spaces, read by AWS's managed Confluence connector once a day, or at once with "sync now" |
 | Jira sources | One per set of projects. The service has no Jira connector, so the app's monitor reads the issues, comments and attachments changed since its last run, every 15 minutes |
-| The step before the knowledge base | The managed parser keeps about half the words of some file formats in Vietnamese and none of a slide's speaker notes. So for Word, PowerPoint and PDF files, scans and pictures, the monitor adds a second document with the file's full text. Pictures and scanned pages are read by a model with image input, served in the Region. A citation still opens the file |
+| The step before the knowledge base | The managed parser keeps about half the words of some file formats in Vietnamese and none of a slide's speaker notes. So for Word, Excel, PowerPoint and PDF files, scans and pictures, the monitor adds a second document with the file's full text. Pictures, scanned pages and the pictures placed inside Office and PDF files are read by a model with image input, served in the Region. A citation still opens the file |
 | **The app** | |
 | Web app | A single page served by Amazon CloudFront from a private bucket |
 | Sign-in | Amazon Cognito: sign-up with email and a confirmation code, password reset |
@@ -122,6 +122,7 @@ The test content is invented: wiki pages and blog posts, issues with comments, a
 | **End to end.** An automated test signs in as five accounts (an administrator, members with different grants, a person not yet approved) and checks the deployed app through its public address, the web routes and the MCP server alike | 88 of 88 checks passed |
 | **Attached files.** 38 questions, each answered from one part of one file (a sheet, a slide, a table, speaker notes, a scanned page, a picture), attached to Jira issues and to Confluence pages | 38 of 38. On the files alone, without the step before the knowledge base: 34 of 38 |
 | **Words kept from a file.** How much of a file's true text reaches the knowledge base | With the file's text document: 96 to 100%. The managed parser alone, on Word, PowerPoint and PDF files in Vietnamese: 47 to 62% |
+| **Pictures inside files.** Four Japanese files (xlsx, pptx, docx, pdf) with screen captures, a flow chart and tables pasted as pictures, through the step before the knowledge base | The text of every picture was transcribed word for word and placed where the picture stands; tables came out as tables. Not yet asked through a deployed knowledge base |
 | **A file attached or removed later** | Answered from after the next sync, and gone from the answers after it was removed |
 | **The web app's agent against a coding agent.** The same 79 questions, the same model, through the web app's agent mode and through Claude Code with the MCP server | 78 of 79 each. The web app's first run scored 76; one line was then added to its instructions, so 76 is the unbiased number |
 | **Page and issue restrictions.** Lists, search, reader, source guide, MCP and agent mode, against a restriction index written by hand | 12 of 12 checks. Reading real restrictions from Confluence and Jira was not tested: the test site had neither feature |
@@ -166,7 +167,7 @@ The cost of a fast-mode question and of a studio output with Claude Sonnet 5.5 w
 | An agentic search (deep mode) | 0.004 USD |
 | Each custom CloudWatch metric | about 0.30 USD a month |
 
-An earlier build of the same size cost about 10 USD a month in AWS services, most of it monitoring. The AWS cost of the current build was not measured again: it adds the 15-minute Jira sync and the reading of pictures and scanned pages, one model call per page for each new file version.
+The fixed AWS services cost about 9 USD a month at list price, and about 1 USD while the AWS free tier covers CloudWatch and Lambda. The PoC's two test days cost 1.84 and 3.53 USD in AWS, nearly all of it searches and models. Reading a picture or a scanned page costs about 0.002 to 0.005 USD, once per file version. The full estimate, with monthly scenarios, is in [docs/04-cost-estimate.md](docs/04-cost-estimate.md).
 
 **A worked example.** 30 people asking 6,000 questions a month in agent mode: about 180 USD for the model. 10 GB of indexed documents: 50 USD for storage. Add the fixed AWS services. Storage grows with the documents, the model cost with the questions.
 
@@ -185,7 +186,7 @@ An earlier build of the same size cost about 10 USD a month in AWS services, mos
 | Exact counts have ceilings | `query_jira` reads at most 2,000 issues per query and says so when there are more; a document list shows 300 documents with the exact total; a table that a PDF or scan gave as running text cannot be computed | Narrow the query |
 | A research report runs inside 300 seconds | A section still writing near the end is replaced by a line saying so | A narrower topic |
 | Five data sources per knowledge base | More spaces and projects need more knowledge bases, searched together | Already handled by the design; it is a quota of the service |
-| A file over 20 MB gets no text document | It is answered from what the managed parser reads | Split the file |
+| A file over 50 MB gets no text document, and at most 40 pictures inside one file are read | It is answered from what the managed parser reads | Split the file |
 | Content is sent to the Claude API | Questions and the passages they read leave the AWS project | A data owner's decision (section 7), or a Bedrock model in the Region for fast and deep mode |
 | No per-person rate limit | One person or a script could run up the model cost | A daily quota per person before a wider pilot; a spend limit on the Claude API workspace |
 | The question log | Administrators read every question asked in the web app; a question's own words can point to a person | Tell the users; items expire after 180 days |
@@ -217,5 +218,6 @@ Rovo is Atlassian's AI built into Confluence and Jira. It was not run in this Po
 
 - [docs/01-executive-overview.md](docs/01-executive-overview.md): the short version for leadership.
 - [docs/02-engineering-guide.md](docs/02-engineering-guide.md): the architecture, every AWS resource, the permissions, and how to deploy it in your own environment (section 7).
+- [docs/04-cost-estimate.md](docs/04-cost-estimate.md): the cost of use and of running, measured and estimated, with monthly scenarios.
 - [README.md](README.md): the layout of the code, the test results in full, and what was learned building it.
 - [BACKLOG.md](BACKLOG.md): what is not built yet (in Vietnamese).

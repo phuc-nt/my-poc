@@ -272,7 +272,7 @@ export async function documentContent(source, docId, format = 'EXTRACTED') {
 }
 
 // The formats that get a text document (prepare.mjs kindOf).
-const PREPARED = /\.(pptx|docx|doc|pdf|png|jpe?g|gif|webp)$/i;
+const PREPARED = /\.(pptx|docx|xlsx|doc|pdf|png|jpe?g|gif|webp)$/i;
 
 // One element of a parsed document: its text, or a table's rows as lines of cells.
 const elementText = (x) => (x.tableRows?.length ? x.tableRows.map((row) => row.join(' | ')).join('\n') : (x.text || '').trim());
