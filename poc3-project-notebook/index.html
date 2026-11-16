@@ -906,7 +906,7 @@ trưởng nhóm vắng mặt.</span></div>
     <div class="fig-head">
       <div>
         <h3>Chi phí model theo loại yêu cầu</h3>
-        <p class="fig-sub">Theo giá niêm yết của Claude Sonnet 5.5, đo trên dữ liệu thử nghiệm. Chưa gồm chi phí hạ tầng AWS.</p>
+        <p class="fig-sub">Theo giá niêm yết của Claude Sonnet 5.5, đo trên dữ liệu thử nghiệm. Chi phí AWS nằm ở bảng tiếp theo.</p>
       </div>
     </div>
     <div class="tscroll"><table class="data">
@@ -917,6 +917,26 @@ trưởng nhóm vắng mặt.</span></div>
       <tr><td>Báo cáo nghiên cứu</td><td>Research: 10–11 lần tra cứu</td><td class="n">0,21–0,26</td></tr>
     </table></div>
     <figcaption>Dòng đầu là trung bình của 79 câu hỏi. Các dòng còn lại đo trên một vài lần hỏi, nên chỉ cho biết cỡ của chi phí. Trang chi phí trong web UI cộng mức dùng thật theo tháng cho admin.</figcaption>
+  </figure>
+  <figure class="fig reveal" id="fig-run">
+    <div class="fig-head">
+      <div>
+        <h3>Chi phí sử dụng và vận hành theo tháng</h3>
+        <p class="fig-sub">Ước tính theo giá niêm yết. Giả định 80% câu hỏi thông thường, 20% câu hỏi tính trên bảng hoặc đếm trên Jira, báo cáo nghiên cứu tính riêng.</p>
+      </div>
+    </div>
+    <div class="tscroll"><table class="data">
+      <tr><th>Quy mô</th><th>Mức dùng mỗi tháng</th><th class="n">Model</th><th class="n">Lưu trữ KB</th><th class="n">AWS và tra cứu</th><th class="n">Tổng USD/tháng</th></tr>
+      <tr><td>Nhóm 10 người</td><td>1.000 câu, 20 báo cáo, 2 GB</td><td class="n">47</td><td class="n">10</td><td class="n">13</td><td class="n">≈ 70</td></tr>
+      <tr><td>Đơn vị 30 người</td><td>6.000 câu, 100 báo cáo, 10 GB</td><td class="n">276</td><td class="n">50</td><td class="n">36</td><td class="n">≈ 360</td></tr>
+      <tr><td>Triển khai 100 người</td><td>20.000 câu, 300 báo cáo, 30 GB</td><td class="n">912</td><td class="n">150</td><td class="n">96</td><td class="n">≈ 1.160</td></tr>
+    </table></div>
+    <div class="readout">
+      <div><div class="rv">65–80%</div><div class="rl">tổng chi phí là model, tăng theo số câu hỏi</div></div>
+      <div><div class="rv">≈ 9 USD</div><div class="rl">dịch vụ AWS cố định mỗi tháng (≈ 1 USD trong free tier)</div></div>
+      <div><div class="rv">5,4 USD</div><div class="rl">chi phí AWS thực tế của hai ngày thử nghiệm, đọc từ Cost Explorer</div></div>
+    </div>
+    <figcaption>Lưu trữ KB tính 5 USD mỗi GB tài liệu mỗi tháng. Dịch vụ cố định gồm monitoring, đăng nhập, ứng dụng và secret, gần như không đổi theo quy mô. Đọc ảnh và trang scan bằng vision model tốn khoảng 0,002–0,005 USD mỗi ảnh và chỉ trả một lần cho mỗi version của file. Claude API do Anthropic tính tiền riêng, ngoài hóa đơn AWS. Tài khoản Atlassian mà connector dùng có thể tính là một user trả phí. Công vận hành ước khoảng 2–4 giờ mỗi tháng. Chi tiết trong docs/04-cost-estimate.md của repo.</figcaption>
   </figure>
 </section>
 
@@ -1002,7 +1022,7 @@ trưởng nhóm vắng mặt.</span></div>
     <li><b>Giới hạn của Research mode</b><span>Một báo cáo chạy trong một request 300 giây; mục nào chưa viết xong khi hết giờ được thay bằng một dòng nói rõ điều đó. Báo cáo đầy đủ đến mức tài liệu tìm được cho phép. Chi phí mới được đo trên vài báo cáo.</span></li>
     <li><b>Số source trên mỗi Knowledge Base</b><span>Một KB có tối đa 5 data source. Mỗi Confluence source dùng 2 (connector và text document), nên khi thêm nhiều space sẽ cần thêm KB.</span></li>
     <li><b>File lớn</b><span>File trên 20 MB không đi qua Preparation step. Chúng vẫn ở trong KB, với chất lượng của parser.</span></li>
-    <li><b>Chi phí hạ tầng</b><span>Phần 9 chỉ nêu chi phí model của từng yêu cầu. Chi phí AWS của hệ thống và chi phí của Preparation step chưa được đo riêng. Vision model chỉ chạy cho ảnh và trang scan, một lần cho mỗi version của file.</span></li>
+    <li><b>Chi phí là ước tính</b><span>Chi phí AWS đo được trên hai ngày thử nghiệm nằm gọn trong free tier với CloudWatch và Lambda. Con số theo tháng ở Phần 9 là ước tính theo giá niêm yết, cần đo lại trong pilot với tài liệu thật. Vision model chỉ chạy cho ảnh và trang scan, một lần cho mỗi version của file.</span></li>
     <li><b>Câu hỏi và passage rời khỏi AWS project</b><span>Chat model là Claude Sonnet 5.5 qua Claude API, nên câu hỏi và các passage liên quan được gửi ra ngoài Region để viết câu trả lời. Cần một quyết định về bảo mật dữ liệu trước khi dùng với tài liệu thật. Chế độ Fast và Deep đổi được về một model trong Region bằng một setting; chế độ Agent và Research thì không.</span></li>
     <li><b>Phép so sánh web UI và MCP</b><span>79 câu hỏi, mỗi câu chạy một lần, và phía MCP chỉ đo với Claude Code. Phần chấm bằng tay do chính AI coding assistant đã xây hệ thống thực hiện, biết câu trả lời đến từ bên nào, nên không phải chấm mù. Trước khi hướng dẫn cho model được chỉnh một dòng, web UI đạt 76/79. Hai câu được sửa vẫn chưa ổn định: khi chạy lại mỗi câu ba lần, web UI đạt 3/3 và 1/3, Claude Code đạt 3/3 và 2/3. Chênh lệch một hai câu trên 79 nằm trong mức dao động đó.</span></li>
     <li><b>Nhật ký câu hỏi</b><span>Để có trang KB quality, câu hỏi được lưu 180 ngày, không kèm người hỏi, và admin đọc được; trang này cũng cho admin thấy tên các tài liệu được trích. Cần thông báo điều này cho người dùng trước khi dùng thật.</span></li>
@@ -1012,7 +1032,7 @@ trưởng nhóm vắng mặt.</span></div>
 </main>
 
 <footer>
-  <div class="wrap">Project Notebook là một proof of concept. Số liệu trong tài liệu này được đo ngày 14/11/2026 trên dữ liệu giả lập, không phải tài liệu thật của dự án nào.</div>
+  <div class="wrap">Project Notebook là một proof of concept. Số liệu trong tài liệu này được đo ngày 14/11/2026 trên dữ liệu giả lập, không phải tài liệu thật của dự án nào. Chi phí AWS đọc từ Cost Explorer ngày 16/11/2026.</div>
 </footer>
 
 
