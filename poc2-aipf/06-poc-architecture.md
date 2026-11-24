@@ -1441,3 +1441,19 @@ The Cloudflare image has OpenCode 2.2.5 as a second engine. It runs Claude model
 - **Decision:** Claude Code stays the default engine. OpenCode needs two fixes before another comparison can judge review quality: count the calls inside `execute`, and wait for the MCP server before the agent starts. Pricing its tokens from the registry is also needed before its cost limit can be trusted.
 
 After the round, `opencode` was denied again (`engines list`: `claude-code` only), and on 2026-11-02 the Anthropic API key was removed from the Worker (`aipf.sh api-key remove`); the owner revokes it in the Anthropic Console.
+
+### 22.12 The first run on a real repository (2026-11-24)
+
+Two deployments on Cloudflare, one per application repository: `aipf-otlx` (`on-thi-lai-xe`, Jira `OTLX`) and `aipf-of` (`open-font`, Jira `OF`). The architecture and the runbook are in `09-app-projects-on-cloud.md` (Vietnamese). The first run, OF-1 on `aipf-of`, ran from 07:51 to 08:38 UTC.
+
+| | OF-1 |
+|---|---|
+| Result | Done at attempt 3, about 47 min |
+| Sessions | 9: pm 2, designer 1 (Opus 5.5), developer 3, reviewer 1, tester 1, operator 1 |
+| Cost at list prices | about $4.42 (flat fee: $0 real); developer $3.53, designer $0.52 |
+| Cloudflare, `aipf-of`, 2026-11-01 to 24 | $0.142 at list prices, inside the Workers Paid allowance; containers $0.12 (15.1 vCPU-min) |
+| Failures | 4 sessions with a 403 "Request not allowed" before any tool call (pm #2, developer #2, reviewer #3, operator #3); developer #1 hit max turns |
+
+- **The 403s** come from the model API, not from the agent. The likely cause is the container's location: Cloudflare places a container where it has capacity, and the API refuses some locations. The session containers now run only in North America (`constraints.regions` `WNAM`, `ENAM`), deployed on 2026-11-24. Not yet checked by a run.
+- **The reviewer was waived** after its 403, so pull request 1 reached `main` with the person's review only. **The tester covered one acceptance criterion** (AC5) of several.
+- **Built after the run (product `cf5efe6`):** the agents' review files beside the pull request (for `open-font`, the preview images); a branch per environment (`STAGING_BRANCH=staging`: pull requests merge into `staging`, and the production release fast-forwards `main` to the accepted commit before it starts `deploy.yml`); a Jira item per environment (`ENV_ITEMS=on`); and UAT, where the owner tests staging through a signed link and approves, asks for a fix or reverts before the run ends.

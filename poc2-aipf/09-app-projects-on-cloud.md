@@ -1,7 +1,8 @@
 # AIPF: hai dự án thật chạy trọn trên cloud (kiến trúc và vận hành)
 
-Trạng thái ngày 2026-11-24: **hai deployment AIPF đã lên Cloudflare; chưa có run nào chạy**, vì còn chờ chủ dự án
-nhập token gói Claude và tạo console user (mục 6). Chưa có lần deploy production nào qua luồng mới.
+Trạng thái ngày 2026-11-24: **hai deployment AIPF đã lên Cloudflare; run đầu tiên (OF-1, `open-font`) đã xong**
+(mục 3). Từ cuối ngày, mỗi môi trường có nhánh git và issue Jira riêng, và run chỉ kết thúc khi chủ dự án chấp
+nhận bản staging (UAT). Chưa có lần deploy production nào qua luồng mới.
 
 ## 1. Mục tiêu
 
@@ -23,23 +24,45 @@ staging), vì một deployment chỉ gắn với một repo. Agent là Claude Co
 | Console của AIPF (web) | Giao việc: bắt đầu một run từ mã issue Jira, hoặc viết một việc mới ngay trên form (AIPF tạo issue). Duyệt, trả lời agent, xem phiên và chi phí, bấm deploy production |
 | Cloud session của Claude Code | Giao việc kiểu trò chuyện, ở claude.ai/code, nằm ngoài AIPF (mục 5) |
 | Jira | Sổ việc. Project mang đúng tên repo |
-| GitHub | Code. Agent chỉ push nhánh `agent/…`; merge vào `main` do AIPF làm sau khi người duyệt |
+| GitHub | Code. Agent chỉ push nhánh `agent/…`; AIPF merge vào `staging` sau khi người duyệt, và đưa `staging` lên `main` chỉ khi deploy production |
 | GitHub Actions (`deploy.yml` của repo) | Deploy production. Chỉ nó giữ token Cloudflare (GitHub secret của repo) |
 | Container của AIPF | Một image cho mọi vai: phiên agent, builder (CI), staging |
 | `.aipf/environment.yaml` trong repo | Cách cài, kiểm, dựng và chạy repo. AIPF chỉ đọc file này |
 
-Luồng một việc: issue Jira → PM → Designer → Developer → CI → **người duyệt** → merge → staging → Tester →
-Operator → xong → **admin bấm "Deploy to production"** trên trang của run.
+Luồng một việc: issue Jira → PM → Designer → Developer → CI → **người duyệt** (PR và các file agent để lại) →
+merge vào `staging` → deploy staging → Tester → Operator → **chủ dự án UAT trên staging** (approve, fix hoặc
+revert) → xong → **admin bấm "Deploy to production"** trên trang của run: AIPF đưa `staging` lên `main` rồi chạy
+workflow production.
 
 Bước của issue Jira theo run: "In Progress" lúc chạy, "Under Review" lúc chờ duyệt, "Approved" sau merge, "Done"
 lúc xong. AIPF đọc tên bước từ `JIRA_STATUSES` trong `secrets.env`.
+
+Issue theo môi trường (`ENV_ITEMS=on`): mỗi issue gốc có ba issue con `[Dev] KEY: tóm tắt`, `[Staging] KEY: …`,
+`[Production] KEY: …`, gắn nhãn `aipf-env`, `aipf-env-dev` (hay `-staging`, `-production`) và `aipf-item-KEY`.
+Lọc một việc: `labels = aipf-item-OF-1`; lọc một môi trường: `labels = aipf-env-staging`.
+
+### Nhánh theo môi trường
+
+| Nhánh | Môi trường | Ai ghi |
+|---|---|---|
+| `agent/KEY` | Dev | Agent Developer |
+| `staging` (`STAGING_BRANCH=staging`) | Staging | AIPF merge PR đã duyệt vào đây; AIPF tạo nhánh từ `main` nếu chưa có |
+| `main` | Production | Chỉ AIPF, lúc deploy production: fast-forward `main` lên commit đã UAT. Nếu `main` có commit không nằm trên `staging`, AIPF từ chối và báo |
+
+### UAT
+
+Sau Tester và Operator, run chờ chủ dự án tối đa 3 ngày. Trang của run có: link staging (có chữ ký, hạn 12 giờ,
+qua Worker `<app>-uat`), hướng dẫn test do agent viết (kiểm cái gì, làm sao), và các file agent để lại trên
+staging. Ba lựa chọn: **approve** (run xong), **fix** (lời nhận xét thành một lượt làm lại, rồi qua lại CI,
+staging và UAT), **revert** (gỡ thay đổi khỏi `staging`). Hết hạn mà không chọn: run sang "needs a person".
+Tắt UAT cho một deployment: `AIPF_UAT=off`.
 
 ### Ba môi trường
 
 | | Dev | Staging | Production |
 |---|---|---|---|
 | Chạy ở | Container phiên agent, mỗi việc một cái | Một container cho mỗi repo | Worker thật trên Cloudflare |
-| Code | Nhánh `agent/…`, đang viết, chưa duyệt | `main` đã duyệt, một release ở một commit | Commit đã được chấp nhận trên staging |
+| Code | Nhánh `agent/…`, đang viết, chưa duyệt | Nhánh `staging`: các PR đã duyệt, một release ở một commit | `main`: commit đã UAT trên staging |
 | Ai dùng | Agent Developer | Agent Tester và chủ dự án | Người dùng thật |
 | Dữ liệu | D1 local, mất khi hết phiên | D1 local, trống lại sau mỗi release | D1 thật |
 | Mạng | Có internet | Không có internet | Tên miền thật |
@@ -55,8 +78,9 @@ cron, rate limit và secret (`ADMIN_PASSWORD`). Lỗi thuộc nhóm đó chỉ l
 - Workflow `.github/workflows/deploy.yml` của từng repo: lấy một commit của `main`, chạy migration D1, rồi
   `wrangler deploy`. Chạy bằng tay (Actions > "Deploy to production" > Run workflow) hoặc do AIPF kích hoạt.
 - AIPF kích hoạt khi một admin bấm "Deploy to production" trên trang của một run đã xong (thiết lập
-  `PRODUCTION_WORKFLOW=deploy.yml`). Nó gửi commit mà run được chấp nhận trên staging. AIPF **không giữ token
-  Cloudflare** và không theo dõi workflow: kết quả xem ở GitHub Actions.
+  `PRODUCTION_WORKFLOW=deploy.yml`). Nó fast-forward `main` lên commit mà run được chấp nhận trên staging, rồi
+  gửi commit đó cho workflow. AIPF **không giữ token Cloudflare**; reconciler theo dõi lần chạy của workflow và
+  ghi kết quả vào run và issue `[Production]`.
 - GitHub secret của repo: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, và `D1_DATABASE_ID` ở `on-thi-lai-xe`.
   Chủ dự án đã đặt ngày 2026-11-24.
 
@@ -88,6 +112,32 @@ Công cụ của `open-font` trong container: `xem` 4,8 giây, `specimen --png` 
 Cỡ image so với đĩa của container trên Cloudflare: class nhỏ nhất AIPF dùng là `standard-1` (đĩa 8 GB), nên cả
 hai image đều vừa.
 
+### Run đầu tiên: OF-1 trên `aipf-of` (2026-11-24, 07:51 đến 08:38 UTC)
+
+Việc: họ nháp "Cổ Văn" mô phỏng chữ tựa "Cổ Văn Học Sử". Kết quả: **xong** sau khoảng 47 phút, ở lượt (attempt)
+thứ 3. PR 1 đã merge vào `main` (trước khi có nhánh `staging`); chưa deploy production.
+
+| Phiên | Model | Thời gian agent | Kết quả | Chi phí ước tính |
+|---|---|---|---|---|
+| pm #1 | Sonnet 5.5 | 20 s | xong | $0,16 |
+| pm #2 | Sonnet 5.5 | 3 s | lỗi 403, 0 tool call | $0 |
+| designer #1 | Opus 5.5 | 90 s | `ready` | $0,52 |
+| developer #1 | Sonnet 5.5 | 630 s, 81 turn | hết max turns, không có PR | $2,20 |
+| developer #2 | Sonnet 5.5 | 2 s | lỗi 403 | $0 |
+| developer #3 | Sonnet 5.5 | 334 s, 56 turn | mở PR | $1,32 |
+| reviewer #3 | Sonnet 5.5 | 2 s | lỗi 403, bước review bị bỏ qua | $0 |
+| tester #3 | Sonnet 5.5 | 33 s | `pass`, chỉ kiểm tiêu chí AC5 | $0,21 |
+| operator #3 | Sonnet 5.5 | 5 s | lỗi 403 | $0 |
+
+- Model: khoảng $4,42 theo giá niêm yết, không tính tiền thật (gói Claude trả cố định). Developer chiếm $3,53.
+- Cloudflare của `aipf-of` từ 2026-11-01 đến 2026-11-24: $0,142 theo giá niêm yết, nằm trong hạn mức của gói
+  Workers Paid ($5 mỗi tháng cho cả tài khoản). Container chiếm $0,12 (15,1 vCPU-phút).
+- **Lỗi 403 "Request not allowed"** ở 4 trên 9 phiên, ngay lúc gọi model, không do agent. Nguyên nhân có khả năng
+  nhất: container được đặt ở một vùng mà API của Anthropic không nhận. Đã sửa: phiên agent chỉ chạy ở Bắc Mỹ
+  (`constraints.regions` `WNAM`, `ENAM`), có từ lần deploy cuối ngày 2026-11-24. **Chưa kiểm bằng một run.**
+- Điểm yếu thấy được: developer #1 hết max turns; reviewer bị bỏ qua vì lỗi 403, nên code vào `main` không qua
+  review của agent (vẫn qua người duyệt); tester chỉ kiểm một tiêu chí.
+
 Giới hạn còn lại:
 
 - Ảnh `ref/` của `open-font` chỉ ở máy: `compare`, `fit`, `measure` không chạy trên cloud.
@@ -109,11 +159,12 @@ Các lệnh dưới đây là của `providers/cloudflare/aipf.sh` trong repo s�
 | Theo dõi | Console, hoặc `aipf.sh status`, `sessions`, `logs` |
 | Agent hỏi | Trả lời trên console, hoặc `aipf.sh answer` |
 | Duyệt code | Console, sau khi CI qua. Duyệt rồi AIPF mới merge |
-| Xem staging | Địa chỉ staging của deployment, sau khi merge |
+| Xem các file agent để lại | Trang của run, cạnh PR (ví dụ ảnh preview font của `open-font`) |
+| UAT | Trang của run > link staging và hướng dẫn test; chọn approve, fix hoặc revert. Link hết hạn sau 12 giờ thì lấy link mới trên trang |
 | Lên production | Trang của run đã xong > "Deploy to production" (admin). Hoặc chạy workflow bằng tay trên GitHub |
 | Dừng khẩn | `aipf.sh pause`, chạy lại bằng `resume`; làm lại một việc bằng `reset` |
 | Đổi image | `aipf.sh deploy` (cần Docker ở máy) |
-| Chi phí | `aipf.sh cost` mỗi tuần, cho từng deployment. Số đo cũ của POC: 11 run trong 3 ngày khoảng $0,22 tiền Cloudflare theo giá niêm yết; tài khoản trả $5 mỗi tháng cho Workers Paid |
+| Chi phí | `aipf.sh cost` mỗi tuần, cho từng deployment. OF-1: $0,14 tiền Cloudflare theo giá niêm yết. Số đo cũ của POC: 11 run trong 3 ngày khoảng $0,22; tài khoản trả $5 mỗi tháng cho Workers Paid |
 | Gỡ một deployment | `aipf.sh down` |
 
 **Khi hỏng:**
@@ -122,7 +173,10 @@ Các lệnh dưới đây là của `providers/cloudflare/aipf.sh` trong repo s�
 - Run đứng ở "needs a person": issue có nhãn `aipf-needs-person`; đọc phiên cuối trên console rồi `answer` hoặc `reset`.
 - Agent báo lỗi đăng nhập: token gói Claude hết hạn, chạy lại `aipf.sh token`.
 - Nút "Deploy to production" báo GitHub từ chối: token GitHub của deployment thiếu quyền "Actions: read and write".
-- Workflow production hỏng: xem log ở GitHub Actions; AIPF không biết kết quả.
+- Nút "Deploy to production" báo `main` không fast-forward được: `main` có commit không nằm trên `staging` (ai đó
+  push thẳng vào `main`). Merge `main` vào `staging` qua một PR rồi bấm lại.
+- Workflow production hỏng: run và issue `[Production]` ghi là hỏng; xem log ở GitHub Actions.
+- Phiên agent lỗi 403 "Request not allowed", 0 tool call: xem mục 3 (vùng của container).
 
 ## 5. Cloud session của Claude Code (giao việc kiểu trò chuyện)
 
@@ -159,7 +213,7 @@ Cài một lần:
    trên GitHub, không phải thư mục làm việc ở máy.
 3. **Cài Claude GitHub App** cho hai repo (mục 5).
 4. **Token GitHub riêng cho từng deployment:** fine-grained token cho một repo (contents, pull requests, commit
-   statuses, webhooks, Actions: read and write), ghi vào `GITHUB_TOKEN` của `secrets.env`, rồi `aipf.sh deploy`.
+   statuses, webhooks, Actions: read and write; contents phải có write để tạo nhánh `staging` và đưa nó lên `main`), ghi vào `GITHUB_TOKEN` của `secrets.env`, rồi `aipf.sh deploy`.
 5. **Token Cloudflare của production:** đặt ngày hết hạn và bỏ các quyền không cần (chỉ cần Workers Scripts,
    Workers Routes và D1).
 6. **Thu hồi Anthropic API key cũ** trong Anthropic Console.
