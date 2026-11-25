@@ -8,23 +8,29 @@ import { readModalValues, registrationModal } from '../src/slack/registration-mo
 import { FIELDS } from '../src/core/registration-fields.js';
 import { sampleRegistration, startStack } from './test-helpers.js';
 
-function fakeClient() {
+/** `emails`: Slack user ID -> the email users.info returns (absent = no email, as without users:read.email). */
+export function fakeClient(emails = {}) {
   const calls = [];
-  const record = (name, result = {}) => async (args) => {
+  let ts = 0;
+  const record = (name, result = () => ({})) => async (args) => {
     calls.push({ name, args });
-    return result;
+    return result(args);
   };
   return {
     calls,
-    views: { open: record('views.open', { view: { id: 'V1' } }), update: record('views.update') },
-    conversations: { open: record('conversations.open', { channel: { id: 'D1' } }) },
-    chat: { postMessage: record('chat.postMessage'), update: record('chat.update') },
+    emails,
+    views: { open: record('views.open', () => ({ view: { id: 'V1' } })), update: record('views.update') },
+    conversations: { open: record('conversations.open', ({ users }) => ({ channel: { id: `D-${users}` } })) },
+    chat: { postMessage: record('chat.postMessage', () => ({ ts: String(++ts) })), update: record('chat.update') },
     files: { uploadV2: record('files.uploadV2') },
+    users: {
+      info: record('users.info', ({ user }) => ({ ok: true, user: { id: user, profile: emails[user] ? { email: emails[user] } : {} } })),
+    },
   };
 }
 
 /** Builds view.state.values the way Slack reports each input type. */
-function submittedView(registration) {
+export function submittedView(registration) {
   const values = {};
   for (const { key, type, options } of FIELDS) {
     const value = registration[key];
@@ -41,7 +47,7 @@ function submittedView(registration) {
   return { state: { values } };
 }
 
-const acker = () => {
+export const acker = () => {
   const acks = [];
   return { acks, ack: async (payload) => acks.push(payload) };
 };
@@ -87,117 +93,307 @@ test('invalid modal input is returned to Slack as field errors', async () => {
   assert.equal(client.calls.length, 0);
 });
 
-test('modal submit fills the portal, approval button submits it', async () => {
+
+// ---- Two paths, chosen by the requester's email domain ----
+
+import { RequestFlow } from '../src/core/request-flow.js';
+import { createUserClassifier } from '../src/slack/user-classifier.js';
+import { createLogger } from '../src/core/logger.js';
+
+const INTERNAL = 'U-IN';
+const EXTERNAL = 'U-EX';
+const APPROVER = 'U-AP';
+const NO_EMAIL = 'U-NOMAIL';
+const EMAILS = { [INTERNAL]: 'staff@corp.example', [EXTERNAL]: 'partner@vendor.example', [APPROVER]: 'boss@corp.example' };
+const TEST_CHANNEL = 'C-TEST';
+
+/** A stack, a flow with one approver, handlers with classification on, and the log lines. */
+async function twoPathStack({ approvalTtlMs } = {}) {
   const stack = await startStack();
-  try {
-    const client = fakeClient();
-    const channelReplies = [];
-    const replyInChannel = async (url, text) => channelReplies.push({ url, text });
-    const handlers = createSlackHandlers({ service: stack.service, replyInChannel });
-    const registration = sampleRegistration();
-    const view = { ...submittedView(registration), private_metadata: JSON.stringify({ responseUrl: 'https://hooks.example/reply' }) };
-    await handlers.onModalSubmit({ ...acker(), client, body: { user: { id: 'U1' } }, view });
-
-    // The channel where the command was typed gets a pointer, never the visitor details.
-    assert.equal(channelReplies.length, 1);
-    assert.equal(channelReplies[0].url, 'https://hooks.example/reply');
-    assert.ok(!channelReplies[0].text.includes(registration.visitorName));
-
-    const upload = client.calls.find((c) => c.name === 'files.uploadV2');
-    assert.equal(upload.args.channel_id, 'D1');
-    assert.ok(upload.args.file.length > 1000);
-    const approval = client.calls.filter((c) => c.name === 'chat.postMessage').at(-1);
-    const button = approval.args.blocks.at(-1).elements.find((e) => e.action_id === 'approve_registration');
-    assert.equal(stack.portal.submissions.length, 0);
-
-    // A different user pressing the button must not submit.
-    const replies = [];
-    const respond = async (message) => replies.push(message);
-    await handlers.onApprove({ ...acker(), respond, body: { user: { id: 'U2' } }, action: { value: button.value } });
-    assert.equal(stack.portal.submissions.length, 0);
-    assert.equal(replies[0].replace_original, false);
-
-    await handlers.onApprove({ ...acker(), respond, body: { user: { id: 'U1' } }, action: { value: button.value } });
-    assert.equal(stack.portal.submissions.length, 1);
-    assert.deepEqual({ ...stack.portal.submissions[0], referenceCode: undefined }, { ...registration, referenceCode: undefined });
-    assert.match(replies[1].text, new RegExp(stack.portal.submissions[0].referenceCode));
-  } finally {
-    await stack.stop();
-  }
-});
-
-/** Submits the modal and returns the job id carried by the approval buttons. */
-async function requestApproval(handlers, client, view) {
-  await handlers.onModalSubmit({ ...acker(), client, body: { user: { id: 'U1' } }, view });
-  return client.calls.filter((c) => c.name === 'chat.postMessage').at(-1).args.blocks.at(-1).elements[0].value;
+  const lines = [];
+  const logger = createLogger((line) => lines.push(line));
+  const client = fakeClient({ ...EMAILS });
+  const channelReplies = [];
+  let handlers;
+  const flow = new RequestFlow({
+    service: stack.service, approvers: [APPROVER], approvalTtlMs, logger, onExpire: (r) => handlers.onRequestExpired(r, client),
+  });
+  handlers = createSlackHandlers({
+    service: stack.service, flow, logger, allowedChannels: [TEST_CHANNEL],
+    classifyUser: createUserClassifier({ internalDomains: ['corp.example'] }),
+    replyInChannel: async (url, text) => channelReplies.push(text),
+  });
+  return { ...stack, flow, handlers, client, lines, channelReplies, stop: async () => { flow.shutdown(); await stack.stop(); } };
 }
 
-const editClick = (jobId, user, respond) => ({
-  ...acker(), respond, body: { user: { id: user }, trigger_id: 'T2', channel: { id: 'D1' }, message: { ts: '111.222' } }, action: { value: jobId },
+const posts = (client, channel) => client.calls.filter((c) => c.name === 'chat.postMessage' && (!channel || c.args.channel === channel));
+const buttonsOf = (message) => Object.fromEntries(message.args.blocks.at(-1).elements.map((e) => [e.action_id, e.value]));
+const click = (user, value, replies = []) => ({
+  ...acker(), respond: async (m) => replies.push(m), body: { user: { id: user }, trigger_id: 'T9' }, action: { value },
 });
+const command = (user, channel = TEST_CHANNEL) => ({ ...acker(), command: { user_id: user, channel_id: channel, text: '', trigger_id: 'T1', response_url: 'https://hooks.example/r' } });
 
-test('editing a filled form replaces it: the old one can no longer be submitted', async () => {
-  const stack = await startStack();
+async function submitForm(t, user, registration = sampleRegistration(), metadata) {
+  await t.handlers.onModalSubmit({
+    ...acker(), client: t.client, body: { user: { id: user } },
+    view: { ...submittedView(registration), ...(metadata && { private_metadata: metadata }) },
+  });
+}
+
+test('the command works only in the allowed channel', async () => {
+  const t = await twoPathStack();
   try {
-    const client = fakeClient();
-    const handlers = createSlackHandlers({ service: stack.service });
-    const registration = sampleRegistration();
-    const firstJob = await requestApproval(handlers, client, submittedView(registration));
-
-    // Someone else cannot open the requester's data.
-    const replies = [];
-    const respond = async (message) => replies.push(message);
-    await handlers.onEdit({ ...editClick(firstJob, 'U2', respond), client });
-    assert.equal(client.calls.filter((c) => c.name === 'views.open').length, 0);
-    assert.match(replies[0].text, /Only the person/);
-
-    await handlers.onEdit({ ...editClick(firstJob, 'U1', respond), client });
-    const modal = client.calls.find((c) => c.name === 'views.open').args.view;
-    assert.equal(modal.blocks.find((b) => b.block_id === 'visitorName').element.initial_value, registration.visitorName);
-    assert.equal(modal.blocks.find((b) => b.block_id === 'endTime').element.initial_time, '15:30');
-
-    const edited = { ...registration, endTime: '16:45', equipment: 'camera' };
-    const secondJob = await requestApproval(handlers, client, { ...submittedView(edited), private_metadata: modal.private_metadata });
-    assert.notEqual(secondJob, firstJob);
-    assert.deepEqual(client.calls.find((c) => c.name === 'chat.update').args, {
-      channel: 'D1', ts: '111.222', text: 'Replaced by an edited request. Nothing was submitted from this one.', blocks: [],
-    });
-
-    await handlers.onApprove({ ...acker(), respond, body: { user: { id: 'U1' } }, action: { value: firstJob } });
-    assert.equal(stack.portal.submissions.length, 0, 'the replaced form must not be submittable');
-    await handlers.onApprove({ ...acker(), respond, body: { user: { id: 'U1' } }, action: { value: secondJob } });
-    assert.equal(stack.portal.submissions.length, 1);
-    assert.equal(stack.portal.submissions[0].endTime, '16:45');
-    assert.equal(stack.portal.submissions[0].equipment, 'camera');
+    await t.handlers.onCommand({ ...command(INTERNAL, 'C-OTHER'), client: t.client });
+    assert.equal(t.client.calls.filter((c) => c.name === 'views.open').length, 0);
+    assert.match(t.channelReplies[0], /only in <#C-TEST>/);
+    await t.handlers.onCommand({ ...command(INTERNAL), client: t.client });
+    assert.equal(t.client.calls.filter((c) => c.name === 'views.open').length, 1);
   } finally {
-    await stack.stop();
+    await t.stop();
   }
 });
 
-test('an edit saved after the request was already submitted changes nothing', async () => {
-  const stack = await startStack();
+test('a user without an email gets no form and nothing is created (fail-safe)', async () => {
+  const t = await twoPathStack();
   try {
-    const client = fakeClient();
-    const handlers = createSlackHandlers({ service: stack.service });
-    const registration = sampleRegistration();
-    const jobId = await requestApproval(handlers, client, submittedView(registration));
-    const respond = async () => {};
-    await handlers.onEdit({ ...editClick(jobId, 'U1', respond), client });
-    const modal = client.calls.find((c) => c.name === 'views.open').args.view;
-    await handlers.onApprove({ ...acker(), respond, body: { user: { id: 'U1' } }, action: { value: jobId } });
-
-    const edited = { ...registration, purpose: 'Changed my mind' };
-    await handlers.onModalSubmit({ ...acker(), client, body: { user: { id: 'U1' } }, view: { ...submittedView(edited), private_metadata: modal.private_metadata } });
-    assert.match(client.calls.at(-1).args.text, /not applied/);
-    assert.equal(client.calls.filter((c) => c.name === 'chat.update').length, 0);
-    assert.equal(stack.portal.submissions.length, 1);
-    assert.equal(stack.portal.submissions[0].purpose, registration.purpose);
-
-    // The button on an already handled request says so instead of opening the form.
-    const replies = [];
-    await handlers.onEdit({ ...editClick(jobId, 'U1', async (m) => replies.push(m)), client });
-    assert.match(replies[0].text, /no longer waiting/);
+    await t.handlers.onCommand({ ...command(NO_EMAIL), client: t.client });
+    assert.equal(t.client.calls.filter((c) => c.name === 'views.open').length, 0);
+    assert.match(t.channelReplies[0], /could not confirm/);
+    // Even a form submitted anyway (an old modal) does not become a request.
+    await submitForm(t, NO_EMAIL);
+    assert.equal(t.flow.requests.size, 0);
+    assert.match(posts(t.client).at(-1).args.text, /could not confirm/);
+    assert.ok(t.lines.some((l) => l.includes('user_unclassified')));
   } finally {
-    await stack.stop();
+    await t.stop();
+  }
+});
+
+test('path 1: an internal requester sees a text summary, and only their Send submits, once', async () => {
+  const t = await twoPathStack();
+  try {
+    await submitForm(t, INTERNAL, sampleRegistration(), JSON.stringify({ responseUrl: 'https://hooks.example/r' }));
+    const summary = posts(t.client, `D-${INTERNAL}`).at(-1);
+    assert.match(summary.args.blocks[0].text.text, /not sent yet/);
+    assert.equal(t.client.calls.filter((c) => c.name === 'files.uploadV2').length, 0, 'text only, no file');
+    assert.equal(posts(t.client, `D-${APPROVER}`).length, 0, 'no approver involved');
+    assert.equal(t.portal.submissions.length, 0, 'nothing reaches the portal before Send');
+    assert.match(t.channelReplies.at(-1), /direct message/);
+    assert.ok(!t.channelReplies.at(-1).includes(sampleRegistration().visitorName), 'the channel gets a pointer, not the details');
+    const { confirm_request: send } = buttonsOf(summary);
+
+    const replies = [];
+    await t.handlers.onConfirm({ ...click(EXTERNAL, send, replies), client: t.client });
+    await t.handlers.onConfirm({ ...click(APPROVER, send, replies), client: t.client });
+    assert.equal(t.portal.submissions.length, 0, 'nobody else can send it, not even an approver');
+
+    await t.handlers.onConfirm({ ...click(INTERNAL, send, replies), client: t.client });
+    assert.equal(t.portal.submissions.length, 1);
+    assert.match(replies.at(-1).text, new RegExp(t.portal.submissions[0].referenceCode));
+
+    await t.handlers.onConfirm({ ...click(INTERNAL, send, replies), client: t.client });
+    assert.equal(t.portal.submissions.length, 1, 'a second press does not submit again');
+    assert.match(replies.at(-1).text, /no longer open/);
+  } finally {
+    await t.stop();
+  }
+});
+
+test('path 1: two presses at the same moment submit once', async () => {
+  const t = await twoPathStack();
+  try {
+    await submitForm(t, INTERNAL);
+    const { confirm_request: send } = buttonsOf(posts(t.client, `D-${INTERNAL}`).at(-1));
+    await Promise.all([
+      t.handlers.onConfirm({ ...click(INTERNAL, send), client: t.client }),
+      t.handlers.onConfirm({ ...click(INTERNAL, send), client: t.client }),
+    ]);
+    assert.equal(t.portal.submissions.length, 1);
+  } finally {
+    await t.stop();
+  }
+});
+
+test('path 1: Edit makes a new version; the old Send button no longer works', async () => {
+  const t = await twoPathStack();
+  try {
+    const registration = sampleRegistration();
+    await submitForm(t, INTERNAL, registration);
+    const first = buttonsOf(posts(t.client, `D-${INTERNAL}`).at(-1));
+    await t.handlers.onEdit({ ...click(INTERNAL, first.edit_request), client: t.client });
+    const modal = t.client.calls.findLast((c) => c.name === 'views.open').args.view;
+    assert.equal(modal.blocks.find((b) => b.block_id === 'visitorName').element.initial_value, registration.visitorName);
+
+    await submitForm(t, INTERNAL, { ...registration, endTime: '16:45' }, modal.private_metadata);
+    const second = buttonsOf(posts(t.client, `D-${INTERNAL}`).at(-1));
+    assert.match(second.confirm_request, /:2$/);
+    assert.ok(t.client.calls.some((c) => c.name === 'chat.update' && /Replaced by version 2/.test(c.args.text)));
+
+    const replies = [];
+    await t.handlers.onConfirm({ ...click(INTERNAL, first.confirm_request, replies), client: t.client });
+    assert.equal(t.portal.submissions.length, 0);
+    assert.match(replies.at(-1).text, /version 1/);
+    await t.handlers.onConfirm({ ...click(INTERNAL, second.confirm_request, replies), client: t.client });
+    assert.equal(t.portal.submissions.length, 1);
+    assert.equal(t.portal.submissions[0].endTime, '16:45');
+  } finally {
+    await t.stop();
+  }
+});
+
+test('path 1: Cancel stops the request and nothing is submitted', async () => {
+  const t = await twoPathStack();
+  try {
+    await submitForm(t, INTERNAL);
+    const buttons = buttonsOf(posts(t.client, `D-${INTERNAL}`).at(-1));
+    const replies = [];
+    await t.handlers.onCancel({ ...click(INTERNAL, buttons.cancel_request, replies), client: t.client });
+    assert.match(replies[0].text, /cancelled/);
+    await t.handlers.onConfirm({ ...click(INTERNAL, buttons.confirm_request, replies), client: t.client });
+    assert.equal(t.portal.submissions.length, 0);
+  } finally {
+    await t.stop();
+  }
+});
+
+test('Send checks the requester again: a user no longer internal cannot send', async () => {
+  const t = await twoPathStack();
+  try {
+    await submitForm(t, INTERNAL);
+    const { confirm_request: send } = buttonsOf(posts(t.client, `D-${INTERNAL}`).at(-1));
+    t.client.emails[INTERNAL] = 'staff@elsewhere.example';
+    const replies = [];
+    await t.handlers.onConfirm({ ...click(INTERNAL, send, replies), client: t.client });
+    assert.equal(t.portal.submissions.length, 0);
+    assert.match(replies[0].text, /no longer recognised as internal/);
+  } finally {
+    await t.stop();
+  }
+});
+
+test('path 2: an external request waits for the approver; only the approver can approve', async () => {
+  const t = await twoPathStack();
+  try {
+    await submitForm(t, EXTERNAL);
+    const waiting = posts(t.client, `D-${EXTERNAL}`).at(-1);
+    assert.match(waiting.args.blocks[0].text.text, /waiting for approval/);
+    assert.deepEqual(Object.keys(buttonsOf(waiting)).sort(), ['cancel_request', 'edit_request'], 'the requester cannot send it');
+    const ask = posts(t.client, `D-${APPROVER}`).at(-1);
+    assert.match(ask.args.blocks[0].text.text, new RegExp(`<@${EXTERNAL}>`));
+    assert.match(ask.args.blocks[0].text.text, /\d{4}-\d{2}-\d{2}T/, 'shows when it was made');
+    const { approve_request: approve } = buttonsOf(ask);
+
+    const replies = [];
+    await t.handlers.onApprove({ ...click(EXTERNAL, approve, replies), client: t.client });
+    await t.handlers.onApprove({ ...click(INTERNAL, approve, replies), client: t.client });
+    await t.handlers.onConfirm({ ...click(EXTERNAL, approve, replies), client: t.client });
+    assert.equal(t.portal.submissions.length, 0, 'not the requester, not another internal user, not via Send');
+
+    await t.handlers.onApprove({ ...click(APPROVER, approve, replies), client: t.client });
+    assert.equal(t.portal.submissions.length, 1);
+    const requesterUpdate = t.client.calls.findLast((c) => c.name === 'chat.update' && c.args.channel === `D-${EXTERNAL}`);
+    assert.match(requesterUpdate.args.text, new RegExp(`approved by <@${APPROVER}>.*${t.portal.submissions[0].referenceCode}`));
+
+    await t.handlers.onApprove({ ...click(APPROVER, approve, replies), client: t.client });
+    assert.equal(t.portal.submissions.length, 1, 'a second approval does not submit again');
+    const submitted = t.lines.map((l) => JSON.parse(l)).find((l) => l.event === 'request_submitted');
+    assert.equal(submitted.decidedBy, APPROVER);
+    assert.equal(submitted.requestedBy, EXTERNAL);
+  } finally {
+    await t.stop();
+  }
+});
+
+test('path 2: Reject asks for a reason, submits nothing and tells the requester why', async () => {
+  const t = await twoPathStack();
+  try {
+    await submitForm(t, EXTERNAL);
+    const { approve_request: approve, reject_request: reject } = buttonsOf(posts(t.client, `D-${APPROVER}`).at(-1));
+    const replies = [];
+    await t.handlers.onReject({ ...click(EXTERNAL, reject, replies), client: t.client });
+    assert.match(replies[0].text, /Only a designated approver/);
+
+    await t.handlers.onReject({ ...click(APPROVER, reject, replies), client: t.client });
+    const modal = t.client.calls.findLast((c) => c.name === 'views.open').args.view;
+    const view = { private_metadata: modal.private_metadata, state: { values: { reason: { value: { value: 'Visit date not agreed' } } } } };
+    await t.handlers.onRejectSubmit({ ...acker(), client: t.client, body: { user: { id: APPROVER } }, view });
+
+    const toRequester = t.client.calls.findLast((c) => c.name === 'chat.update' && c.args.channel === `D-${EXTERNAL}`);
+    assert.match(toRequester.args.text, /rejected.*Reason: Visit date not agreed/);
+    await t.handlers.onApprove({ ...click(APPROVER, approve, replies), client: t.client });
+    assert.equal(t.portal.submissions.length, 0);
+    const rejected = t.lines.map((l) => JSON.parse(l)).find((l) => l.event === 'request_rejected');
+    assert.equal(rejected.reason, 'Visit date not agreed');
+  } finally {
+    await t.stop();
+  }
+});
+
+test('path 2: an edit while waiting voids the earlier approval request and asks again', async () => {
+  const t = await twoPathStack();
+  try {
+    const registration = sampleRegistration();
+    await submitForm(t, EXTERNAL, registration);
+    const first = buttonsOf(posts(t.client, `D-${APPROVER}`).at(-1));
+    const { edit_request: edit } = buttonsOf(posts(t.client, `D-${EXTERNAL}`).at(-1));
+    await t.handlers.onEdit({ ...click(EXTERNAL, edit), client: t.client });
+    const modal = t.client.calls.findLast((c) => c.name === 'views.open').args.view;
+    await submitForm(t, EXTERNAL, { ...registration, purpose: 'Changed purpose' }, modal.private_metadata);
+
+    assert.ok(t.client.calls.some((c) => c.name === 'chat.update' && c.args.channel === `D-${APPROVER}` && /can no longer be approved/.test(c.args.text)));
+    const second = buttonsOf(posts(t.client, `D-${APPROVER}`).at(-1));
+    const replies = [];
+    await t.handlers.onApprove({ ...click(APPROVER, first.approve_request, replies), client: t.client });
+    assert.equal(t.portal.submissions.length, 0, 'approval of version 1 does not submit version 2');
+    await t.handlers.onApprove({ ...click(APPROVER, second.approve_request, replies), client: t.client });
+    assert.equal(t.portal.submissions.length, 1);
+    assert.equal(t.portal.submissions[0].purpose, 'Changed purpose');
+  } finally {
+    await t.stop();
+  }
+});
+
+test('path 2: no answer in time expires the request; both sides are told and nothing is submitted', async () => {
+  const t = await twoPathStack({ approvalTtlMs: 50 });
+  try {
+    await submitForm(t, EXTERNAL);
+    const { approve_request: approve } = buttonsOf(posts(t.client, `D-${APPROVER}`).at(-1));
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    const updates = t.client.calls.filter((c) => c.name === 'chat.update').map((c) => c.args.text);
+    assert.ok(updates.some((text) => /No approver answered in time/.test(text)));
+    assert.ok(updates.some((text) => /expired without a decision/.test(text)));
+    const replies = [];
+    await t.handlers.onApprove({ ...click(APPROVER, approve, replies), client: t.client });
+    assert.equal(t.portal.submissions.length, 0);
+    assert.match(replies[0].text, /no longer open/);
+  } finally {
+    await t.stop();
+  }
+});
+
+test('the email is used to classify, and never appears in the log', async () => {
+  const t = await twoPathStack();
+  try {
+    await submitForm(t, EXTERNAL);
+    const { approve_request: approve } = buttonsOf(posts(t.client, `D-${APPROVER}`).at(-1));
+    await t.handlers.onApprove({ ...click(APPROVER, approve), client: t.client });
+    await t.handlers.onCommand({ ...command(NO_EMAIL), client: t.client });
+    assert.ok(t.lines.length > 3);
+    for (const email of Object.values(EMAILS)) assert.ok(!t.lines.join('\n').includes(email), `log must not contain ${email}`);
+    assert.ok(!t.lines.join('\n').includes('@corp.example') && !t.lines.join('\n').includes('vendor.example'));
+  } finally {
+    await t.stop();
+  }
+});
+
+test('with classification on, the global shortcut points to the command instead of opening the form', async () => {
+  const t = await twoPathStack();
+  try {
+    await t.handlers.onShortcut({ ...acker(), shortcut: { trigger_id: 'T1' }, client: t.client });
+    const view = t.client.calls.at(-1).args.view;
+    assert.equal(view.callback_id, undefined);
+    assert.match(view.blocks[0].text.text, /\/visitor/);
+  } finally {
+    await t.stop();
   }
 });

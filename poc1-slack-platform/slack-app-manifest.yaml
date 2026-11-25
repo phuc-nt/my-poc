@@ -40,6 +40,8 @@ oauth_config:
       - channels:read
       - groups:read
       - users:read
+      # Visitor registration: read the requester's email to tell internal users from external ones
+      - users:read.email
       # Knowledge base chatbot: answer mentions and direct messages
       - app_mentions:read
       - im:history

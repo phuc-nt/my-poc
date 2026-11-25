@@ -44,7 +44,7 @@ function element({ type, options }, value) {
 /**
  * `context` rides along in the modal and comes back on submit:
  *   responseUrl - the slash command's reply address, to answer in the same channel
- *   replaces    - { jobId, channel, ts } of the waiting request this modal edits
+ *   replaces    - { requestId } of the open request this modal edits
  */
 export function registrationModal(prefill = {}, note = '', context = {}) {
   const metadata = JSON.stringify(context);
@@ -96,16 +96,69 @@ export function summaryText(registration) {
   return FIELDS.map(({ key, label }) => `*${label}:* ${displayValue(key, registration) || '—'}`).join('\n');
 }
 
-export function approvalBlocks(jobId, registration) {
+/** Value carried by every request button: which request, and which version of it was shown. */
+export const buttonValue = (request) => `${request.id}:${request.version}`;
+export function readButtonValue(value) {
+  const [id, version] = String(value).split(':');
+  return { id, version: Number(version) };
+}
+
+const button = (action_id, text, request, style) => ({
+  type: 'button', action_id, text: plain(text), value: buttonValue(request), ...(style && { style }),
+});
+const section = (text) => ({ type: 'section', text: { type: 'mrkdwn', text } });
+const versionNote = (request) => (request.version > 1 ? ` (version ${request.version})` : '');
+
+/** Internal requester: the text summary and the final Send. Nothing has reached the portal yet. */
+export function confirmationBlocks(request) {
   return [
-    { type: 'section', text: { type: 'mrkdwn', text: `The portal form is filled and *not submitted yet*. Check the screenshot in this conversation.\n\n${summaryText(registration)}` } },
-    {
-      type: 'actions',
-      elements: [
-        { type: 'button', style: 'primary', action_id: 'approve_registration', text: plain('Submit registration'), value: jobId },
-        { type: 'button', action_id: 'edit_registration', text: plain('Edit'), value: jobId },
-        { type: 'button', style: 'danger', action_id: 'cancel_registration', text: plain('Cancel'), value: jobId },
-      ],
-    },
+    section(`Check the request${versionNote(request)}. It is *not sent yet*; it goes to the portal only when you press *Send*.\n\n${summaryText(request.registration)}`),
+    { type: 'actions', elements: [
+      button('confirm_request', 'Send', request, 'primary'),
+      button('edit_request', 'Edit', request),
+      button('cancel_request', 'Cancel', request, 'danger'),
+    ] },
   ];
+}
+
+/** External requester: the request waits for an approver; the requester can still edit or cancel. */
+export function waitingBlocks(request) {
+  return [
+    section(`Your request${versionNote(request)} is *waiting for approval*. Nothing is sent to the portal until an approver approves it.\n\n${summaryText(request.registration)}`),
+    { type: 'actions', elements: [button('edit_request', 'Edit', request), button('cancel_request', 'Cancel', request, 'danger')] },
+  ];
+}
+
+/** Approver: the request, who made it and when, and Approve / Reject. */
+export function approverBlocks(request) {
+  return [
+    section(`*Approval needed*${versionNote(request)}\nRequested by <@${request.requestedBy}> (outside the internal domain) at ${request.createdAt}.\n\n${summaryText(request.registration)}`),
+    { type: 'actions', elements: [
+      button('approve_request', 'Approve', request, 'primary'),
+      button('reject_request', 'Reject', request, 'danger'),
+    ] },
+  ];
+}
+
+export const REJECT_CALLBACK_ID = 'reject_request_reason';
+
+/** Asks the approver for a reason; `context` comes back on submit. */
+export function rejectReasonModal(context) {
+  return {
+    type: 'modal',
+    callback_id: REJECT_CALLBACK_ID,
+    private_metadata: JSON.stringify(context),
+    title: plain('Reject request'),
+    submit: plain('Reject'),
+    close: plain('Back'),
+    blocks: [{
+      type: 'input', block_id: 'reason', optional: true, label: plain('Reason, sent to the requester'),
+      element: { type: 'plain_text_input', action_id: 'value', multiline: true },
+    }],
+  };
+}
+
+/** Shown instead of the form when the command cannot be used. */
+export function noticeModal(text) {
+  return { type: 'modal', title: plain('Visitor registration'), close: plain('Close'), blocks: [section(text)] };
 }

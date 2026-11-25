@@ -25,6 +25,11 @@ export function loadConfig(env = process.env) {
     bedrockRegion: env.BEDROCK_REGION || env.AWS_REGION || env.AWS_DEFAULT_REGION || '',
     slackBotToken: env.SLACK_BOT_TOKEN || '',
     slackAppToken: env.SLACK_APP_TOKEN || '',
+    // Visitor registration: who may use it, and the two paths (see src/core/request-flow.js)
+    allowedChannels: list(env.ALLOWED_CHANNELS),
+    internalEmailDomains: list(env.INTERNAL_EMAIL_DOMAINS),
+    approverUserIds: list(env.APPROVER_USER_IDS),
+    externalApprovalTtlMs: Number(env.EXTERNAL_APPROVAL_TTL_SECONDS || 86_400) * 1000,
     reportChannels: list(env.REPORT_CHANNELS),
     reportPostChannel: env.REPORT_POST_CHANNEL || '',
     reportTime: env.REPORT_TIME || '',
