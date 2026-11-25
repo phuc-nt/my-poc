@@ -204,6 +204,31 @@ Cài một lần:
   giao việc và tên nhánh.
 - Phiên không qua CI, staging và bước duyệt của AIPF. Việc cần các bước đó thì giao qua console.
 
+### 5b. Remote Control từ console AIPF (aipf-sdlc `9226ce1`)
+
+Cách thứ hai, cho người quen Claude Code: làm việc trên claude.ai nhưng vẫn theo quy trình của AIPF.
+
+- Form "New run" của console có công tắc **"Work on claude.ai"** (chỉ hiện khi deployment có login, engine là Claude
+  Code). Bật lên thì PM và designer bị bỏ chọn, nút thành "Start on claude.ai". Console mở một tab, chờ link phiên
+  (thường dưới 1 phút, tối đa 20 phút), rồi chuyển tab sang claude.ai.
+- Phiên developer lần 1 chạy `claude remote-control` trong container `SessionRemote` (standard-3, tối đa 8 giờ) của
+  AIPF, không phải trên máy người dùng. Agent nhận prompt của developer (làm `CLAUDE.md` của user), MCP server của
+  AIPF (Jira, issue theo môi trường), và luật làm việc với người: hỏi trong chat, chỉ làm trên `agent/KEY`, mở PR vào
+  `staging`, không merge, không deploy. Git proxy chỉ nhận push vào `agent/KEY`, nên luật nhánh không dựa vào prompt.
+- Kết thúc khi người chạy `aipf-done` trong phiên, bấm "End session" trên trang run, 60 phút không hoạt động, hoặc
+  hết 8 giờ. Có PR thì run đi tiếp CI, reviewer, staging, tester như thường (các lần sau chạy agent thường). Không có
+  PR thì run escalate, nhánh giữ lại.
+- AIPF ghi lại: link phiên, số turn, tool call, chi phí ước tính khi đang chạy; transcript, `events.jsonl` và review
+  files khi xong, như mọi phiên.
+- Login: setup-token không dùng được cho Remote Control, nên cần **một login claude.ai riêng cho AIPF**:
+  `providers/cloudflare/aipf.sh remote login` (chạy với `AIPF_ENV=<tên>`) mở Claude Code trong container tạm để
+  /login, rồi lưu `.credentials.json` vào secret `CLAUDE_REMOTE_LOGIN` (không in ra). Refresh token chỉ dùng được
+  một lần, nên phiên ghi login mới về D1 (mã hoá) và mỗi deployment chỉ chạy một phiên Remote Control một lúc.
+  `aipf.sh remote remove` xoá secret.
+- Phiên chạy `bypassPermissions` (chủ dự án đã chọn): không hỏi trước mỗi lệnh. Giới hạn là container, git proxy và
+  phạm vi của MCP server.
+- **Chưa chạy thử trên deployment nào.** Cần login, `aipf.sh deploy`, rồi một run thử.
+
 ## 6. Chờ chủ dự án
 
 1. **Token gói Claude và console user cho hai deployment.** Chạy `claude setup-token`, rồi
@@ -217,3 +242,5 @@ Cài một lần:
 5. **Token Cloudflare của production:** đặt ngày hết hạn và bỏ các quyền không cần (chỉ cần Workers Scripts,
    Workers Routes và D1).
 6. **Thu hồi Anthropic API key cũ** trong Anthropic Console.
+7. **Login claude.ai cho Remote Control** (mục 5b): `AIPF_ENV=open-font providers/cloudflare/aipf.sh remote login`
+   rồi `deploy`; tương tự cho `on-thi-lai-xe` nếu muốn. Mỗi deployment một login (refresh token dùng một lần).
