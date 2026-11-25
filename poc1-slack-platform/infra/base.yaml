@@ -13,8 +13,8 @@ Metadata:
     must:
       - delete the platform stack before this one
     ref:
-      - at: docs/03-aws-deployment.md
-        has: deployment guide, cleanup (cost in docs/04-operating-cost.md)
+      - at: docs/engineering.md
+        has: architecture, deployment guide, cleanup, cost (sections 2, 9, 12)
         scope: shared
 
 Resources:

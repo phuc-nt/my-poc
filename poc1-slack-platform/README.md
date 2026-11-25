@@ -12,16 +12,8 @@ Every path and command below is relative to this folder (`poc1-slack-platform/`)
 
 | Document | For |
 |---|---|
-| [01 Platform overview](docs/01-platform-overview.md): building blocks, what was verified, service choices, cost, risks | Decision makers |
-| [02 Platform architecture](docs/02-platform-architecture.md): shared parts, how each outside system is connected, rules for every use case, adding a use case | Engineers |
-| [03 AWS deployment](docs/03-aws-deployment.md): deploying, verifying, operating and removing the AWS environment | Engineers |
-| [04 Operating cost](docs/04-operating-cost.md): monthly cost by item, and how to recalculate it | Decision makers |
-| [05 Prerequisites and access](docs/05-prerequisites-and-access.md): tools, services and permissions to request before starting | Everyone, first |
-| [06 Dify and Bedrock](docs/06-dify-and-bedrock.md) and [07 Support bot: Dify vs Bedrock](docs/07-customer-support-bot-dify-vs-bedrock.md): comparisons from vendor documentation, not built here | Decision makers |
-| [08 Knowledge base chatbot](docs/08-knowledge-base-chatbot.md): setting up the chatbot, its sources and the MCP server | Engineers |
-| [09 Amazon Bedrock Managed Knowledge Base](docs/09-bedrock-managed-knowledge-base.md): the service from the beginning, its limits as tested, parsing quality, which parts of the chatbot are code, strengths and limits | Anyone new to the service |
-
-Each use case also has a concept document for decision makers, without code: [web form automation](docs/concepts/01-web-form-automation.md), [daily report](docs/concepts/02-daily-report.md), [knowledge base chatbot](docs/concepts/03-knowledge-base-chatbot.md).
+| [Concept](docs/concept.md): the three use cases, user flows, what has been proven, cost, decisions, risks, next steps | Decision makers |
+| [Engineering](docs/engineering.md): architecture and the reasons for it, Slack, AWS and Atlassian settings, configuration, deploy and operate, measurements, known gaps | Engineers |
 
 Settings that differ per environment (tokens, channels, Jira site, AWS profile, Region) go in `.env` and `infra/local.env`. Neither is committed.
 
@@ -33,7 +25,7 @@ Needs Node.js 22 or later.
 npm install
 npx playwright install chromium
 cp .env.example .env        # set any PORTAL_PASSWORD; everything else is optional
-npm test                    # 44 tests; the form tests drive a real browser on the mock portal
+npm test                    # 67 tests; the form tests drive a real browser on the mock portal
 npm run demo                # the form flow in the terminal, asking before it submits
 ```
 
@@ -47,6 +39,8 @@ The LLM is chosen with `LLM_PROVIDER`: `openrouter` (default, needs `OPENROUTER_
 4. Run `npm run portal` and `npm run slack` in two terminals.
 5. In Slack, type `/visitor`, or `/visitor` with a description. Sample requests and their expected results are in `test/fixtures/free-text-requests.js`.
 
+The bot shows a text summary of the request and fills the portal only when the requester presses **Send**. To limit the command to one channel and send requests from outside the internal email domain to an approver, set `ALLOWED_CHANNELS`, `INTERNAL_EMAIL_DOMAINS` and `APPROVER_USER_IDS`; see [engineering](docs/engineering.md), section 4.
+
 Run only one Slack app process per app token; two would share the events.
 
 ## Daily report
@@ -57,7 +51,7 @@ npm run report               # real Slack and Jira: fill REPORT_* (and JIRA_* fo
 npm run report -- --post     # post to REPORT_POST_CHANNEL
 ```
 
-Invite the bot to each channel it reads or posts to. While `npm run slack` runs, `/daily-report` posts a report, and `REPORT_TIME=18:00` posts one every day. `npm run seed:jira -- --post` and `npm run seed -- <channel ID> --post` create sample issues and messages; the scenarios are in [docs/02](docs/02-platform-architecture.md), section 7.
+Invite the bot to each channel it reads or posts to. While `npm run slack` runs, `/daily-report` posts a report, and `REPORT_TIME=18:00` posts one every day. `npm run seed:jira -- --post` and `npm run seed -- <channel ID> --post` create sample issues and messages; the scenarios are in `test/fixtures/jira-seed-issues.js` and [engineering](docs/engineering.md), section 5.
 
 ## Knowledge base chatbot
 
@@ -70,11 +64,11 @@ npm run kb:check                  # asks the 28 test questions through the gatew
 infra/kb.sh down                  # deletes everything kb.sh created
 ```
 
-Then set `KB_MCP_URL` (printed by `up`) and `LLM_PROVIDER=bedrock` in `.env` and run `npm run slack`; ask with `/ask`, a mention or a direct message. SharePoint access, IDE setup and permissions are in [docs/08](docs/08-knowledge-base-chatbot.md).
+Then set `KB_MCP_URL` (printed by `up`) and `LLM_PROVIDER=bedrock` in `.env` and run `npm run slack`; ask with `/ask`, a mention or a direct message. SharePoint access, IDE setup and permissions are in [engineering](docs/engineering.md), section 6.
 
 ## Run on AWS
 
-The web form and daily report use cases run in one ECS Fargate task, calling Amazon Bedrock with the task role. All resources are in two CloudFormation stacks tagged `Project=slack-web-automation-poc`. Needs AWS CLI v2 signed in, Docker and a filled `.env`; permissions are in [docs/05](docs/05-prerequisites-and-access.md), section 6. Do not run `npm run slack` locally at the same time.
+The web form and daily report use cases run in one ECS Fargate task, calling Amazon Bedrock with the task role. All resources are in two CloudFormation stacks tagged `Project=slack-web-automation-poc`. Needs AWS CLI v2 signed in, Docker and a filled `.env`; permissions are in [engineering](docs/engineering.md), section 9.1. Do not run `npm run slack` locally at the same time.
 
 ```bash
 cp infra/local.env.example infra/local.env   # Region, CLI profile, time zone; ignored by git
@@ -91,7 +85,7 @@ infra/poc.sh down --all
 | `private-nat` | Private subnet, NAT Gateway, fixed Elastic IP | about 82 USD |
 | `public` | Public subnet, IP changes at each task start | about 39 USD |
 
-The task template does not yet include the knowledge base chatbot. Costs are list prices in one Region; see [docs/04](docs/04-operating-cost.md) and [docs/03](docs/03-aws-deployment.md).
+The task template does not yet include the knowledge base chatbot. Costs are list prices in one Region; see [engineering](docs/engineering.md), sections 9 and 12.
 
 ## Layout
 
@@ -107,4 +101,4 @@ The task template does not yet include the knowledge base chatbot. Costs are lis
 | `kb/` | Sample knowledge base content, Confluence publisher, test questions |
 | `infra/` | CloudFormation, profiles, `poc.sh` for the platform, `kb.sh` for the knowledge base |
 | `test/`, `scripts/` | Tests and fixtures; terminal runners and Slack and Jira seeders |
-| `docs/` | Platform documents; `docs/concepts/` holds one concept document per use case |
+| `docs/` | `concept.md` for decision makers, `engineering.md` for engineers |
